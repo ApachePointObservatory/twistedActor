@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+	<title>TwistedActor.Actor Standard Commands</title>
+</head>
+<body>
+<h1><a href="index.html">TwistedActor</a>.Actor Standard Commands and Replies</h1>
+
+<ul>
+    <li><a href="#Overview">Overview</a>
+    <li><a href="#Commands">Standard Commands</a>
+    <ul>
+        <li><a href="#cmd_connDev">connDev <i>[dev1 [dev2 [...]]]</i></a>
+        <li><a href="#cmd_disconnDev">disconnDev <i>[dev1 [dev2 [...]]]</i></a>
+        <li><a href="#cmd_help">help</a>
+        <li><a href="#cmd_exit">exit</a>
+        <li><a href="#cmd_ping">ping</a>
+        <li><a href="#cmd_status">status</a>
+        <p>
+        <li><a href="#cmd_debugMsgs">debugMsgs on/off</a>
+        <li><a href="#cmd_debugRefCounts">debugRefCounts</a>
+        <li><a href="#cmd_debugWing">debugWing</a>
+    </ul>
+    <li><a href="#Keywords">Standard Keywords</a>
+    <ul>
+        <li><a href="#key_devConnState"><i>dev</i>ConnState=<i>state, reason</i></a>
+        <li><a href="#key_numUsers">numUsers=<i>int</i></a>
+        <li><a href="#key_refCount">refCount=<i>refcount, object</i></a>
+        <li><a href="#key_superseded">superseded</a>
+        <li><a href="#key_text">text</a>
+        <li><a href="#key_timeout">timeout</a>
+        <li><a href="#key_unknownCommand">unknownCommand=<i>cmdVerb</i></a>
+        <li><a href="#key_userInfo">userInfo=<i>userID1, addr1, userID2, addr2, ...</i></a>
+        <li><a href="#key_version">version=<i>vers</i></a>
+        <li><a href="#key_yourUserID">yourUserID=<i>int</i></a>
+    </ul>
+</ul>
+
+<h2><a name="Overview">Overview</a></h2>
+
+<p>TwistedActor.Actor is core code for writing an actor: an instrument control computer (ICC) or hub-based script that does something useful. This manual describes the standard commands and keywords that any actor based on TwistedActor.Actor will support.
+
+<h2><a name="Commands">Standard Commands</a></h2>
+
+<p>All actors based on TwistedActor typically support the following standard commands (plus additional device-specific commands documented in that actor's manual). Commands are not case-sensitive.
+
+<h3><a name="cmd_connDev">connDev <i>[dev1 [dev2 [...]]]</i></a></h3>
+
+<p>Connect one or more devices (if not already connected). The default is to connect all devices that are not already connected.
+
+<h3><a name="cmd_disconnDev">disconnDev <i>[dev1 [dev2 [...]]]</i></a></h3>
+
+<p>Disconnect one or more devices (if not already disconnected). The default is to disconnect all devices that are not already disconnected.
+
+<h3><a name="cmd_help">help</a></h3>
+
+<p>Print a brief description of each command.
+
+<h3><a name="cmd_exit">exit</a></h3>
+
+<p>Log yourself out.
+
+<h3><a name="cmd_ping">ping</a></h3>
+
+<p>Return a short message to indicate that the controller is alive.
+
+<h3><a name="cmd_status">status</a></h3>
+
+<p>Print current status, including user information, the connection state of any devices that are not connected and any additional information that is specific to the actor.
+
+<h3><a name="cmd_debugMsgs">debugMsgs</a> on/off</h3>
+
+<p>Turn debugging messages on or off (for all users).
+
+<h3><a name="cmd_debugRefCounts">debugRefCounts</a></h3>
+
+<p>Display the reference count for each object (in descending reference count) using keyword <a href="#key_refCount">refCount</a>.
+
+<h3><a name="cmd_debugWing">debugWing</a></h3>
+
+<p>Enable debugging via WingIDE (simply imports wingdbstubs).
+
+<h2><a name="Keywords"></a>Standard Keywords</h2>
+
+<p>Keyword data is output whenever the state of the actor changes. All actors based on TwistedActor output the following standard keywords (in addition to device-specific keywords described in the manual for that actor).
+
+<p>Notes:
+<ul>
+    <li><i>Dev</i> is a placeholder for a device name
+    <li>Numeric values (even integers) will be "NaN" if unknown
+    <li>When you first connect you are shown current status, including <a href="#key_yourUserID">yourUserID</a>.
+</ul>
+
+<h3><a name="key_devConnState"></a><i>dev</i>ConnState=<i>state, reason</i></h3>
+
+<p>State of connection to the dev hardware controller. <i>State</i> is one of Connecting, Authorizing, Connected, Disconnecting, Failing, Disconnected or Failed (the states of an RO.Comm.TCPConnection object). <i>Reason</i> is the reason it got to this state ("" if no reason specified).
+
+<h3><a name="key_numUsers"></a>numUsers=<i>int</i></h3>
+
+<p>The number of users presently connected (a single integer)
+
+<h3><a name="key_refCount">refCount=<i>refcount, object</i></a></h3>
+
+<p>The reference count for an object.
+
+<h3><a name="key_superseded"></a>superseded</h3>
+
+<p>The command was superseded by some other command.
+
+<h3><a name="key_text"></a>text</h3>
+
+<p>Text message (intended for debugging and human consumption).
+
+<h3><a name="key_timeout"></a>timeout</h3>
+
+<p>The command timed out.
+
+<h3><a name="key_unknownCommand">unknownCommand=<i>cmdVerb</i></a></h3>
+
+<p>The command verb (the first word of your command string) is not supported by this actor.
+
+<h3><a name="key_userInfo"></a>userInfo=<i>userID1, addr1, userID2, addr2, ...</i></h3>
+
+<p>An variable-length array containing two entries for each user who is presently connected: userID and the IP address. The user ID is an integer and the address is a string. The userIDs will appear in sorted order but are not necessarily contiguous.
+
+<h3><a name="key_version">version=<i>vers</i></a></h3>
+
+<p>The version number (as a string) of the actor.
+
+<h3><a name="key_yourUserID"></a>yourUserID=<i>int</i></h3>
+
+<p>Your own userID.
+
+</body>
+</html>
