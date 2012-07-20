@@ -6,17 +6,27 @@
 <body>
 <h1>TwistedActor</h1>
 
-<p>TwistedActor is core code for writing an actor: an instrument control computer (ICC) or hub-based script that does something useful.
+<p>TwistedActor is core code for writing an actor: an instrument control computer (ICC) or other controller that executes commands and outputs replies in APO-standard keyword=value format. It communicates using TCP/IP and supports multiple users.
 
 <p>See <a href="standardCommands.html">Standard Commands</a> for the standard commands and replies provided by TwistedActor.Actor.
 
-<p>See <a href="internals.html">TwistedActor Internals</a> for information about writing code based on the  TwistedActor package.
+<p>See <a href="internals.html">TwistedActor Internals</a> for information about writing code based on this package.
+
+<h2><a name="Installation">Installation</a></h2>
+
+<p>TwistedActor is written in pure python. It requires the following 3rd party python packages:
+<ul>
+    <li><a href="http://twistedmatrix.com/trac/">Twisted framework</a> for event-based communications. I have only tested version 12 but 11 might work.
+    <li><a href="http://pypi.python.org/pypi/RO/">RO package</a> 3.0 or later for a communication framework and other utilities.
+</ul>
+
+<p>TwistedActor may be installed using the standard distutils command: <code>python setup.py install</code>. It is also compatible with the <code>eups</code> package distribution system (hence the ups directory). If using eups then twistedActor need and only be declared or installed (not built) to be used.
 
 <h2><a name="VersionHistory">Version History</a></h2>
 
 <h3>in progress 2012-07-19</h3>
 
-<p>Based on TclActor.
+<p>Based on TclActor. This is a minor rewrite that still uses RO.Comm.TCPConnection, but takes advantages of RO 3's support for Twisted framework.
 
 </body>
 </html>
