@@ -1,6 +1,6 @@
 """Command objects for the Tcl Actor
 """
-__all__ = ["CommandError", "BaseCmd", "DevCmd", "UserCmd"]
+__all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd"]
 
 import re
 import sys
@@ -37,94 +37,135 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         failed = "f",
         done = ":",
     )
-    def __init__(self, cmdStr, userID=0, callFunc=None, timeLimit=None):
+    def __init__(self,
+        cmdStr,
+        userID = 0,
+        cmdID = 0,
+        callFunc = None,
+        timeLim = None,
+    ):
+        """Construct a BaseCmd
+        
+        Inputs:
+        - cmdStr: command string
+        - userID: user ID number
+        - cmdID: command ID number
+        - callFunc: function to call when command changes state;
+            receives one argument: this command
+        - timeLim: time limit for command (sec); if None or 0 then no time limit
+        
+        @warning: this class does not enforce timeLim
+        """
+        self._cmdStr = cmdStr
         self.userID = int(userID)
-        self.cmdID = 0
-        self.cmdStr = cmdStr
+        self.cmdID = int(cmdID)
+        self._timeLim = timeLim
+
         self.state = "ready"
-        self.textMsg = ""
-        self.hubMsg = ""
-        self.callFunc = callFunc
-        self.timeLimit = timeLimit
-        self.cmdToTrack = None
+        self._textMsg = ""
+        self._hubMsg = ""
+        self._cmdToTrack = None
+
         RO.AddCallback.BaseMixin.__init__(self, callFunc)
     
-    def getMsgCode(self):
+    @property
+    def cmdStr(self):
+        return self._cmdStr
+    
+    @property
+    def isDone(self):
+        """Command is done (whether successfully or not)"""
+        return self.state in self.DoneStates
+
+#     @property
+#     def isFailing(self):
+#         """Command is failing"""
+#         return self.state in ("cancelling", "failing")
+    
+    @property
+    def didFail(self):
+        """Command failed or was cancelled"""
+        return self.state in ("cancelled", "failed")
+
+    @property
+    def fullState(self):
+        """Return state, textMsg, hubMsg"""
+        return (self.state, self._textMsg, self._hubMsg)
+    
+    @property
+    def msgCode(self):
         """Return the hub message code appropriate to the current state"""
         return self._MsgCodeDict[self.state]
-    
-    def isDone(self):
-        return self.state in self.DoneStates
-    
-    def isFailing(self):
-        return self.state in ("cancelling", "failing")
-
-    def getState(self):
-        """Return state, textMsg, hubMsg"""
-        return (self.state, self.textMsg, self.hubMsg)
     
     def hubFormat(self):
         """Return (msgCode, msgStr) for output of status as a hub-formatted message"""
         msgCode = self._MsgCodeDict[self.state]
         msgInfo = []
-        if self.hubMsg:
-            msgInfo.append(self.hubMsg)
-        if self.textMsg:
-            msgInfo.append("Text=%s" % (quoteStr(self.textMsg),))
+        if self._hubMsg:
+            msgInfo.append(self._hubMsg)
+        if self._textMsg:
+            msgInfo.append("Text=%s" % (quoteStr(self._textMsg),))
         msgStr = "; ".join(msgInfo)
         return (msgCode, msgStr)
     
     def setState(self, newState, textMsg="", hubMsg=""):
         """Set the state of the command and (if new state is done) remove all callbacks.
+        
+        Inputs:
+        - newState: new state of command
+        - textMsg: a message to be printed using the Text keyword
+        - hubMsg: a message in keyword=value format (without a header)
 
         If the new state is Failed then please supply a textMsg and/or hubMsg.
         
         Error conditions:
         - Raise RuntimeError if this command is finished.
         """
-        if self.isDone():
+        if self.isDone:
             raise RuntimeError("Command is done; cannot change state")
         if newState not in self.StateSet:
             raise RuntimeError("Unknown state %s" % newState)
         self.state = newState
-        self.textMsg = str(textMsg)
-        self.hubMsg = str(hubMsg)
+        self._textMsg = str(textMsg)
+        self._hubMsg = str(hubMsg)
         self._basicDoCallbacks(self)
-        if self.isDone():
+        if self.isDone:
             self._removeAllCallbacks()
-            self.cmdToTrack = None
+            self._cmdToTrack = None
     
     def trackCmd(self, cmdToTrack):
         """Tie the state of this command to another command"""
-        if self.isDone():
+        if self.isDone:
             raise RuntimeError("Finished; cannot track a command")
-        if self.cmdToTrack:
+        if self._cmdToTrack:
             raise RuntimeError("Already tracking a command")
-        cmdToTrack.addCallback(self.trackUpdate)
-        self.cmdToTrack = cmdToTrack
-    
-    def trackUpdate(self, cmdToTrack):
-        """Tracked command's state has changed"""
-        state, textMsg, hubMsg = cmdToTrack.getState()
-        self.setState(state, textMsg, hubMsg)
+        cmdToTrack.addCallback(self._cmdCallback)
+        self._cmdToTrack = cmdToTrack
     
     def untrackCmd(self):
         """Stop tracking a command if tracking one, else do nothing"""
-        if self.cmdToTrack:
-            self.cmdToTrack.removeCallback(self.trackUpdate)
-            self.cmdToTrack = None
+        if self._cmdToTrack:
+            self._cmdToTrack.addCallback(self._cmdCallback)
+            self._cmdToTrack = None
+    
+    def _cmdCallback(self, cmdToTrack):
+        """Tracked command's state has changed"""
+        state, textMsg, hubMsg = cmdToTrack.fullState
+        self.setState(state, textMsg=textMsg, hubMsg=hubMsg)
     
     def __str__(self):
         return "%s(%r)" % (self.__class__.__name__, self.cmdStr)
 
 
 class DevCmd(BaseCmd):
-    """Generic device command that assumes all commands have the format "verb arguments"
+    """Generic device command
     
-    If your device wants a command ID for each command then send it devCmd.getCmdWithID();
-    otherwise send it devCmd.cmdStr.
+    You may wish to subclass to override the following:
+    * fullCmdStr returns: locCmdID cmdStr
     
-    If you are talking to a device with different rules then please make your own subclass of BaseCmd.
+    Useful attributes:
+    - locCmdID: command ID number (assigned when the device command is created);
+        this is the command ID for the command sent to the device
     """
     _LocCmdIDGen = RO.Alg.IDGen(startVal=1, wrapVal=sys.maxint)
     def __init__(self,
@@ -132,52 +173,95 @@ class DevCmd(BaseCmd):
         callFunc = None,
         userCmd = None,
     ):
+        """Construct a DevCmd
+        
+        Inputs:
+        - cmdStr: command string
+        - callFunc: function to call when command changes state;
+            receives one argument: this command
+        - userCmd: a user command that will track this new device command
+        """
         self.locCmdID = self._LocCmdIDGen.next()
-        BaseCmd.__init__(self, cmdStr, callFunc=callFunc)
-        self.parseCmdStr(cmdStr)
+        BaseCmd.__init__(self,
+            cmdStr = cmdStr,
+            callFunc = callFunc,
+        )
 
         if userCmd:
             self.userID = userCmd.userID
             self.cmdID = userCmd.cmdID
             userCmd.trackCmd(self)
     
-    def parseCmdStr(self, cmdStr):
-        """Parse a user command string and set cmdVerb and cmdArgs.
+    @property
+    def fullCmdStr(self):
+        """The command string formatted for the device
         
-        Inputs:
-        - cmdStr: command string (see module doc string for format)
-        """
-        cmdVerbArgs = cmdStr.split(None, 1)
-        self.cmdVerb = cmdVerbArgs[0]
-        #self.cmdArgs = cmdVerbArgs[1] if len(cmdVerbArgs) > 1 else ""
-        if len(cmdVerbArgs) > 1:
-            self.cmdArgs = cmdVerbArgs[1]
-        else:
-            self.cmdArgs = ""
-    
-    def getCmdWithID(self):
-        """Return the command string with local command ID as a prefix
+        This version returns: locCmdID cmdStr
+        if you want another format then subclass DevCmd
         """
         return "%s %s" % (self.locCmdID, self.cmdStr)
 
 
+class DevCmdVar(BaseCmd):
+    """Device command wrapper around opscore.actor.CmdVar
+    """
+    def __init__(self,
+        cmdVar,
+        callFunc = None,
+        userCmd = None,
+    ):
+        """Construct an DevCmdVar
+        
+        Inputs:
+        - cmdVar: the command variable to wrap (an instance of opscore.actor.CmdVar)
+        - callFunc: function to call when command changes state;
+            receives one argument: this command
+        - userCmd: a user command that will track this new device command
+        """
+        BaseCmd.__init__(self,
+            cmdStr = "", # instead of copying cmdVar.cmdStr, override the cmdStr property below
+            callFunc = callFunc,
+        )
+
+        if userCmd:
+            self.userID = userCmd.userID
+            self.cmdID = userCmd.cmdID
+            userCmd.trackCmd(self)
+
+        self.cmdVar = cmdVar
+        self.cmdVar.addCallback(self._cmdVarCallback)
+    
+    @property
+    def cmdStr(self):
+        return self.cmdVar.cmdStr
+    
+    @property
+    def locCmdID(self):
+        return self.cmdVar.cmdID
+    
+    def _cmdVarCallback(self, cmdVar=None):
+        if not self.cmdVar.isDone:
+            return
+        textMsg = ""
+        if self.cmdVar.didFail:
+            newState = self.Done
+        else:
+            newState = self.Failed
+            textMsg = self.cmdVar.lastReply.string
+        self.setState(state, textMsg=textMsg)
+
+
 class UserCmd(BaseCmd):
     """A command from a user (typically the hub)
-    
-    This particular version assumes a unix-ish command syntax for the command body:
-    verb args
-    and lowercases the verb for ease of matching to known command verbs.
-    However, feel free to make your own version that overrides parseCmdBody (or even parseCmdStr).
     
     Inputs:
     - userID    ID of user (always 0 if a single-user actor)
     - cmdStr    full command
     - callFunc  function to call when command finishes or fails;
                 the function receives two arguments: this UserCmd, isOK
+
     Attributes:
     - cmdBody   command after the header
-    - cmdVerb   command verb in lowercase
-    - cmdArgs   command arguments (in original case)
     """
     _HeaderBodyRE = re.compile(r"((?P<cmdID>\d+)(?:\s+\d+)?\s+)?((?P<cmdBody>[A-Za-z_].*))?$")
     def __init__(self,
@@ -206,18 +290,3 @@ class UserCmd(BaseCmd):
         else:
             self.cmdID = 0
         self.cmdBody = cmdDict.get("cmdBody", "")
-        self.parseCmdBody()
-    
-    def parseCmdBody(self):
-        """Parse self.cmdBody
-        
-        This version sets self.cmdVerb and self.cmdArgs
-        """
-        self.cmdVerb = ""
-        self.cmdArgs = ""
-        if self.cmdBody:
-            res = self.cmdBody.split(None, 1)
-            if len(res) > 1:
-                self.cmdVerb, self.cmdArgs = res
-            else:
-                self.cmdVerb = res[0]

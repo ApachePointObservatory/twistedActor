@@ -6,10 +6,13 @@ import operator
 import sys
 import types
 import traceback
+
 import RO.SeqUtil
 from RO.StringUtil import quoteStr, strFromException
-from .command import CommandError
+
 from .baseActor import BaseActor
+from .command import CommandError
+from .device import DeviceCollection
 
 
 class Actor(BaseActor):
@@ -36,20 +39,17 @@ class Actor(BaseActor):
     """
     def __init__(self,
         userPort,
-        devs = None,
+        devs = (),
         maxUsers = 0,
     ):
         """Construct an Actor
     
         Inputs:
         - userPort      port on which to listen for users
-        - devs          one or more Device objects that this ICC controls; None if none
+        - devs          a collection of Device objects that this ICC controls
         - maxUsers      the maximum allowed # of users; if 0 then there is no limit
         """
-        if devs is None:
-            devs = ()
-        else:
-            devs = RO.SeqUtil.asList(devs)
+        devs = tuple(devs)
         
         # local command dictionary containing cmd verb: method
         # all methods whose name starts with cmd_ are added
@@ -63,12 +63,9 @@ class Actor(BaseActor):
         cmdVerbSet = set(self.locCmdDict.keys())
         cmdCollisionSet = set()
         
-        self.devNameDict = {} # dev name: dev
-        self.devConnDict = {} # dev conn: dev
+        self.dev = DeviceCollection(devs)
         self.devCmdDict = {} # dev command verb: (dev, cmdHelp)
         for dev in devs:
-            self.devNameDict[dev.name] = dev
-            self.devConnDict[dev.conn] = dev
             dev.writeToUsers = self.writeToUsers
             dev.conn.addStateCallback(self.devConnStateCallback)
             for cmdVerb, devCmdVerb, cmdHelp in dev.cmdInfo:
@@ -78,13 +75,15 @@ class Actor(BaseActor):
             cmdCollisionSet.update(cmdVerbSet & newCmdSet)
             cmdVerbSet.update(newCmdSet)
         
-        newCmdSet = set(self.devNameDict.keys())
+        newCmdSet = set(self.dev.nameDict.keys())
         cmdCollisionSet.update(cmdVerbSet & newCmdSet)
         cmdVerbSet.update(newCmdSet)
         if cmdCollisionSet:
             raise RuntimeError("Multiply defined commands: %s" %  ", ".join(cmdCollisionSet))
         
         BaseActor.__init__(self, userPort=userPort, maxUsers=maxUsers)
+        
+        self.cmd_connDev()
     
     def checkNoArgs(self, newCmd):
         """Raise CommandError if newCmd has arguments"""
@@ -102,14 +101,14 @@ class Actor(BaseActor):
         """
         pass
     
-    def devConnStateCallback(self, devConn):
+    def devConnStateCallback(self, conn):
         """Called when a device's connection state changes."""
-        dev = self.devConnDict[devConn]
+        dev = self.dev.getFromConnection(conn)
         wantConn, cmd = dev.connReq
         self.showOneDevConnStatus(dev, cmd=cmd)
-        state, stateStr, reason = devConn.getFullState()
-        if cmd and devConn.isDone():
-            succeeded = bool(wantConn) == devConn.isConnected()
+        state, reason = conn.fullState
+        if cmd and conn.isDone:
+            succeeded = (bool(wantConn) == conn.isConnected)
             #cmdState = "done" if succeeded else "failed"
             if succeeded:
                 cmdState = "done" 
@@ -118,26 +117,35 @@ class Actor(BaseActor):
             cmd.setState(cmdState, textMsg=reason)
             dev.connReq = (wantConn, None)
     
-    def dispatchCmd(self, userCmd):
-        """Dispatch a command
+    def parseAndDispatchCmd(self, cmd):
+        """Parse and dispatch a command
         
         Note: command name collisions are resolved as follows:
         - local commands (cmd_<foo> methods of this actor)
         - commands handled by devices
         - direct device access commands (device name)
         """
-        if not userCmd.cmdBody:
+        if not cmd.cmdBody:
             # echo to show alive
-            self.writeToOneUser(":", "", userCmd=userCmd)
+            self.writeToOneUser(":", "", cmd=cmd)
             return
+
+        cmd.cmdVerb = ""
+        cmd.cmdArgs = ""
+        if cmd.cmdBody:
+            res = cmd.cmdBody.split(None, 1)
+            if len(res) > 1:
+                cmd.cmdVerb, cmd.cmdArgs = res
+            else:
+                cmd.cmdVerb = res[0]
         
         # see if command is a local command
-        cmdFunc = self.locCmdDict.get(userCmd.cmdVerb)
+        cmdFunc = self.locCmdDict.get(cmd.cmdVerb)
         if cmdFunc is not None:
             # execute local command
             try:
-                self.checkLocalCmd(userCmd)
-                retVal = cmdFunc(userCmd)
+                self.checkLocalCmd(cmd)
+                retVal = cmdFunc(cmd)
             except CommandError, e:
                 cmd.setState("failed", strFromException(e))
                 return
@@ -149,60 +157,63 @@ class Actor(BaseActor):
                 msgStr = "Exception=%s; Text=%s" % (e.__class__.__name__, quotedErr)
                 self.writeToUsers("f", msgStr, cmd=cmd)
             else:
-                if not retVal and not userCmd.isDone():
-                    userCmd.setState("done")
+                if not retVal and not cmd.isDone:
+                    cmd.setState("done")
             return
         
         # see if command is a device command
         dev = None
         devCmdStr = ""
-        devCmdInfo = self.devCmdDict.get(userCmd.cmdVerb)
+        devCmdInfo = self.devCmdDict.get(cmd.cmdVerb)
         if devCmdInfo:
             # command verb is one handled by a device
             dev, devCmdVerb, cmdHelp = devCmdInfo
-            devCmdStr = "%s %s" % (devCmdVerb, userCmd.cmdArgs)
+            devCmdStr = "%s %s" % (devCmdVerb, cmd.cmdArgs)
         else:
-            dev = self.devNameDict.get(userCmd.cmdVerb)
+            dev = self.dev.nameDict.get(cmd.cmdVerb)
             if dev is not None:
                 # command verb is the name of a device;
                 # the command arguments are the string to send to the device
-                devCmdStr = userCmd.cmdArgs
+                devCmdStr = cmd.cmdArgs
         if dev and devCmdStr:
             try:
-                dev.newCmd(devCmdStr, userCmd=userCmd)
+                dev.newCmd(devCmdStr, cmd=cmd)
             except CommandError, e:
-                userCmd.setState("failed", strFromException(e))
+                cmd.setState("failed", strFromException(e))
                 return
             except Exception, e:
-                sys.stderr.write("command %r failed\n" % (userCmd.cmdStr,))
+                sys.stderr.write("command %r failed\n" % (cmd.cmdStr,))
                 sys.stderr.write("function %s raised %s\n" % (cmdFunc, strFromException(e)))
                 traceback.print_exc(file=sys.stderr)
                 quotedErr = quoteStr(strFromException(e))
                 msgStr = "Exception=%s; Text=%s" % (e.__class__.__name__, quotedErr)
-                self.writeToUsers("f", msgStr, cmd=userCmd)
+                self.writeToUsers("f", msgStr, cmd=cmd)
             return
 
-        self.writeToOneUser("f", "UnknownCommand=%s" % (userCmd.cmdVerb,), cmd=userCmd)
+        self.writeToOneUser("f", "UnknownCommand=%s" % (cmd.cmdVerb,), cmd=cmd)
+    
+    def newUser(self, sock):
+        fakeCmd = BaseActor.newUser(self, sock) 
+        self.showDevConnStatus(cmd=fakeCmd, onlyOneUser=True, onlyIfNotConn=True)
     
     def showDevConnStatus(self, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
         """Show connection status for all devices"""
-        for devName in sorted(self.devNameDict.keys()):
-            dev = self.devNameDict[devName]
+        for dev in self.dev.nameDict.itervalues():
             self.showOneDevConnStatus(dev, onlyOneUser=onlyOneUser, onlyIfNotConn=onlyIfNotConn, cmd=cmd)
     
     def showOneDevConnStatus(self, dev, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
         """Show connection status for one device"""
-        if onlyIfNotConn and dev.conn.isConnected():
+        if onlyIfNotConn and dev.conn.isConnected:
             return
 
-        state, stateStr, reason = dev.conn.getFullState()
+        state, reason = dev.conn.fullState
         quotedReason = quoteStr(reason)
-        #msgCode = "i" if dev.conn.isConnected() else "w"
-        if dev.conn.isConnected():
+        #msgCode = "i" if dev.conn.isConnected else "w"
+        if dev.conn.isConnected:
             msgCode = "i" 
         else:
             msgCode = "w"
-        msgStr = "%sConnState = %r, %s" % (dev.name, stateStr, quotedReason)
+        msgStr = "%sConnState = %r, %s" % (dev.name, state, quotedReason)
         if onlyOneUser:
             self.writeToOneUser(msgCode, msgStr, cmd=cmd)
         else:
@@ -216,12 +227,12 @@ class Actor(BaseActor):
         if cmd and cmd.cmdArgs:
             devNameList = cmd.cmdArgs.split()
         else:
-            devNameList = self.devNameDict.keys()
+            devNameList = self.dev.nameDict.keys()
         
         runInBackground = False
         for devName in devNameList:
-            dev = self.devNameDict[devName]
-            if dev.conn.isConnected():
+            dev = self.dev.nameDict[devName]
+            if dev.conn.isConnected:
                 self.showOneDevConnStatus(dev, cmd=cmd)
             else:
                 runInBackground = True
@@ -240,12 +251,12 @@ class Actor(BaseActor):
         if cmd and cmd.cmdArgs:
             devNameList = cmd.cmdArgs.split()
         else:
-            devNameList = self.devNameDict.keys()
+            devNameList = self.dev.nameDict.keys()
         
         runInBackground = False
         for devName in devNameList:
-            dev = self.devNameDict[devName]
-            if dev.conn.isDone() and not dev.conn.isConnected():
+            dev = self.dev.nameDict[devName]
+            if dev.conn.isDone and not dev.conn.isConnected:
                 self.showOneDevConnStatus(dev, cmd=cmd)
             else:
                 runInBackground = True
@@ -258,7 +269,7 @@ class Actor(BaseActor):
     
     def cmd_exit(self, cmd=None):
         """disconnect yourself"""
-        sock = self.getUserSock(cmd.userID)
+        sock = self.userDict[cmd.userID]
         sock.close()
     
     def cmd_help(self, cmd=None):
@@ -294,7 +305,7 @@ class Actor(BaseActor):
         
         # direct device access commands (these go at the end)
         helpList += ["", "Direct device access commands:"]
-        for devName, dev in self.devNameDict.iteritems():
+        for devName in self.dev.nameDict:
             helpList.append("%s <text>: send <text> to device %s" % (devName, devName))
         
         for helpStr in helpList:
