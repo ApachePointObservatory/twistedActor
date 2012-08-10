@@ -218,7 +218,7 @@ class ActorDevice(TCPDevice):
             connection = self.conn,
         )
     
-    def startCmd(
+    def startCmd(self,
         cmdStr,
         callFunc = None,
         userCmd = None,
@@ -247,7 +247,7 @@ class ActorDevice(TCPDevice):
         """
         cmdVar = opscore.actor.CmdVar(
             cmdStr = cmdStr,
-            timeLimit = timeLimit,
+            timeLim = timeLimit,
             timeLimKeyVar = timeLimKeyVar,
             timeLimKeyInd = timeLimKeyInd,
             abortCmdStr = abortCmdStr,
