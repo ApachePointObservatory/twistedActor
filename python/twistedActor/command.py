@@ -7,10 +7,13 @@ import sys
 import RO.AddCallback
 import RO.Alg
 from RO.StringUtil import quoteStr
+from RO.Comm.TwistedTimer import Timer
 
 class CommandError(Exception):
-    """Raise for a "normal" command failure when you want the explanation to be
-    nothing more than the text of the exception.
+    """Raise for a "normal" command failure
+    
+    Raise this error while processing a command when you want the explanation
+    to be nothing more than the text of the exception, rather than a traceback.
     """
     pass
 
@@ -20,14 +23,16 @@ class BaseCmd(RO.AddCallback.BaseMixin):
     """
     # state constants
     Done = "done"
-    Cancelled = "cancelled"
+    Cancelled = "cancelled" # including superseded
     Failed = "failed"
     Ready = "ready"
     Running = "running"
     Cancelling = "cancelling"
     Failing = "failing"
-    DoneStates = set(("done", "cancelled", "failed"))
-    StateSet = DoneStates | set(("ready", "running", "cancelling", "failing"))
+    ActiveStates = frozenset((Running, Cancelling, Failing))
+    FailedStates = frozenset((Cancelled, Failed))
+    DoneStates = frozenset((Done,)) | FailedStates
+    AllStates = frozenset((Ready,)) | ActiveStates | DoneStates
     _MsgCodeDict = dict(
         ready = "i",
         running = "i",
@@ -53,18 +58,17 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         - callFunc: function to call when command changes state;
             receives one argument: this command
         - timeLim: time limit for command (sec); if None or 0 then no time limit
-        
-        @warning: this class does not enforce timeLim
         """
         self._cmdStr = cmdStr
         self.userID = int(userID)
         self.cmdID = int(cmdID)
-        self._timeLim = timeLim
-
-        self.state = "ready"
+        self.state = self.Ready
         self._textMsg = ""
         self._hubMsg = ""
         self._cmdToTrack = None
+
+        self._timeoutTimer = Timer()
+        self.setTimeLimit(timeLim)
 
         RO.AddCallback.BaseMixin.__init__(self, callFunc)
     
@@ -73,19 +77,19 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         return self._cmdStr
     
     @property
+    def isActive(self):
+        """Command is running, canceling or failing"""
+        return self.state in self.ActiveStates
+    
+    @property
     def isDone(self):
         """Command is done (whether successfully or not)"""
         return self.state in self.DoneStates
 
-#     @property
-#     def isFailing(self):
-#         """Command is failing"""
-#         return self.state in ("cancelling", "failing")
-    
     @property
     def didFail(self):
         """Command failed or was cancelled"""
-        return self.state in ("cancelled", "failed")
+        return self.state in self.FailedStates
 
     @property
     def fullState(self):
@@ -109,7 +113,9 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         return (msgCode, msgStr)
     
     def setState(self, newState, textMsg="", hubMsg=""):
-        """Set the state of the command and (if new state is done) remove all callbacks.
+        """Set the state of the command and call callbacks.
+        
+        If new state is done then remove all callbacks (after calling them).
         
         Inputs:
         - newState: new state of command
@@ -123,16 +129,35 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """
         if self.isDone:
             raise RuntimeError("Command is done; cannot change state")
-        if newState not in self.StateSet:
+        if newState not in self.AllStates:
             raise RuntimeError("Unknown state %s" % newState)
+        if self.state == self.Ready and newState in self.ActiveStates and self._timeLim:
+            self._timeoutTimer.start(self._timeLim, self._timeout)
         self.state = newState
         self._textMsg = str(textMsg)
         self._hubMsg = str(hubMsg)
         self._basicDoCallbacks(self)
         if self.isDone:
+            self._timeoutTimer.cancel()
             self._removeAllCallbacks()
             self._cmdToTrack = None
     
+    def setTimeLimit(self, timeLim):
+        """Set a new time limit
+        
+        If the new limit is 0 or None then there is no time limit.
+        
+        If the command is has not started running, then the timer starts when the command starts running.
+        If the command is running the timer starts now (any time spent before now is ignored).
+        If the command is done then the new time limit is silently ignored.
+        """
+        self._timeLim = float(timeLim) if timeLim is not None else None
+        if self._timeLim:
+            if self._timeoutTimer.isActive:
+                self._timeoutTimer.start(self._timeLim, self._timeout)
+        else:
+            self._timeoutTimer.cancel()
+
     def trackCmd(self, cmdToTrack):
         """Tie the state of this command to another command"""
         if self.isDone:
@@ -153,9 +178,18 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         state, textMsg, hubMsg = cmdToTrack.fullState
         self.setState(state, textMsg=textMsg, hubMsg=hubMsg)
     
+    def _timeout(self):
+        """Time limit timer callback"""
+        if not self.isDone:
+            self.setState(self.Failed, textMsg="Timed out")
+    
     def __str__(self):
         return "%s(%r)" % (self.__class__.__name__, self.cmdStr)
 
+    
+    def __repr__(self):
+        return "%s(cmdStr=%r, timeLim=%r, userID=%r, cmdID=%r, state=%r)" % \
+            (self.__class__.__name__, self.cmdStr, self.userID, self.cmdID, self._timeLim, self.state)
 
 class DevCmd(BaseCmd):
     """Generic device command
@@ -172,6 +206,7 @@ class DevCmd(BaseCmd):
         cmdStr,
         callFunc = None,
         userCmd = None,
+        timeLim = None,
     ):
         """Construct a DevCmd
         
@@ -180,11 +215,13 @@ class DevCmd(BaseCmd):
         - callFunc: function to call when command changes state;
             receives one argument: this command
         - userCmd: a user command that will track this new device command
+        - timeLim: time limit for command (sec); if None or 0 then no time limit
         """
         self.locCmdID = self._LocCmdIDGen.next()
         BaseCmd.__init__(self,
             cmdStr = cmdStr,
             callFunc = callFunc,
+            timeLim = timeLim,
         )
 
         if userCmd:
@@ -209,6 +246,7 @@ class DevCmdVar(BaseCmd):
         cmdVar,
         callFunc = None,
         userCmd = None,
+        timeLim = None,
     ):
         """Construct an DevCmdVar
         
@@ -217,10 +255,12 @@ class DevCmdVar(BaseCmd):
         - callFunc: function to call when command changes state;
             receives one argument: this command
         - userCmd: a user command that will track this new device command
+        - timeLim: time limit for command (sec); if None or 0 then no time limit
         """
         BaseCmd.__init__(self,
             cmdStr = "", # instead of copying cmdVar.cmdStr, override the cmdStr property below
             callFunc = callFunc,
+            timeLim = timeLim,
         )
 
         if userCmd:
@@ -253,12 +293,6 @@ class DevCmdVar(BaseCmd):
 
 class UserCmd(BaseCmd):
     """A command from a user (typically the hub)
-    
-    Inputs:
-    - userID    ID of user (always 0 if a single-user actor)
-    - cmdStr    full command
-    - callFunc  function to call when command finishes or fails;
-                the function receives two arguments: this UserCmd, isOK
 
     Attributes:
     - cmdBody   command after the header
@@ -268,8 +302,23 @@ class UserCmd(BaseCmd):
         userID = 0,
         cmdStr = "",
         callFunc = None,
+        timeLim = None,
     ):
-        BaseCmd.__init__(self, cmdStr, userID=userID, callFunc=callFunc)
+        """Construct a UserCmd
+    
+        Inputs:
+        - userID    ID of user (always 0 if a single-user actor)
+        - cmdStr    full command
+        - callFunc  function to call when command finishes or fails;
+                    the function receives two arguments: this UserCmd, isOK
+        - timeLim: time limit for command (sec); if None or 0 then no time limit
+        """
+        BaseCmd.__init__(self,
+            cmdStr = cmdStr,
+            userID = userID,
+            callFunc = callFunc,
+            timeLim = timeLim,
+        )
         self.parseCmdStr(cmdStr)
     
     def parseCmdStr(self, cmdStr):
