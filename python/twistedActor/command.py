@@ -188,7 +188,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
 
     
     def __repr__(self):
-        return "%s(cmdStr=%r, timeLim=%r, userID=%r, cmdID=%r, state=%r)" % \
+        return "%s(cmdStr=%r, userID=%r, cmdID=%r, timeLim=%r, state=%r)" % \
             (self.__class__.__name__, self.cmdStr, self.userID, self.cmdID, self._timeLim, self.state)
 
 class DevCmd(BaseCmd):
