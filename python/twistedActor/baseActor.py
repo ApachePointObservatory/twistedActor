@@ -50,7 +50,9 @@ class BaseActor(object):
     def formatUserOutput(self, msgCode, msgStr, userID=None, cmdID=None):
         """Format a string to send to the all users.
         """
-        return "%d %d %s %s" % (userID, cmdID, msgCode, msgStr)
+        return "%d %d %s %s" % (cmdID, userID, msgCode, msgStr)
+        # changed from:
+        #return "%d %d %s %s" % (userID, cmdID, msgCode, msgStr)
     
     def getUserCmdID(self, cmd=None, userID=None, cmdID=None):
         """Return userID, cmdID based on user-supplied information.
