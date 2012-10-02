@@ -41,6 +41,8 @@ class Actor(BaseActor):
         userPort,
         devs = (),
         maxUsers = 0,
+        doDebugMsgs = False,
+        version = "?",
     ):
         """Construct an Actor
     
@@ -48,6 +50,8 @@ class Actor(BaseActor):
         - userPort      port on which to listen for users
         - devs          a collection of Device objects that this ICC controls
         - maxUsers      the maximum allowed # of users; if 0 then there is no limit
+        - doDebugMsgs   print debug messages?
+        - version       actor version str
         """
         devs = tuple(devs)
         
@@ -81,7 +85,12 @@ class Actor(BaseActor):
         if cmdCollisionSet:
             raise RuntimeError("Multiply defined commands: %s" %  ", ".join(cmdCollisionSet))
         
-        BaseActor.__init__(self, userPort=userPort, maxUsers=maxUsers)
+        BaseActor.__init__(self,
+            userPort = userPort,
+            maxUsers = maxUsers,
+            doDebugMsgs = doDebugMsgs,
+            version = version,
+        )
         
         self.cmd_connDev()
     
@@ -192,8 +201,13 @@ class Actor(BaseActor):
 
         self.writeToOneUser("f", "UnknownCommand=%s" % (cmd.cmdVerb,), cmd=cmd)
     
-    def newUser(self, sock):
-        fakeCmd = BaseActor.newUser(self, sock) 
+    def showNewUserInfo(self, sock):
+        """Show information for new users; called automatically when a new user connects
+        
+        Inputs:
+        - fakeCmd: a minimal command that just contains the ID of the new user
+        """
+        fakeCmd = BaseActor.showNewUserInfo(self, sock) 
         self.showDevConnStatus(cmd=fakeCmd, onlyOneUser=True, onlyIfNotConn=True)
     
     def showDevConnStatus(self, cmd=None, onlyOneUser=False, onlyIfNotConn=False):

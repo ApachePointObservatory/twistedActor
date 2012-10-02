@@ -4,7 +4,7 @@ __all__ = ["BaseActor"]
 
 import sys
 import RO.Comm.TwistedSocket
-from RO.StringUtil import strFromException
+from RO.StringUtil import quoteStr, strFromException
 from .command import UserCmd
 
 class BaseActor(object):
@@ -17,18 +17,22 @@ class BaseActor(object):
         userPort,
         maxUsers = 0,
         doDebugMsgs = False,
+        version = "?",
     ):
         """Construct a BaseActor
     
         Inputs:
         - userPort      port on which to listen for users
         - maxUsers      the maximum allowed # of users; if 0 then there is no limit
+        - doDebugMsgs   print debug messages?
+        - version       actor version str
         """        
         self.maxUsers = int(maxUsers)
+        self.doDebugMsgs = bool(doDebugMsgs)
+        self.version = str(version)
+
         # entries are: userID, socket
         self.userDict = dict()
-
-        self.doDebugMsgs = True
         
         self.server = RO.Comm.TwistedSocket.TCPServer(
             connCallback = self.newUser,
@@ -97,14 +101,17 @@ class BaseActor(object):
         
         # report user information and additional info
         fakeCmd = UserCmd(userID=userID)
-        self.showUserInfo(fakeCmd)
-        self.newUserOutput(userID)
+        self.showNewUserInfo(fakeCmd)
         return fakeCmd
     
-    def newUserOutput(self, userID):
-        """Override to report additional status to the new user other than userID and bad device status
+    def showNewUserInfo(self, fakeCmd):
+        """Show information for new users; called automatically when a new user connects
+        
+        Inputs:
+        - fakeCmd: a minimal command that just contains the ID of the new user
         """
-        pass
+        self.showUserInfo(fakeCmd)
+        self.showVersion(fakeCmd, onlyOneUser=True)
     
     def parseAndDispatchCmd(self, cmd):
         """Dispatch a user command
@@ -126,12 +133,13 @@ class BaseActor(object):
         self.showUserList(cmd)
     
     def showUserList(self, cmd=None):
-        sockList = self.userDict.values()
-        sockList.sort(key=lambda x: getSocketUserID(x))
-        userInfo = ["%s, %s" % (getSocketUserID(sock), sock.host) for sock in sockList]
-        userInfoStr = ",".join(userInfo)
-        msgStr = "UserInfo=%s" % (userInfoStr,)
-        self.writeToUsers("i", msgStr, cmd=cmd)
+        """Show a list of connected users
+        """
+        userIdList = sorted(self.userDict.keys())
+        for userId in userIdList:
+            sock = self.userDict[userId]
+            msgStr = "UserInfo=%s, %s" % (userId, sock.host)
+            self.writeToUsers("i", msgStr, cmd=cmd)
         
     def userSocketClosing(self, sock):
         """Called when a user socket is closing
@@ -152,6 +160,15 @@ class BaseActor(object):
                 (getSocketUserID(sock),))
         sock.setStateCallback() # I'm done with this socket; I don't want to know when it is fully closed
         self.showUserList(cmd=UserCmd(userID=0))
+    
+    def showVersion(self, cmd, onlyOneUser=False):
+        """Show actor version
+        """
+        msgStr = "Version=%s" % (quoteStr(self.version),)
+        if onlyOneUser:
+            self.writeToOneUser("i", msgStr, cmd=cmd)
+        else:
+            self.writeToUsers("i", msgStr, cmd=cmd)
         
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
