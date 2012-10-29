@@ -179,7 +179,7 @@ class BaseActor(object):
         """
         userID, cmdID = self.getUserCmdID(cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
-        #print "writeToUsers(%s)" % (fullMsgStr,)
+        print "writeToUsers(%s)" % (fullMsgStr,)  # will be directed to log, if loggin enabled
         for sock in self.userDict.itervalues():
             sock.writeLine(fullMsgStr)
     
@@ -193,6 +193,7 @@ class BaseActor(object):
             raise RuntimeError("Cannot write to user 0")
         sock = self.userDict[userID]
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
+        print "writeToOneUser(%s)" % (fullMsgStr,)  # will be directed to log, if loggin enabled
         sock.writeLine(fullMsgStr)
     
     def __str__(self):
