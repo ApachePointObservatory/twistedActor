@@ -288,7 +288,7 @@ class DevCmdVar(BaseCmd):
         else:
             newState = self.Failed
             textMsg = self.cmdVar.lastReply.string
-        self.setState(state, textMsg=textMsg)
+        self.setState(newState, textMsg=textMsg)
 
 
 class UserCmd(BaseCmd):

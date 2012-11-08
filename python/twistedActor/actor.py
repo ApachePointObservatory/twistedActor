@@ -59,7 +59,7 @@ class Actor(BaseActor):
                             and stderr.
         """
         devs = tuple(devs)
-        log.startLogging(open(logfile, 'w'))
+        #log.startLogging(open(logfile, 'w'))
         # local command dictionary containing cmd verb: method
         # all methods whose name starts with cmd_ are added
         # each such method must accept one argument: a UserCmd
