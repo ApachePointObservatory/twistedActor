@@ -283,7 +283,7 @@ class DevCmdVar(BaseCmd):
         if not self.cmdVar.isDone:
             return
         textMsg = ""
-        if self.cmdVar.didFail:
+        if not self.cmdVar.didFail:
             newState = self.Done
         else:
             newState = self.Failed

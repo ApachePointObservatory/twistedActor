@@ -115,13 +115,16 @@ class Device(BaseMixin):
         """Start a new command.
         """
         devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc)
-        
-        fullCmdStr = devCmd.fullCmdStr
-        try:
-            #print "Device.sendCmd writing %r" % (fullCmdStr,)
-            self.conn.writeLine(fullCmdStr)
-        except Exception, e:
-            devCmd.setState(isDone=True, isOK=False, textMsg=str(e))
+        if not self.conn.isConnected:
+            # device is not connected fail the command
+            devCmd.setState('failed', textMsg="Device name: %s not connected" % self.name)
+        else:
+            fullCmdStr = devCmd.fullCmdStr
+            try:
+                #print "Device.sendCmd writing %r" % (fullCmdStr,)
+                self.conn.writeLine(fullCmdStr)
+            except Exception, e:
+                devCmd.setState(isDone=True, isOK=False, textMsg=str(e))
         
         return devCmd
 
