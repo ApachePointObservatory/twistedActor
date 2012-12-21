@@ -18,6 +18,7 @@ from RO.AddCallback import BaseMixin
 from RO.Comm.TCPConnection import TCPConnection
 import opscore.actor
 from .command import DevCmd, DevCmdVar
+from twisted.python import log
 
 class Device(BaseMixin):
     """Device interface.
@@ -81,6 +82,13 @@ class Device(BaseMixin):
         self.cmdClass = cmdClass
         if callFunc:
             self.addCallback(callFunc, callNow=False)
+
+    def twistedLogMsg(self, msgStr):
+        """Log a message
+        
+        This is overridden by Actor when the device is added to the actor
+        """ 
+        raise NotImplementedError("Cannot log twistedLogMsg=%s" % msgStr)
     
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
@@ -121,7 +129,6 @@ class Device(BaseMixin):
         else:
             fullCmdStr = devCmd.fullCmdStr
             try:
-                #print "Device.sendCmd writing %r" % (fullCmdStr,)
                 self.conn.writeLine(fullCmdStr)
             except Exception, e:
                 devCmd.setState(isDone=True, isOK=False, textMsg=str(e))

@@ -4,10 +4,8 @@ __all__ = ["Actor"]
 
 import operator
 import sys
-import os
 import types
 import traceback
-from twisted.python import log
 
 import RO.SeqUtil
 from RO.StringUtil import quoteStr, strFromException
@@ -45,7 +43,6 @@ class Actor(BaseActor):
         maxUsers = 0,
         doDebugMsgs = False,
         version = "?",
-        logfile = os.getenv("HOME") + '/ActorLog.log',
     ):
         """Construct an Actor
     
@@ -55,11 +52,8 @@ class Actor(BaseActor):
         - maxUsers      the maximum allowed # of users; if 0 then there is no limit
         - doDebugMsgs   print debug messages?
         - version       actor version str
-        - logfile       location for automatic twisted logfile. Will log anything sent to stdout
-                            and stderr.
         """
         devs = tuple(devs)
-        #log.startLogging(open(logfile, 'w'))
         # local command dictionary containing cmd verb: method
         # all methods whose name starts with cmd_ are added
         # each such method must accept one argument: a UserCmd
@@ -76,6 +70,7 @@ class Actor(BaseActor):
         self.devCmdDict = {} # dev command verb: (dev, cmdHelp)
         for dev in devs:
             dev.writeToUsers = self.writeToUsers
+            dev.twistedLogMsg = self.twistedLogMsg
             dev.conn.addStateCallback(self.devConnStateCallback)
             for cmdVerb, devCmdVerb, cmdHelp in dev.cmdInfo:
                 devCmdVerb = devCmdVerb or cmdVerb
@@ -96,7 +91,15 @@ class Actor(BaseActor):
             doDebugMsgs = doDebugMsgs,
             version = version,
         )
-        
+        # connect all devices
+        self.initialConn()        
+
+    def initialConn(self):
+        """Perform initial connections.
+        Normally this just calls cmd_connDev,
+        but you can override this command if you need a special startup sequence
+        such as waiting until devices boot up.
+        """
         self.cmd_connDev()
     
     def checkNoArgs(self, newCmd):

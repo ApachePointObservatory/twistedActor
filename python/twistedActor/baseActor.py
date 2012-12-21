@@ -3,9 +3,12 @@
 __all__ = ["BaseActor"]
 
 import sys
+import os
 import RO.Comm.TwistedSocket
 from RO.StringUtil import quoteStr, strFromException
 from .command import UserCmd
+
+from twisted.python import log, logfile
 
 class BaseActor(object):
     """Base class for a hub actor or instrument control computer with no assumption about command format
@@ -26,7 +29,21 @@ class BaseActor(object):
         - maxUsers      the maximum allowed # of users; if 0 then there is no limit
         - doDebugMsgs   print debug messages?
         - version       actor version str
-        """        
+        """
+        # if ACTORLOG is specified as an environment variable
+        # begin logging to it. ACTORLOG must be a path/filename.extension string
+        logPath = os.getenv("ACTORLOG")
+        if logPath: 
+            # something was defined
+            filepath, filename = logPath.rsplit('/', 1)
+            self.logfile = logfile.DailyLogFile(filename, filepath)
+            log.startLogging(self.logfile, setStdout=False)
+        else:
+            self.writeToUsers('w', 'Environment Variable ACTORLOG not found, logging not enabled')
+        # if environment variable ACTORVERBOSE is set to anything, anything directed
+        # to logging will also be printed to stdout
+        self.verbose = os.getenv("ACTORVERBOSE") # value can be anything
+        self.verbose = True if self.verbose else False # set to boolean    
         self.maxUsers = int(maxUsers)
         self.doDebugMsgs = bool(doDebugMsgs)
         self.version = str(version)
@@ -61,6 +78,14 @@ class BaseActor(object):
             userID if userID is not None else (cmd.userID if cmd else 0),
             cmdID if cmdID is not None else (cmd.cmdID if cmd else 0),
         )
+        
+    def twistedLogMsg(self, msgStr):
+        """Write a message string to the log.  
+        """
+        if self.logfile:
+            log.msg(msgStr, system="TwistedActorLog")
+        if self.verbose:
+            print msgStr
     
     def newCmd(self, sock):
         """Called when a command is read from a user.
@@ -179,7 +204,8 @@ class BaseActor(object):
         """
         userID, cmdID = self.getUserCmdID(cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
-        #print "writeToUsers(%s)" % (fullMsgStr,)  # will be directed to log, if loggin enabled
+        #print "writeToUsers(%s)" % (fullMsgStr,)
+        self.twistedLogMsg("%s-->Users(%s)" % (self.name, fullMsgStr,))
         for sock in self.userDict.itervalues():
             sock.writeLine(fullMsgStr)
     
@@ -193,7 +219,8 @@ class BaseActor(object):
             raise RuntimeError("Cannot write to user 0")
         sock = self.userDict[userID]
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
-        #print "writeToOneUser(%s)" % (fullMsgStr,)  # will be directed to log, if loggin enabled
+        #print "writeToOneUser(%s)" % (fullMsgStr,)
+        self.twistedLogMsg("%s-->User(%s)" % (self.name, fullMsgStr,))
         sock.writeLine(fullMsgStr)
     
     def __str__(self):
