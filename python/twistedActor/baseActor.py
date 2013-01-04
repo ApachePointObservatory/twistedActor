@@ -21,6 +21,7 @@ class BaseActor(object):
         maxUsers = 0,
         doDebugMsgs = False,
         version = "?",
+        name = "BaseActor",
     ):
         """Construct a BaseActor
     
@@ -29,17 +30,19 @@ class BaseActor(object):
         - maxUsers      the maximum allowed # of users; if 0 then there is no limit
         - doDebugMsgs   print debug messages?
         - version       actor version str
+        - name          a name, used for logging
         """
-        # if ACTORLOG is specified as an environment variable
-        # begin logging to it. ACTORLOG must be a path/filename.extension string
-        logPath = os.getenv("ACTORLOG")
+        self.name = name
+        # if LOGPATH is specified as an environment variable
+        # begin logging to it.
+        logPath = os.getenv("LOGPATH")
         if logPath: 
             # something was defined
-            filepath, filename = logPath.rsplit('/', 1)
-            self.logfile = logfile.DailyLogFile(filename, filepath)
+            filename = self.name + '.log'
+            self.logfile = logfile.DailyLogFile(filename, logPath)
             log.startLogging(self.logfile, setStdout=False)
         else:
-            self.writeToUsers('w', 'Environment Variable ACTORLOG not found, logging not enabled')
+            self.writeToUsers('w', 'Environment Variable LOGPATH not found, logging not enabled')
         # if environment variable ACTORVERBOSE is set to anything, anything directed
         # to logging will also be printed to stdout
         self.verbose = os.getenv("ACTORVERBOSE") # value can be anything

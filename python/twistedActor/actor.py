@@ -43,6 +43,7 @@ class Actor(BaseActor):
         maxUsers = 0,
         doDebugMsgs = False,
         version = "?",
+        name = "Actor",
     ):
         """Construct an Actor
     
@@ -52,6 +53,7 @@ class Actor(BaseActor):
         - maxUsers      the maximum allowed # of users; if 0 then there is no limit
         - doDebugMsgs   print debug messages?
         - version       actor version str
+        - name          a name, used for logging
         """
         devs = tuple(devs)
         # local command dictionary containing cmd verb: method
@@ -90,6 +92,7 @@ class Actor(BaseActor):
             maxUsers = maxUsers,
             doDebugMsgs = doDebugMsgs,
             version = version,
+            name = name,
         )
         # connect all devices
         self.initialConn()        
