@@ -35,18 +35,19 @@ class BaseActor(object):
         self.name = name
         # if LOGPATH is specified as an environment variable
         # begin logging to it.
+        self.logfile = None
+        self.verbose = True if os.getenv("ACTORVERBOSE") else False # any environment variable will do...
         logPath = os.getenv("LOGPATH")
         if logPath: 
             # something was defined
             filename = self.name + '.log'
             self.logfile = logfile.DailyLogFile(filename, logPath)
             log.startLogging(self.logfile, setStdout=False)
-        else:
-            self.writeToUsers('w', 'Environment Variable LOGPATH not found, logging not enabled')
+          # below caused error because writeToUsers wasn't defined
+#         else:
+#             self.writeToUsers('w', 'Environment Variable LOGPATH not found, logging not enabled')
         # if environment variable ACTORVERBOSE is set to anything, anything directed
         # to logging will also be printed to stdout
-        self.verbose = os.getenv("ACTORVERBOSE") # value can be anything
-        self.verbose = True if self.verbose else False # set to boolean    
         self.maxUsers = int(maxUsers)
         self.doDebugMsgs = bool(doDebugMsgs)
         self.version = str(version)
@@ -86,7 +87,7 @@ class BaseActor(object):
         """Write a message string to the log.  
         """
         if self.logfile:
-            log.msg(msgStr, system="TwistedActorLog")
+            log.msg(msgStr, system="TwistedActorLog") # system adds brackets
         if self.verbose:
             print msgStr
     
