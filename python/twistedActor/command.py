@@ -340,6 +340,7 @@ class UserCmd(BaseCmd):
             self.cmdID = 0
         self.cmdBody = cmdDict.get("cmdBody", "")
 
+
 class LinkCommands(object):
     """Link commands such that completion of the main command depends on one or more sub-commands
     
@@ -347,12 +348,11 @@ class LinkCommands(object):
     successfully only if all sub-commands finish successfully.
     
     @note: To use, simply construct this object; you need not keep a reference to the resulting instance.
-    In other words, you may call it like a function.
     
     @note: if early termination behavior is required it can easily be added as follows:
     - add an alternate callback function that fails early;
         note that on early failure it must remove the callback on any sub-commands that are not finished
-        (or fail the sub-commands, but that is probably be too drastic)
+        (or fail the sub-commands, but that is probably too drastic)
     - add a failEarly argument to __init__ and have it assign the alternate callback
     """
     def __init__(self, mainCmd, subCmdList):
