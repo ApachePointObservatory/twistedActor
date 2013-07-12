@@ -7,8 +7,9 @@ import os
 import RO.Comm.TwistedSocket
 from RO.StringUtil import quoteStr, strFromException
 from .command import UserCmd
+from .logs import startLogging, writeToLog
 
-from twisted.python import log, logfile
+#from twisted.python import log, logfile
 
 class BaseActor(object):
     """Base class for a hub actor or instrument control computer with no assumption about command format
@@ -33,21 +34,13 @@ class BaseActor(object):
         - name          a name, used for logging
         """
         self.name = name
-        # if LOGPATH is specified as an environment variable
+        # if TCC_LOGDIR is specified as an environment variable
         # begin logging to it.
-        self.logfile = None
-        self.verbose = True if os.getenv("ACTORVERBOSE") else False # any environment variable will do...
-        logPath = os.getenv("LOGPATH")
+        self.logging = False
+        logPath = os.getenv("TCC_LOGDIR")
         if logPath: 
-            # something was defined
-            filename = self.name + '.log'
-            self.logfile = logfile.DailyLogFile(filename, logPath)
-            log.startLogging(self.logfile, setStdout=False)
-          # below caused error because writeToUsers wasn't defined
-#         else:
-#             self.writeToUsers('w', 'Environment Variable LOGPATH not found, logging not enabled')
-        # if environment variable ACTORVERBOSE is set to anything, anything directed
-        # to logging will also be printed to stdout
+            self.logging = True
+            startLogging(systemName = self.name, dir = logPath)
         self.maxUsers = int(maxUsers)
         self.doDebugMsgs = bool(doDebugMsgs)
         self.version = str(version)
@@ -83,13 +76,11 @@ class BaseActor(object):
             cmdID if cmdID is not None else (cmd.cmdID if cmd else 0),
         )
         
-    def twistedLogMsg(self, msgStr):
+    def logMsg(self, msgStr):
         """Write a message string to the log.  
         """
-        if self.logfile:
-            log.msg(msgStr, system="TwistedActorLog") # system adds brackets
-        if self.verbose:
-            print msgStr
+        if self.logging:
+            writeToLog(msgStr, systemName=self.name) # system adds brackets
     
     def newCmd(self, sock):
         """Called when a command is read from a user.
@@ -100,6 +91,7 @@ class BaseActor(object):
         - direct device access commands (device name)
         """
         cmdStr = sock.readLine()
+        self.logMsg("UserCmd(%s)" % (cmdStr,))
         #print "%s.newCmd; cmdStr=%r" % (self, cmdStr,)
         if not cmdStr:
             return
@@ -209,7 +201,7 @@ class BaseActor(object):
         userID, cmdID = self.getUserCmdID(cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToUsers(%s)" % (fullMsgStr,)
-        self.twistedLogMsg("%s-->Users(%s)" % (self.name, fullMsgStr,))
+        self.logMsg("To All Users(%s)" % (fullMsgStr,))
         for sock in self.userDict.itervalues():
             sock.writeLine(fullMsgStr)
     
@@ -224,7 +216,7 @@ class BaseActor(object):
         sock = self.userDict[userID]
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToOneUser(%s)" % (fullMsgStr,)
-        self.twistedLogMsg("%s-->User(%s)" % (self.name, fullMsgStr,))
+        self.logMsg("To One User(%s)" % (fullMsgStr,))
         sock.writeLine(fullMsgStr)
     
     def __str__(self):

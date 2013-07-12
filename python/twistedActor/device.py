@@ -18,7 +18,8 @@ from RO.AddCallback import BaseMixin
 from RO.Comm.TCPConnection import TCPConnection
 import opscore.actor
 from .command import DevCmd, DevCmdVar
-from twisted.python import log
+from .logs import startLogging, writeToLog
+import os
 
 class Device(BaseMixin):
     """Device interface.
@@ -82,13 +83,19 @@ class Device(BaseMixin):
         self.cmdClass = cmdClass
         if callFunc:
             self.addCallback(callFunc, callNow=False)
+        # if TCC_LOGDIR is specified as an environment variable
+        # begin logging to it.
+        self.logging = False
+        logPath = os.getenv("TCC_LOGDIR")
+        if logPath: 
+            self.logging = True
+            startLogging(systemName = self.name, dir = logPath)
 
-    def twistedLogMsg(self, msgStr):
-        """Log a message
-        
-        This is overridden by Actor when the device is added to the actor
-        """ 
-        raise NotImplementedError("Cannot log twistedLogMsg=%s" % msgStr)
+    def logMsg(self, msgStr):
+        """Write a message string to the log.  
+        """
+        if self.logging:
+            writeToLog(msgStr, systemName=self.name) # system adds brackets
     
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
