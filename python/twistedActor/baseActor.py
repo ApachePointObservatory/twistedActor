@@ -7,9 +7,6 @@ import os
 import RO.Comm.TwistedSocket
 from RO.StringUtil import quoteStr, strFromException
 from .command import UserCmd
-from .logs import startLogging, writeToLog
-
-#from twisted.python import log, logfile
 
 class BaseActor(object):
     """Base class for a hub actor or instrument control computer with no assumption about command format
@@ -34,13 +31,6 @@ class BaseActor(object):
         - name          a name, used for logging
         """
         self.name = name
-        # if TCC_LOGDIR is specified as an environment variable
-        # begin logging to it.
-        self.logging = False
-        logPath = os.getenv("TCC_LOGDIR")
-        if logPath: 
-            self.logging = True
-            startLogging(systemName = self.name, dir = logPath)
         self.maxUsers = int(maxUsers)
         self.doDebugMsgs = bool(doDebugMsgs)
         self.version = str(version)
@@ -75,12 +65,6 @@ class BaseActor(object):
             userID if userID is not None else (cmd.userID if cmd else 0),
             cmdID if cmdID is not None else (cmd.cmdID if cmd else 0),
         )
-        
-    def logMsg(self, msgStr):
-        """Write a message string to the log.  
-        """
-        if self.logging:
-            writeToLog(msgStr, systemName=self.name) # system adds brackets
     
     def newCmd(self, sock):
         """Called when a command is read from a user.

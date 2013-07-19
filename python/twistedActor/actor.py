@@ -72,7 +72,6 @@ class Actor(BaseActor):
         self.devCmdDict = {} # dev command verb: (dev, cmdHelp)
         for dev in devs:
             dev.writeToUsers = self.writeToUsers
-            #dev.logMsg = self.logMsg
             dev.conn.addStateCallback(self.devConnStateCallback)
             for cmdVerb, devCmdVerb, cmdHelp in dev.cmdInfo:
                 devCmdVerb = devCmdVerb or cmdVerb
