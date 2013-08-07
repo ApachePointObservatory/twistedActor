@@ -1,6 +1,6 @@
 """Command objects for the Tcl Actor
 """
-__all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd", "LinkCommands"]
+__all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd", "LinkCommands", "CommandQueue"]
 
 import re
 import sys
@@ -8,6 +8,8 @@ import RO.AddCallback
 import RO.Alg
 from RO.StringUtil import quoteStr
 from RO.Comm.TwistedTimer import Timer
+from collections import deque
+import copy
 
 class CommandError(Exception):
     """Raise for a "normal" command failure
@@ -390,3 +392,143 @@ class LinkCommands(object):
             state = self.mainCmd.Done
             textMsg = ''
         self.mainCmd.setState(state, textMsg = textMsg)
+
+class CommandRule(object):
+    """simple object for defining collision rules
+    """
+    def __init__(self, cmdVerb, action, otherCmdVerbs):
+        """ @param[in] cmdVerb: a command verb string
+            @param[in] action: an action string, either 'supersedes' or 'waitsfor'
+            @param[in] otherCmdVerbs: a list of all other cmd verbs that the action
+                should apply to. 'all' will apply action to any command. 
+                Default action is to fail the command.
+        """ 
+        if action.lower() not in ['supersedes', 'waitsfor']:
+            raise RuntimeError('action must be on of "supersedes" or "waitsfor"')
+        self.cmdVerb = cmdVerb
+        self.action = action
+        self.otherCmdVerbs = otherCmdVerbs
+
+class CommandQueue(object):
+    """This is an object which keeps track of commands and smartly handles 
+    command collisions based on rules chosen by you.
+    
+    This modifies original commands to be callable.  The callable is 
+    specified by outside code (likely a Device) when a command is added to the queue.
+    The __call__ attribue is deleted once a command is removed from the queue
+    """
+    def __init__(self):
+        #self.cmdQueue = deque()
+        self.cmdQueue = []
+        self.ruleDict = {}
+        self._interrupt = None
+ 
+    def __getitem__(self, ind):
+        return self.cmdQueue[ind]
+        
+    def addRule(self, cmdVerb, action, otherCmdVerbs=['all']):
+        """ @param[in] cmdVerb: a command verb string
+            @param[in] action: an action string, either 'supersedes' or 'waitsfor'
+            @param[in] otherCmdVerbs: a list of all other cmd verbs that the action
+                should apply to. 'all' will apply action to any command. 
+                Default action is to fail the command.
+        """ 
+        self.ruleDict[cmdVerb] = CommandRule(cmdVerb, action, otherCmdVerbs)
+ 
+    @property
+    def interrupt(self):
+        if self._interrupt == None:
+            raise NotImplementedError('must specify interruption code')
+        else:
+            return self._interrupt
+
+    def addInterrupt(self, callable):
+        """callable receives 2 arguments, the interrupting command and the command being interupted.
+        should set the interrupted command to done.
+        """
+        #self._interrupt = callable
+        setattr(self, '_interrupt', callable)  
+        
+    def addCmd(self, cmd, callFunc, *args):
+        """ @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
+            @param[in] callFunc: function to call when cmd is exectued, receives *args
+            @param[in] *args, any additional arguments to be passed to callFunc
+        """
+        
+        # make the cmd callable
+        setattr(cmd, 'exe', lambda: callFunc(*args, userCmd=cmd)) # pass any args and the cmd itself
+        self.cmdQueue.append(cmd)
+        def removeWhenDone(cbCmd):
+            """add this callback to the command to remove
+            itself from the list when it had been set to done.
+            """
+            if not cbCmd.isDone:
+                return
+            # command is done, find it in the queue and pop it.
+            for ind in range(len(self.cmdQueue)):
+                qCmd = self.cmdQueue[ind]
+                if (qCmd.userID==cbCmd.userID) & (qCmd.cmdID==cbCmd.cmdID):
+                    delattr(qCmd, 'exe') # delete the callable attribute
+                    del self.cmdQueue[ind] # remove the command from the queue, it's done
+                    self.runQueue() # run the queue (if another command is waiting, get it going)
+                    return
+        cmd.addCallback(removeWhenDone)
+        self.runQueue()
+    
+    def runQueue(self):
+        """Go through the queue, start any ready commands, handle collisions, etc
+        unless defined in the self.cmdPriority definitions, an earlier command
+        has priority and any later commands are failed immediately.  A command
+        must be told to queue itself, or cancel earlier commands
+        
+        this is executed when a new command is added to the queue, and each time
+        a command on the queue is set to a done state and thus removed from the
+        queue
+        """
+        if len(self.cmdQueue) == 0:
+            # no commands on queue, nothing happening.
+            return
+        mostRecentCmd = self.cmdQueue[-1]
+        # start from 2nd most recent command, and loop towards the oldest
+        # (counting backwards)
+        for olderCmd in self.cmdQueue[-2::-1]:
+            # note: will never enter this loop if the mostRecentCmd is
+            # the only command in the queue...
+            try:
+                rule = self.ruleDict[mostRecentCmd.cmdVerb]
+            except KeyError:
+                # no rule for this command, fail it, because there are other 
+                # commands in the queue.
+                mostRecentCmd.setState(
+                    mostRecentCmd.Failed, 
+                    'Command rejected, current commands executing/queued'
+                )
+            else:
+                # rule is specified for mostRecentCmd
+                if not ((olderCmd.cmdVerb in rule.otherCmdVerbs) or ('all' in rule.otherCmdVerbs)):
+                    # no rule specified for this olderCmd, fail the mostRecentCmd
+                    # as there are other commands currently in the queue (executing or not).
+                    mostRecentCmd.setState(
+                        mostRecentCmd.Failed, 
+                        'Command rejected, current commands executing/queued'
+                    )                      
+                else:
+                    # a rule pertains, sort it out  
+                    if rule.action == 'waitfor':
+                        # easy, do nothing, but leave it in the queue where it is.
+                        pass
+                    elif olderCmd.state == olderCmd.Running:
+                        # action is supersede and the command is running
+                        #if self.interrupt != None:
+                        self.interrupt(mostRecentCmd, olderCmd)
+                        #olderCmd.setState(olderCmd.Failed, '%s cancelled whilst running by the higher priority command: %s' % (olderCmd.cmdVerb, mostRecentCmd.cmdVerb,))
+                    else:
+                        # action is supersed and command is ready (not running)
+                        olderCmd.setState(olderCmd.Cancelled, '%s command cancelled whilst queued behind higher priority command: %s'% (olderCmd.cmdVerb, mostRecentCmd.cmdVerb,))
+        oldestCmd = self.cmdQueue[0]
+        if oldestCmd.state == oldestCmd.Ready:
+            # start it running
+            oldestCmd.setState(oldestCmd.Running)
+            oldestCmd.exe()
+
+    

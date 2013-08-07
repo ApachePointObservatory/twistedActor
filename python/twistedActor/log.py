@@ -6,6 +6,7 @@ http://twistedmatrix.com/trac/browser/tags/releases/twisted-12.2.0/twisted/pytho
 """
 import twisted.python.log as log
 from twisted.python.logfile import LogFile
+import os
 
 LocalObservers = [] # a list of all currently active local logs (eg a single actor)
 
@@ -16,7 +17,7 @@ def writeToLog(msgStr, systemName, logPath):
         
         note: startLogging must be called before writeToLog
     """
-    global CurrObservers
+    global LocalObservers
 
     if systemName not in [obs.systemName for obs in LocalObservers]:
         # no logs have opened, start this one up
@@ -47,16 +48,14 @@ def startLocalLogging(systemName, dir):
     """
     fName = systemName + '.log'
     logFile = LogFile(fName, dir)
-    flo = ActorLogObserver(logFile, systemName)
-    print 'log.defaultObserver? before', log.defaultObserver
+    flo = SystemLogObserver(logFile, systemName)
     log.startLoggingWithObserver(flo.emit, setStdout=False)
-    print 'log.defaultObserver? after', log.defaultObserver
     return flo
     
-class ActorLogObserver(log.FileLogObserver):
+class SystemLogObserver(log.FileLogObserver):
     """A pickier version of FileLogObserver.  It will only log messages coming
     from a certain system (eg, a single actor or device).  stdin and stderr are 
-    not recorded, those will be pushed to a separate log.
+    not recorded.
     """
     def __init__(self, logFile, systemName):
         """ @param[in] logFile: a twisted LogFile-like object, which can be rotated, etc.

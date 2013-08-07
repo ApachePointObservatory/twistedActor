@@ -43,6 +43,12 @@ class BaseActor(object):
             port = userPort,
         )
     
+    def logMsg(self, msgStr):
+        """
+        Should be specified by subclasses.
+        """
+        raise NotImplementedError("When coding an actor, you must supply a method for logging.")
+    
     def cmdCallback(self, cmd):
         """Called when a user command changes state; report completion or failure
         """

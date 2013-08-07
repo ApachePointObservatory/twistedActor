@@ -18,7 +18,6 @@ from RO.AddCallback import BaseMixin
 from RO.Comm.TCPConnection import TCPConnection
 import opscore.actor
 from .command import DevCmd, DevCmdVar
-from .logs import writeToLog
 import os
 
 class Device(BaseMixin):
@@ -83,23 +82,6 @@ class Device(BaseMixin):
         self.cmdClass = cmdClass
         if callFunc:
             self.addCallback(callFunc, callNow=False)
-        # if TCC_LOGDIR is specified as an environment variable
-        # begin logging to it.
-#         self.logging = False
-#         self.logPath = os.getenv("TCC_LOGDIR")
-#         if self.logPath: 
-#             self.logging = True
-
-#     def logMsg(self, msgStr):
-#         """Write a message string to the log.  
-#         """
-#         if self.logging:
-#             writeToLog(msgStr, systemName=self.name, logPath=self.logPath) # system adds brackets
-    
-    def logMsg(self, msgStr):
-        """Write a message string to the log.  
-        """
-        raise NotImplementedError()
             
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
