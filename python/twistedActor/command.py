@@ -8,7 +8,6 @@ import RO.AddCallback
 import RO.Alg
 from RO.StringUtil import quoteStr
 from RO.Comm.TwistedTimer import Timer
-from collections import deque
 import copy
 
 class CommandError(Exception):
@@ -418,13 +417,15 @@ class CommandQueue(object):
     The __call__ attribue is deleted once a command is removed from the queue
     """
     def __init__(self):
-        #self.cmdQueue = deque()
         self.cmdQueue = []
         self.ruleDict = {}
         self._interrupt = None
  
     def __getitem__(self, ind):
         return self.cmdQueue[ind]
+
+    def __len__(self):
+        return len(self.cmdQueue)
         
     def addRule(self, cmdVerb, action, otherCmdVerbs=['all']):
         """ @param[in] cmdVerb: a command verb string
@@ -467,7 +468,7 @@ class CommandQueue(object):
             # command is done, find it in the queue and pop it.
             for ind in range(len(self.cmdQueue)):
                 qCmd = self.cmdQueue[ind]
-                if (qCmd.userID==cbCmd.userID) & (qCmd.cmdID==cbCmd.cmdID):
+                if (qCmd.userID==cbCmd.userID) and (qCmd.cmdID==cbCmd.cmdID):
                     delattr(qCmd, 'exe') # delete the callable attribute
                     del self.cmdQueue[ind] # remove the command from the queue, it's done
                     self.runQueue() # run the queue (if another command is waiting, get it going)
@@ -479,7 +480,7 @@ class CommandQueue(object):
         """Go through the queue, start any ready commands, handle collisions, etc
         unless defined in the self.cmdPriority definitions, an earlier command
         has priority and any later commands are failed immediately.  A command
-        must be told to queue itself, or cancel earlier commands
+        must be told to queue itself, or to supersede (cancel) earlier commands
         
         this is executed when a new command is added to the queue, and each time
         a command on the queue is set to a done state and thus removed from the
@@ -494,6 +495,8 @@ class CommandQueue(object):
         for olderCmd in self.cmdQueue[-2::-1]:
             # note: will never enter this loop if the mostRecentCmd is
             # the only command in the queue...
+            if olderCmd.state == olderCmd.Cancelling:
+                continue
             try:
                 rule = self.ruleDict[mostRecentCmd.cmdVerb]
             except KeyError:
@@ -514,13 +517,13 @@ class CommandQueue(object):
                     )                      
                 else:
                     # a rule pertains, sort it out  
-                    if rule.action == 'waitfor':
+                    if rule.action == 'waitsfor':
                         # easy, do nothing, but leave it in the queue where it is.
                         pass
                     elif olderCmd.state == olderCmd.Running:
                         # action is supersede and the command is running
-                        #if self.interrupt != None:
-                        self.interrupt(mostRecentCmd, olderCmd)
+                        olderCmd.setState(olderCmd.Cancelling)
+                        #self.interrupt(mostRecentCmd, olderCmd)
                         #olderCmd.setState(olderCmd.Failed, '%s cancelled whilst running by the higher priority command: %s' % (olderCmd.cmdVerb, mostRecentCmd.cmdVerb,))
                     else:
                         # action is supersed and command is ready (not running)
