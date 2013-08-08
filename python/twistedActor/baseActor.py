@@ -57,14 +57,16 @@ class BaseActor(object):
         msgCode, msgStr = cmd.hubFormat()
         self.writeToUsers(msgCode, msgStr, cmd=cmd)
 
-    def formatUserOutput(self, msgCode, msgStr, userID=None, cmdID=None):
+    @staticmethod
+    def formatUserOutput(msgCode, msgStr, userID=None, cmdID=None):
         """Format a string to send to the all users.
         """
         return "%d %d %s %s" % (cmdID, userID, msgCode, msgStr)
         # changed from:
         #return "%d %d %s %s" % (userID, cmdID, msgCode, msgStr)
     
-    def getUserCmdID(self, cmd=None, userID=None, cmdID=None):
+    @staticmethod
+    def getUserCmdID(cmd=None, userID=None, cmdID=None):
         """Return userID, cmdID based on user-supplied information.
         """
         return (
@@ -208,6 +210,16 @@ class BaseActor(object):
         #print "writeToOneUser(%s)" % (fullMsgStr,)
         self.logMsg("To One User(%s)" % (fullMsgStr,))
         sock.writeLine(fullMsgStr)
+
+    @classmethod
+    def writeToStdOut(cls, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
+        """Write a message to stdout.
+        
+        One use is writing properly formatted messages in the absence of an instance of BaseActor.
+        """
+        userID, cmdID = cls.getUserCmdID(cmd=cmd, userID=userID, cmdID=cmdID)
+        fullMsgStr = cls.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
+        print fullMsgStr
     
     def __str__(self):
         return "%s(userPort=%r)" % (self.__class__.__name__, self.server.port)

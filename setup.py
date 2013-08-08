@@ -1,16 +1,16 @@
 #!/usr/bin/env python
-"""Install the TclActor package. Requires setuptools.
+"""Install the twistedActor package. Requires setuptools.
 
 To use:
 python setup.py install
 
-Alternatively you can copy python/TclActor to site-packages
+Alternatively you can copy python/twistedActor to site-packages
 """
 from setuptools import setup, find_packages
 import sys
 import os
 
-PkgName = "TclActor"
+PkgName = "twistedActor"
 
 #if not hasattr(sys, 'version_info') or sys.version_info[0:2] < (2,5):
 #    raise SystemExit("%s requires Python 2.5 or later." % (PkgName,))
@@ -18,13 +18,13 @@ PkgName = "TclActor"
 PkgRoot = "python"
 PkgDir = os.path.join(PkgRoot, PkgName)
 sys.path.insert(0, PkgDir)
-import Version
-print "%s version %s" % (PkgName, Version.__version__)
+from twistedActor import __version__
+print "%s version %s" % (PkgName, __version__)
 
 setup(
     name = PkgName,
-    version = Version.__version__,
-    description = "Actor package based on the Tcl event loop",
+    version = __version__,
+    description = "Actor package based on Twisted Framework",
     author = "Russell Owen",
     package_dir = {PkgName: PkgDir},
     packages = find_packages(PkgRoot),
