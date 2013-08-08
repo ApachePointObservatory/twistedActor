@@ -412,14 +412,19 @@ class CommandQueue(object):
     """This is an object which keeps track of commands and smartly handles 
     command collisions based on rules chosen by you.
     
-    This modifies original commands to be callable.  The callable is 
-    specified by outside code (likely a Device) when a command is added to the queue.
-    The __call__ attribue is deleted once a command is removed from the queue
+    Intended use:
+    After construction, define collision rules via addRule().  Commands are compared 
+    using their cmdVerb attribue.  If a command is running on the queue, and a higher
+    priority command arrives and wants to cancel the current command, it's state is set
+    to: CANCELLING. IT IS UP FOR THE EXTERNAL CODE TO FULLY CANCEL THE COMMAND.
+    The callFunc associated with every command added to the queue received a copy
+    of the command, so the outside code should be monitoring for a cancelling state to
+    to any special cleanup before fully canceling the command.
+    
     """
     def __init__(self):
         self.cmdQueue = []
         self.ruleDict = {}
-        self._interrupt = None
  
     def __getitem__(self, ind):
         return self.cmdQueue[ind]
@@ -435,27 +440,18 @@ class CommandQueue(object):
                 Default action is to fail the command.
         """ 
         self.ruleDict[cmdVerb] = CommandRule(cmdVerb, action, otherCmdVerbs)
- 
-    @property
-    def interrupt(self):
-        if self._interrupt == None:
-            raise NotImplementedError('must specify interruption code')
-        else:
-            return self._interrupt
-
-    def addInterrupt(self, callable):
-        """callable receives 2 arguments, the interrupting command and the command being interupted.
-        should set the interrupted command to done.
-        """
-        #self._interrupt = callable
-        setattr(self, '_interrupt', callable)  
         
     def addCmd(self, cmd, callFunc, *args):
         """ @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
-            @param[in] callFunc: function to call when cmd is exectued, receives *args
+            @param[in] callFunc: function to call when cmd is exectued, receives *args, and the keywordArg userCmd=cmd
             @param[in] *args, any additional arguments to be passed to callFunc
+            
+            A command is added to the stack.  A new attribute is appended to the command:
+            cmd.exe, this is the callable that will be run when this command is to be run.
+            callFunc must at least a userCmd argument
         """
-        
+        if not hasattr(cmd, 'cmdVerb'):
+            raise RuntimeError('command on a CommandQueue must have a cmdVerb attribute')
         # make the cmd callable
         setattr(cmd, 'exe', lambda: callFunc(*args, userCmd=cmd)) # pass any args and the cmd itself
         self.cmdQueue.append(cmd)
@@ -478,11 +474,10 @@ class CommandQueue(object):
     
     def runQueue(self):
         """Go through the queue, start any ready commands, handle collisions, etc
-        unless defined in the self.cmdPriority definitions, an earlier command
-        has priority and any later commands are failed immediately.  A command
-        must be told to queue itself, or to supersede (cancel) earlier commands
+        Unless defined otherwise in the self.ruleDict definitions, an earlier command
+        has priority and any later commands are failed immediately.
         
-        this is executed when a new command is added to the queue, and each time
+        this is executed when a new command is added to the queue, and anytime
         a command on the queue is set to a done state and thus removed from the
         queue
         """
@@ -523,8 +518,6 @@ class CommandQueue(object):
                     elif olderCmd.state == olderCmd.Running:
                         # action is supersede and the command is running
                         olderCmd.setState(olderCmd.Cancelling)
-                        #self.interrupt(mostRecentCmd, olderCmd)
-                        #olderCmd.setState(olderCmd.Failed, '%s cancelled whilst running by the higher priority command: %s' % (olderCmd.cmdVerb, mostRecentCmd.cmdVerb,))
                     else:
                         # action is supersed and command is ready (not running)
                         olderCmd.setState(olderCmd.Cancelled, '%s command cancelled whilst queued behind higher priority command: %s'% (olderCmd.cmdVerb, mostRecentCmd.cmdVerb,))
