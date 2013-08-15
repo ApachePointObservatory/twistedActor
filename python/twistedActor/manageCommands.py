@@ -1,8 +1,8 @@
 """Contains objects for managing multiple commands at once.
 """
-from collections import deque
-
-__all__ = ["LinkCommands", "CommandQueue"]
+from .command import UserCmd
+from bisect import insort_right
+__all__ = ["LinkCommands", "CommandQueue", "QueuedCommand"]
 
 
 class LinkCommands(object):
@@ -55,45 +55,93 @@ class LinkCommands(object):
             textMsg = ''
         self.mainCmd.setState(state, textMsg = textMsg)
 
-class CommandRule(object):
-    def __init__(self, cmdVerb, rejectMeBehind, cancelQueued, cancelRunning):
-        """ An object for defining collision rules. Default behavior is to queue
+class QueuedCommand(object):
+    Immediate = 'immediate' # must match CommandQueue
+    CancelMe = 'cancelme'
+    CancelOther = 'cancelother'
+    KillOther = 'killother'
+    def __init__(self, cmd, priority, callFunc):
+        """The type of object queued in the CommandQueue.
         
-            @param[in] cmdVerb: a command verb string
-            @param[in] rejectMeBehind: a set of command names behind which 
-                this command should be rejected. 
-            @param[in] cancelQueued: a set of command names to automatically
-                cancel if they are queued infront of this command
-            @param[in] cancelRunning: a set of command names to automatically cancel if
-                running during the reception of this command on the stack. If a command in 
-                cancelRunning is not present in cancelQueued, it is added to cancelQueued
+            @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
+            @param[in] priority: an integer, or CommandQueue.Immediate
+            @param[in] callFunc: function to call when cmd is exectued, 
+                receives no arguments (use lambda to pass arguments!)
         """
-        for cmd in cancelRunning:
-            if not (cmd in cancelQueued):
-                cancelQueued += (cmd,) 
-            
-        self.cmdVerb = cmdVerb   
-        self.rejectMeBehind = tuple(rejectMeBehind)
-        self.cancelQueued = tuple(cancelQueued)
-        self.cancelRunning = tuple(cancelRunning)
+        if not hasattr(cmd, 'cmdVerb'):
+            raise RuntimeError('QueuedCommand must have a cmdVerb')
+        if not callable(callFunc):
+            raise RuntimeError('QueuedCommand must receive a callable function')
+        try:
+            priority = int(priority)
+        except:
+            if priority != self.Immediate:
+                raise RuntimeError('QueuedCommand must receive a priority ' \
+                    'which is an integer or QueuedCommand.Immediate')
+        self.cmd = cmd
+        self.priority = priority
+        self.callFunc = callFunc
+        self.collideDict = {}
+    
+    def addCollideRule(self, cmdVerb, action):
+        """ Add special handling behavior to commands colliding irregardless of priorities.
+        
+            @param[in] cmdVerb: the equal priority command ahead of this
+            @param[in] action: one of CancelMe, QueueMe, CancelOther, KillOther
+        """
+        if action not in (self.CancelMe, self.CancelOther, self.KillOther):
+            raise RuntimeError('Unknown action: %s' % action)
+        self.collideDict[cmdVerb] = action   
+
+    # overridden methods mainly for sorting purposes    
+    def __lt__(self, other):
+        if (self.priority == self.Immediate) and (other.priority != self.Immediate):
+            return False
+        elif (self.priority != self.Immediate) and (other.priority == self.Immediate):
+            return True
+        else:
+            return self.priority < other.priority
+ 
+    def __gt__(self, other):
+        if self.priority == other.priority:
+            return False
+        else:
+            return not (self < other)
+    
+    def __eq__(self, other):
+        return self.priority == other.priority
+    
+    def __ne__(self, other):
+        return not (self == other)
+    
+    def __le__(self, other):
+        return (self == other) or (self < other)
+    
+    def __ge__(self, other):
+        return (self == other) or (self > other)     
         
 class CommandQueue(object):
-    """This is an object which keeps track of commands and smartly handles 
-    command collisions based on rules chosen by you.
-    
-    Intended use:
-    After construction, define collision rules via addRule().  Commands are compared 
-    using their cmdVerb attribue.  If a command is running on the queue, and a higher
-    priority command arrives and wants to cancel the current command, it's state is set
-    to: CANCELLING. IT IS UP FOR THE EXTERNAL CODE TO FULLY CANCEL THE COMMAND.
-    The callFunc associated with every command added to the queue received a copy
-    of the command, so the outside code should be monitoring for a cancelling state to
-    to any special cleanup before fully canceling the command.
+    """A command queue.  Default behavior is to queue all commands and 
+    execute them one at a time in order of priority.  Equal priority commands are
+    executed in the order received.  Special rules may be defined for handling special cases
+    of command collisions.
     """
-    # queue rules
-    def __init__(self):
+    Immediate = 'immediate'
+    def __init__(self, killFunc):
+        """ This is an object which keeps track of commands and smartly handles 
+            command collisions based on rules chosen by you.
+            
+            @ param[in] killFunc: a function to call when a running command needs to be 
+                killed.  Accepts 1 parameter, the command to be canceled.  This function
+                must eventually ensure that the running command is canceled safely 
+                allowing for the next queued command to go.
+        """
         self.cmdQueue = []
-        self.ruleDict = {}
+        dumCmd = UserCmd()
+        dumCmd.setState(dumCmd.Done)
+        dumCmd.cmdVerb = 'dum'
+        self.currExeCmd = QueuedCommand(dumCmd, 0, lambda: '')
+        self.killFunc = killFunc
  
     def __getitem__(self, ind):
         return self.cmdQueue[ind]
@@ -101,33 +149,19 @@ class CommandQueue(object):
     def __len__(self):
         return len(self.cmdQueue)
         
-    def addRule(self, cmdVerb, rejectMeBehind=(), cancelQueued=(), cancelRunning=()):
-        """ Add a rule. See CommandRule Docs.
-        """ 
-        self.ruleDict[cmdVerb] = CommandRule(cmdVerb, rejectMeBehind, cancelQueued, cancelRunning)
+    def addCmd(self, toQueue):
+        """ Add a command to the queue.
         
-    def addCmd(self, cmd, callFunc, *args):
-        """ @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
-            @param[in] callFunc: function to call when cmd is exectued, receives *args, and the keywordArg userCmd=cmd
-            @param[in] *args, any additional arguments to be passed to callFunc
-            
-            A command is added to the stack.  A new attribute is appended to the command:
-            cmd.exe, this is the callable that will be run when this command is to be run.
-            callFunc must at least a userCmd argument
+            @param[in] toQueue: a QueuedCommand object
         """
-        if not hasattr(cmd, 'cmdVerb'):
-            raise RuntimeError('command on a CommandQueue must have a cmdVerb attribute')
-        
-        # compare cmd with current commands on the queue
-        for cmdOnStack, foo in self.cmdQueue[:]:
-            # copy self.cmdQueue because collideCmds may be cancelling
-            # commands in self.cmdQueue and such commands have a callback registered
-            # to remove themselves from the queue when they are done!
-            self.collideCmds(cmd, cmdOnStack)
-            if cmd.isDone:
-                # incoming command was rejected
-                return 
-        
+        if self.currExeCmd.cmd.isActive and (self.currExeCmd.priority == self.currExeCmd.Immediate):
+            # queue is locked until the immediate priority command is finished
+            toQueue.cmd.setState(
+                toQueue.cmd.Cancelled, 
+                'Cancelled by a currently executing command %s' % (self.currExeCmd.cmd.cmdVerb)
+            )
+            return            
+            
         def removeWhenDone(cbCmd):
             """add this callback to the command so it will automatically remove
             itself from the list when it had been set to done.
@@ -136,66 +170,78 @@ class CommandQueue(object):
                 return
             # command is done, find it in the queue and pop it.
             for ind in range(len(self.cmdQueue)):
-                qCmd, foo = self.cmdQueue[ind]
-                if (qCmd.userID==cbCmd.userID) and (qCmd.cmdID==cbCmd.cmdID):
-                    #delattr(qCmd, 'exe') # delete the callable attribute
+                qCmd = self.cmdQueue[ind]
+                if (qCmd.cmd.userID==cbCmd.userID) and (qCmd.cmd.cmdID==cbCmd.cmdID):
                     del self.cmdQueue[ind] # remove the command from the queue, it's done
                     self.runQueue() # run the queue (if another command is waiting, get it going)
                     return
-        cmd.addCallback(removeWhenDone)
-        self.cmdQueue.append((cmd, lambda: callFunc(*args, userCmd=cmd)))
-        self.runQueue()
-
-    def collideCmds(self, incommingCmd, cmdOnStack):
-        """set the state (or not) of incommingCmd and/or cmdOnStack based on previously defined
-        rules.
-        """
-        if cmdOnStack.state == cmdOnStack.Cancelling:
-            # command is in the process of being cancelled, treat as if it is not present
-            return
-        # find rule for incommingCmd
-        try:
-            rule = self.ruleDict[incommingCmd.cmdVerb]
-        except KeyError:
-            # no rules have been added pertaining to this command, do nothing.
-            # it will remain queued
-            return
-        # first check if cmdOnStack is currently running.
-        if (cmdOnStack.state == cmdOnStack.Running) and (cmdOnStack.cmdVerb in rule.cancelRunning):
-            # this command is running and it should be cancelled, set 
-            # the state to cancelling and let outside code (which should be listening
-            # for cancelling state) handle any needed cleanup before fully cancelling.
-            cmdOnStack.setState(cmdOnStack.Cancelling)
-        elif cmdOnStack.cmdVerb in rule.cancelQueued:
-            assert cmdOnStack.state == cmdOnStack.Ready
-            # command is not running, so it must be queued and ready
-            cmdOnStack.setState(
-                cmdOnStack.Cancelled, 
-                'Queued Command: %s cancelled by higher priority command: %s' % \
-                (cmdOnStack.cmdVerb, incommingCmd.cmdVerb)
-            )
-        elif cmdOnStack.cmdVerb in rule.rejectMeBehind:
-            # automatically reject the incommingCmd
-            incommingCmd.setState(
-                incommingCmd.Cancelled,
-                'Command %s may not be queued behind command: s' %\
-                (incommingCmd.cmdVerb, cmdOnStack.cmdVerb)
-            )
-        else:
-            # do nothing, leave the incommingCmd on the queue.
-            pass
-    
-    def runQueue(self):
-        """Go through the queue, start any ready commands, handle collisions, etc
+            # incase command was removed from queue to be executed
+            self.runQueue()
+        toQueue.cmd.addCallback(removeWhenDone)
         
-        This is executed when a new command is added to the queue, and anytime
-        a old command pops off the queue.
+        if toQueue.priority == toQueue.Immediate:
+            # clear the cmdQueue
+            [q.cmd.setState(q.cmd.Cancelled) for q in self.cmdQueue] 
+        else:
+            for cmdOnStack in self.cmdQueue[:]: # looping through queue from highest to lowest priority
+                if cmdOnStack < toQueue:
+                    # all remaining queued commands
+                    # are of lower priority.
+                    # and will not effect the incoming command in any way
+                    break
+                if cmdOnStack.cmd.cmdVerb in toQueue.collideDict.keys():
+                    # special handling of this collision is wanted
+                    action = toQueue.collideDict[cmdOnStack.cmd.cmdVerb]
+                    if (action==toQueue.CancelMe):
+                        # cancel the incoming command before ever running
+                        # never reaches the queue
+                        toQueue.cmd.setState(
+                            toQueue.cmd.Cancelled, 
+                            'Cancelled by a preceeding command in the queue %s' % (cmdOnStack.cmd.cmdVerb)
+                        )
+                        return
+                    else:
+                        # cancel the queued command, only other action option 
+                        # note the command will automatically remove itself from the queue
+                        cmdOnStack.cmd.setState(
+                            cmdOnStack.cmd.Cancelled,
+                            'Cancelled by a new command added to the queue %s' % (toQueue.cmd.cmdVerb)
+                        )
+            
+        insort_right(self.cmdQueue, toQueue) # inserts in sorted order
+        self.runQueue() 
+   
+    def runQueue(self):
+        """ Manage Executing commands
         """
+        # prune the queue, throw out done commands
+        self.cmdQueue = [qc for qc in self.cmdQueue[:] if not qc.cmd.isDone]
         if len(self.cmdQueue) == 0:
-            # no commands on queue, nothing happening.
-            return
-        oldestCmd, exe = self.cmdQueue[0]
-        if oldestCmd.state == oldestCmd.Ready:
-            # start it running
-            oldestCmd.setState(oldestCmd.Running)
-            exe()
+            # the command queue is empty, nothing to run
+            pass
+        elif self.currExeCmd.cmd.isDone:
+            # begin the next command on the queue
+            self.currExeCmd = self.cmdQueue.pop(0)
+            self.currExeCmd.cmd.setState(self.currExeCmd.cmd.Running)
+            self.currExeCmd.callFunc()
+        elif self.currExeCmd.cmd.state == self.currExeCmd.cmd.Cancelling:
+            # leave it alone
+            pass
+        elif self.cmdQueue[0] > self.currExeCmd:
+            # command at top of queue beats the currently executing one.
+            self.killFunc(self.currExeCmd.cmd)
+        elif self.currExeCmd.cmd.cmdVerb in self.cmdQueue[0].collideDict.keys():
+            # a rule exists for this collision, check if it's a kill order
+            if self.cmdQueue[0].collideDict[self.currExeCmd.cmd.cmdVerb] == self.cmdQueue[0].KillOther:
+                self.killFunc(self.currExeCmd.cmd)
+            elif self.cmdQueue[0].collideDict[self.currExeCmd.cmd.cmdVerb] == self.cmdQueue[0].CancelMe:
+                self.cmdQueue[0].cmd.setState(
+                    self.cmdQueue[0].cmd.Cancelled, 
+                    '%s cancelled by currently executing command: %s' \
+                        % (self.cmdQueue[0].cmd.cmdVerb, self.currExeCmd.cmc.cmbVerb)
+                )
+        else:
+            # command is currently active and should remain that way
+            pass 
+        
+        
