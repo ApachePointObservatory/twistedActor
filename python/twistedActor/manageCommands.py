@@ -204,7 +204,10 @@ class CommandQueue(object):
         
         if toQueue.priority == CommandQueue.Immediate:
             # clear the cmdQueue
-            [q.cmd.setState(q.cmd.Cancelled) for q in self.cmdQueue] 
+            [q.cmd.setState(q.cmd.Cancelled) for q in self.cmdQueue]
+            # cancel the running command, if needed
+            if not self.currExeCmd.cmd.isDone: 
+                self.killFunc(self.currExeCmd.cmd)
         else:
             for cmdOnStack in self.cmdQueue[:]: # looping through queue from highest to lowest priority
                 if cmdOnStack < toQueue:
@@ -233,6 +236,12 @@ class CommandQueue(object):
                             cmdOnStack.cmd.Cancelled,
                             'Cancelled by a new command added to the queue %s' % (toQueue.cmd.cmdVerb)
                         )
+                elif cmdOnStack.cmd.cmdVerb == toQueue.cmd.cmdVerb:
+                    # newer command should supersede the old
+                    cmdOnStack.cmd.setState(
+                        cmdOnStack.cmd.Cancelled,
+                        'Superseded by a new command added to the queue %s' % (toQueue.cmd.cmdVerb)
+                    )
             
         insort_right(self.cmdQueue, toQueue) # inserts in sorted order
         self.runQueue() 
@@ -258,9 +267,6 @@ class CommandQueue(object):
         elif self.currExeCmd.cmd.state == self.currExeCmd.cmd.Cancelling:
             # leave it alone
             pass
-        elif self.cmdQueue[0] > self.currExeCmd:
-            # command at top of queue beats the currently executing one.
-            self.killFunc(self.currExeCmd.cmd)
         elif self.getRule(self.cmdQueue[0].cmd.cmdVerb, self.currExeCmd.cmd.cmdVerb):
             action = self.getRule(self.cmdQueue[0].cmd.cmdVerb, self.currExeCmd.cmd.cmdVerb)
             # a rule exists for this collision, check if it's a kill order
