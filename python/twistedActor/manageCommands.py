@@ -134,12 +134,12 @@ class CommandQueue(object):
         self.currExeCmd = QueuedCommand(dumCmd, 0, lambda: '')
         self.killFunc = killFunc
         self.priorityDict = priorityDict
-        self.ruleDict = {}
+        self.ruleDict = {} #dict.fromkeys(priorityDict.keys(), {})
         # initialize every combination of rules to None
-        for cmd in priorityDict.iterkeys():
-            self.ruleDict[cmd] = {}
-            for othercmd in priorityDict.iterkeys():
-                self.ruleDict[cmd][othercmd] = None
+#         for cmd in priorityDict.iterkeys():
+#             self.ruleDict[cmd] = {}
+#             for othercmd in priorityDict.iterkeys():
+#                 self.ruleDict[cmd][othercmd] = None
  
     def __getitem__(self, ind):
         return self.cmdQueue[ind]
@@ -162,18 +162,24 @@ class CommandQueue(object):
                 (self.CancelNew, self.CancelQueued, self.KillRunning, action)
             )
         for nc in newCmds:
+            if not nc in self.ruleDict:
+                self.ruleDict[nc] = {}
             for qc in queuedCmds:
-                if self.ruleDict[nc][qc] != None:
+                print 'ruledict: ', self.ruleDict
+                if qc in self.ruleDict[nc]:
                     raise RuntimeError(
                         'Cannot set Rule: %s for new command %s vs queued' \
                         ' command %s.  Already set to %s' % \
                         (action, nc, qc, self.ruleDict[nc][qc])
                     )
+                print 'setting ', nc, qc, action
                 self.ruleDict[nc][qc] = action
-
     
     def getRule(self, newCmd, queuedCmd):
-          return self.ruleDict[newCmd][queuedCmd]    
+        if (newCmd in self.ruleDict) and (queuedCmd in self.ruleDict[newCmd]):
+            return self.ruleDict[newCmd][queuedCmd]  
+        else:
+            return None  
             
     def addCmd(self, cmd, callFunc):
         """ Add a command to the queue.
