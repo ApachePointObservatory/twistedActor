@@ -393,14 +393,16 @@ class LinkCommands(object):
         self.mainCmd.setState(state, textMsg = textMsg)
 
 class CommandRule(object):
-    """simple object for defining collision rules
+    """A command collision rule for CommandQueue
     """
     def __init__(self, cmdVerb, action, otherCmdVerbs):
-        """ @param[in] cmdVerb: a command verb string
-            @param[in] action: an action string, either 'supersedes' or 'waitsfor'
-            @param[in] otherCmdVerbs: a list of all other cmd verbs that the action
-                should apply to. 'all' will apply action to any command. 
-                Default action is to fail the command.
+        """Construct a CommandRule
+
+        @param[in] cmdVerb: a command verb string
+        @param[in] action: an action string, either 'supersedes' or 'waitsfor'
+        @param[in] otherCmdVerbs: a list of all other cmd verbs that the action
+            should apply to. 'all' will apply action to any command. 
+            Default action is to fail the command.
         """ 
         if action.lower() not in ['supersedes', 'waitsfor']:
             raise RuntimeError('action must be on of "supersedes" or "waitsfor"')
@@ -409,18 +411,13 @@ class CommandRule(object):
         self.otherCmdVerbs = otherCmdVerbs
 
 class CommandQueue(object):
-    """This is an object which keeps track of commands and smartly handles 
-    command collisions based on rules chosen by you.
+    """A queue of commands that handles command collisions based on user-specified rules.
     
-    Intended use:
-    After construction, define collision rules via addRule().  Commands are compared 
-    using their cmdVerb attribue.  If a command is running on the queue, and a higher
-    priority command arrives and wants to cancel the current command, it's state is set
-    to: CANCELLING. IT IS UP FOR THE EXTERNAL CODE TO FULLY CANCEL THE COMMAND.
-    The callFunc associated with every command added to the queue received a copy
-    of the command, so the outside code should be monitoring for a cancelling state to
-    to any special cleanup before fully canceling the command.
+    After construction, define collision rules via addRule(). Rules are indexed by cmdVerb.
     
+    @warning: if a command should be canceled by a new command, this command queue simply
+    sets its state Cancelling; it is up external code (presumably the command's callback function)
+    to perform any necessary cleanup and set the command's state to Canceled.
     """
     def __init__(self):
         self.cmdQueue = []
@@ -433,22 +430,25 @@ class CommandQueue(object):
         return len(self.cmdQueue)
         
     def addRule(self, cmdVerb, action, otherCmdVerbs=['all']):
-        """ @param[in] cmdVerb: a command verb string
-            @param[in] action: an action string, either 'supersedes' or 'waitsfor'
-            @param[in] otherCmdVerbs: a list of all other cmd verbs that the action
-                should apply to. 'all' will apply action to any command. 
-                Default action is to fail the command.
+        """Add a rule for a command
+        
+        @param[in] cmdVerb: a command verb string
+        @param[in] action: an action string, either 'supersedes' or 'waitsfor'
+        @param[in] otherCmdVerbs: a list of all other cmd verbs that the action
+            should apply to. 'all' will apply action to any command. 
+            Default action is to fail the command.
         """ 
         self.ruleDict[cmdVerb] = CommandRule(cmdVerb, action, otherCmdVerbs)
         
     def addCmd(self, cmd, callFunc, *args):
-        """ @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
-            @param[in] callFunc: function to call when cmd is exectued, receives *args, and the keywordArg userCmd=cmd
-            @param[in] *args, any additional arguments to be passed to callFunc
-            
-            A command is added to the stack.  A new attribute is appended to the command:
-            cmd.exe, this is the callable that will be run when this command is to be run.
-            callFunc must at least a userCmd argument
+        """Add a command verb to the queue
+        
+        @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
+        @param[in] callFunc: function to call when cmd is exectued, receives *args, and the keywordArg userCmd=cmd
+        @param[in] *args, any additional arguments to be passed to callFunc
+        
+        Adds a new attribute to the command: cmd.exe, this is run when this command is to be run.
+        callFunc must at least a userCmd argument
         """
         if not hasattr(cmd, 'cmdVerb'):
             raise RuntimeError('command on a CommandQueue must have a cmdVerb attribute')
@@ -473,13 +473,14 @@ class CommandQueue(object):
         self.runQueue()
     
     def runQueue(self):
-        """Go through the queue, start any ready commands, handle collisions, etc
+        """Start the next command.
+        
+        Go through the queue, start any ready commands, handle collisions, etc
         Unless defined otherwise in the self.ruleDict definitions, an earlier command
         has priority and any later commands are failed immediately.
         
-        this is executed when a new command is added to the queue, and anytime
-        a command on the queue is set to a done state and thus removed from the
-        queue
+        This is executed when a command is added to the queue, and when any command
+        on the queue finishes (is set to a done state).
         """
         if len(self.cmdQueue) == 0:
             # no commands on queue, nothing happening.
