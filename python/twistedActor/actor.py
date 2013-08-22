@@ -47,13 +47,12 @@ class Actor(BaseActor):
     ):
         """Construct an Actor
     
-        Inputs:
-        - userPort      port on which to listen for users
-        - devs          a collection of Device objects that this ICC controls
-        - maxUsers      the maximum allowed # of users; if 0 then there is no limit
-        - doDebugMsgs   print debug messages?
-        - version       actor version str
-        - name          a name, used for logging
+        @param[in] userPort: port on which to listen for users
+        @param[in] devs: a collection of Device objects that this ICC controls
+        @param[in] maxUsers: the maximum allowed # of users; if 0 then there is no limit
+        @param[in] doDebugMsgs: print debug messages?
+        @param[in] version: actor version str
+        @param[in] name: actor name, used for logging
         """
         devs = tuple(devs)
         # local command dictionary containing cmd verb: method
@@ -98,30 +97,41 @@ class Actor(BaseActor):
 
     def initialConn(self):
         """Perform initial connections.
-        Normally this just calls cmd_connDev,
-        but you can override this command if you need a special startup sequence
-        such as waiting until devices boot up.
+        
+        Normally this just calls cmd_connDev, but you can override this command
+        if you need a special startup sequence, such as waiting until devices boot up.
         """
         self.cmd_connDev()
     
     def checkNoArgs(self, newCmd):
-        """Raise CommandError if newCmd has arguments"""
+        """Raise CommandError if newCmd has arguments
+        """
         if newCmd and newCmd.cmdArgs:
             raise CommandError("%s takes no arguments" % (newCmd.cmdVerb,))
     
     def checkLocalCmd(self, newCmd):
-        """Check if the new local command can run given what else is going on.
-        If not then raise CommandError(textMsg)
-        If it can run but an existing command must be superseded then supersede the old command here.
+        """Check if the new local command can run given what else is going on
         
-        Note that each cmd_foo method can perform additional checks and cancellation.
+        @param[in] newCmd: new local user command (twistedActor.UserCmd);
+            "local" means this command will trigger a cmd_<verb> method of this actor
 
-        Subclasses will typically want to override this method.
+        If the new command cannot run then raise CommandError
+        If the new command can run but must be superseded, then supersed the old command here.
+        If it can run but an existing command must be superseded then supersede the old command here.
+
+        Subclasses will typically want to override this method, as the default implementation does nothing
+        (thus accepting all new local commands).
+        
+        Note that each cmd_foo method can perform additional checks and cancellation;
+        this method allows a preliminary check, potentially simplifying cmd_<verb> methods.
         """
         pass
     
     def devConnStateCallback(self, conn):
-        """Called when a device's connection state changes."""
+        """Called when a device's connection state changes
+        
+        @param[in] conn: device connection whose state has changed
+        """
         dev = self.dev.getFromConnection(conn)
         wantConn, cmd = dev.connReq
         self.showOneDevConnStatus(dev, cmd=cmd)
@@ -139,7 +149,9 @@ class Actor(BaseActor):
     def parseAndDispatchCmd(self, cmd):
         """Parse and dispatch a command
         
-        Note: command name collisions are resolved as follows:
+        @param[in] cmd: user command (twistedActor.UserCmd)
+        
+        Duplicate command names are resolved such that the first match in this list is used:
         - local commands (cmd_<foo> methods of this actor)
         - commands handled by devices
         - direct device access commands (device name)
@@ -214,19 +226,28 @@ class Actor(BaseActor):
     def showNewUserInfo(self, sock):
         """Show information for new users; called automatically when a new user connects
         
-        Inputs:
-        - fakeCmd: a minimal command that just contains the ID of the new user
+        @param[in] sock: socket connection to new user
         """
         fakeCmd = BaseActor.showNewUserInfo(self, sock) 
         self.showDevConnStatus(cmd=fakeCmd, onlyOneUser=True, onlyIfNotConn=True)
     
     def showDevConnStatus(self, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
-        """Show connection status for all devices"""
+        """Show connection status for all devices
+        
+        @param[in] cmd: user command (twistedActor.UserCmd)
+        @param[in] onlyOneUser: if True only display the information to the commanding user
+        @param[in] onlyIfNotConn: only show information for devices that are disconnected
+        """
         for dev in self.dev.nameDict.itervalues():
             self.showOneDevConnStatus(dev, onlyOneUser=onlyOneUser, onlyIfNotConn=onlyIfNotConn, cmd=cmd)
     
     def showOneDevConnStatus(self, dev, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
-        """Show connection status for one device"""
+        """Show connection status for one device
+        
+        @param[in] cmd: user command (twistedActor.UserCmd)
+        @param[in] onlyOneUser: if True only display the information to the commanding user
+        @param[in] onlyIfNotConn: only show information for devices that are disconnected
+        """
         if onlyIfNotConn and dev.conn.isConnected:
             return
 

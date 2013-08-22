@@ -1,1 +1,5 @@
 *.pyc
+.scon*
+config.log
+tests/.tests
+*.cfgc
