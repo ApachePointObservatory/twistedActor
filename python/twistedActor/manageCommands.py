@@ -1,7 +1,7 @@
 """Contains objects for managing multiple commands at once.
 """
 from .command import UserCmd
-from bisect import insort_right
+from bisect import insort_right, insort_left
 
 
 __all__ = ["LinkCommands", "CommandQueue"]
@@ -134,12 +134,8 @@ class CommandQueue(object):
         self.currExeCmd = QueuedCommand(dumCmd, 0, lambda: '')
         self.killFunc = killFunc
         self.priorityDict = priorityDict
-        self.ruleDict = {} #dict.fromkeys(priorityDict.keys(), {})
-        # initialize every combination of rules to None
-#         for cmd in priorityDict.iterkeys():
-#             self.ruleDict[cmd] = {}
-#             for othercmd in priorityDict.iterkeys():
-#                 self.ruleDict[cmd][othercmd] = None
+        self.ruleDict = {} 
+
  
     def __getitem__(self, ind):
         return self.cmdQueue[ind]
@@ -155,7 +151,9 @@ class CommandQueue(object):
         @param[in] queuedCmds: a list of the commands presently on the queue 
             (or running) to which this rule applies
         """
-
+        for cmdName in newCmds + queuedCmds:
+            if cmdName not in self.priorityDict:
+                raise RuntimeError('Cannont add rule to unrecognized command: %s' % (cmdName,))
         if action not in (self.CancelNew, self.CancelQueued, self.KillRunning):
             raise RuntimeError(
                 'Rule action must be one of %s, %s, or %s. Received: %s' % \
@@ -165,14 +163,12 @@ class CommandQueue(object):
             if not nc in self.ruleDict:
                 self.ruleDict[nc] = {}
             for qc in queuedCmds:
-                print 'ruledict: ', self.ruleDict
                 if qc in self.ruleDict[nc]:
                     raise RuntimeError(
                         'Cannot set Rule: %s for new command %s vs queued' \
                         ' command %s.  Already set to %s' % \
                         (action, nc, qc, self.ruleDict[nc][qc])
                     )
-                print 'setting ', nc, qc, action
                 self.ruleDict[nc][qc] = action
     
     def getRule(self, newCmd, queuedCmd):
@@ -186,28 +182,34 @@ class CommandQueue(object):
         
             @param[in] toQueue: a QueuedCommand object
         """
+        if cmd.cmdVerb not in self.priorityDict:
+            raise RuntimeError('Cannont queue unrecognized command: %s' % (cmd.cmdVerb,))
         
         toQueue = QueuedCommand(
             cmd = cmd,
             priority = self.priorityDict[cmd.cmdVerb],
             callFunc = callFunc
         )
-        if self.currExeCmd.cmd.isActive and (self.currExeCmd.priority == CommandQueue.Immediate):
-            # queue is locked until the immediate priority command is finished
-            toQueue.cmd.setState(
-                toQueue.cmd.Cancelled, 
-                'Cancelled by a currently executing command %s' % (self.currExeCmd.cmd.cmdVerb)
-            )
-            return            
+        
+#         if self.currExeCmd.cmd.isActive and (self.currExeCmd.priority == CommandQueue.Immediate):
+#             # queue is locked until the immediate priority command is finished
+#             toQueue.cmd.setState(
+#                 toQueue.cmd.Cancelled, 
+#                 'Cancelled by a currently executing command %s' % (self.currExeCmd.cmd.cmdVerb)
+#             )
+#             return            
          
         toQueue.cmd.addCallback(self.runQueue)
         
         if toQueue.priority == CommandQueue.Immediate:
             # clear the cmdQueue
-            [q.cmd.setState(q.cmd.Cancelled) for q in self.cmdQueue]
-            # cancel the running command, if needed
+            ditchTheseCmds = [q.cmd for q in self.cmdQueue] # will be canceled
+            insort_left(self.cmdQueue, toQueue)
+            for sadCmd in ditchTheseCmds:
+                sadCmd.setState(sadCmd.Cancelled)
             if not self.currExeCmd.cmd.isDone: 
                 self.killFunc(self.currExeCmd.cmd)
+            self.runQueue()
         else:
             for cmdOnStack in self.cmdQueue[:]: # looping through queue from highest to lowest priority
                 if cmdOnStack < toQueue:
@@ -242,9 +244,9 @@ class CommandQueue(object):
                         cmdOnStack.cmd.Cancelled,
                         'Superseded by a new command added to the queue %s' % (toQueue.cmd.cmdVerb)
                     )
-            
-        insort_right(self.cmdQueue, toQueue) # inserts in sorted order
-        self.runQueue() 
+
+            insort_left(self.cmdQueue, toQueue) # inserts in sorted order
+            self.runQueue() 
    
     def runQueue(self, optCmd=None):
         """ Manage Executing commands
@@ -261,7 +263,7 @@ class CommandQueue(object):
             pass
         elif self.currExeCmd.cmd.isDone:
             # begin the next command on the queue
-            self.currExeCmd = self.cmdQueue.pop(0)
+            self.currExeCmd = self.cmdQueue.pop(-1)
             self.currExeCmd.cmd.setState(self.currExeCmd.cmd.Running)
             self.currExeCmd.callFunc()
         elif self.currExeCmd.cmd.state == self.currExeCmd.cmd.Cancelling:
@@ -273,7 +275,6 @@ class CommandQueue(object):
             if action == self.KillRunning:
                 self.killFunc(self.currExeCmd.cmd)
             elif action == self.CancelNew:
-                print self.currExeCmd.cmd.cmdVerb, 'cancelling', self.cmdQueue[0].cmd.cmdVerb
                 self.cmdQueue[0].cmd.setState(
                     self.cmdQueue[0].cmd.Cancelled, 
                     '%s cancelled by currently executing command: %s' \
