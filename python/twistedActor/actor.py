@@ -14,7 +14,6 @@ from .baseActor import BaseActor
 from .command import CommandError
 from .device import DeviceCollection
 
-
 class Actor(BaseActor):
     """Base class for a hub actor or instrument control computer with a unix-like command syntax
     
