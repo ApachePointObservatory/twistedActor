@@ -215,8 +215,11 @@ class DevCmd(BaseCmd):
         - cmdStr: command string
         - callFunc: function to call when command changes state;
             receives one argument: this command
-        - userCmd: a user command that will track this new device command
+        - userCmd: user command to set done when device command is done, or None
         - timeLim: time limit for command (sec); if None or 0 then no time limit
+
+        If userCmd is specified then its state is set to the same state as the device command
+        when the device command is done (e.g. Cancelled, Done or Failed).
         """
         self.locCmdID = self._LocCmdIDGen.next()
         BaseCmd.__init__(self,
