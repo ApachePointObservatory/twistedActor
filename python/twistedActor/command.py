@@ -4,11 +4,11 @@ __all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd", "LinkCom
 
 import re
 import sys
+
 import RO.AddCallback
 import RO.Alg
 from RO.StringUtil import quoteStr
 from RO.Comm.TwistedTimer import Timer
-import copy
 
 class CommandError(Exception):
     """Raise for a "normal" command failure
@@ -52,13 +52,12 @@ class BaseCmd(RO.AddCallback.BaseMixin):
     ):
         """Construct a BaseCmd
         
-        Inputs:
-        - cmdStr: command string
-        - userID: user ID number
-        - cmdID: command ID number
-        - callFunc: function to call when command changes state;
+        @param[in] cmdStr: command string
+        @param[in] userID: user ID number
+        @param[in] cmdID: command ID number
+        @param[in] callFunc: function to call when command changes state;
             receives one argument: this command
-        - timeLim: time limit for command (sec); if None or 0 then no time limit
+        @param[in] timeLim: time limit for command (sec); if None or 0 then no time limit
         """
         self._cmdStr = cmdStr
         self.userID = int(userID)
@@ -102,14 +101,14 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """Return the hub message code appropriate to the current state"""
         return self._MsgCodeDict[self.state]
     
-    def hubFormat(self):
+    def hubFormat(self, textPrefix=""):
         """Return (msgCode, msgStr) for output of status as a hub-formatted message"""
         msgCode = self._MsgCodeDict[self.state]
         msgInfo = []
         if self._hubMsg:
             msgInfo.append(self._hubMsg)
-        if self._textMsg:
-            msgInfo.append("Text=%s" % (quoteStr(self._textMsg),))
+        if self._textMsg or textPrefix:
+            msgInfo.append("Text=%s" % (quoteStr(textPrefix + self._textMsg),))
         msgStr = "; ".join(msgInfo)
         return (msgCode, msgStr)
     
@@ -118,10 +117,9 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         
         If new state is done then remove all callbacks (after calling them).
         
-        Inputs:
-        - newState: new state of command
-        - textMsg: a message to be printed using the Text keyword
-        - hubMsg: a message in keyword=value format (without a header)
+        @param[in] newState: new state of command
+        @param[in] textMsg: a message to be printed using the Text keyword
+        @param[in] hubMsg: a message in keyword=value format (without a header)
 
         If the new state is Failed then please supply a textMsg and/or hubMsg.
         
@@ -199,6 +197,7 @@ class DevCmd(BaseCmd):
     * fullCmdStr returns: locCmdID cmdStr
     
     Useful attributes:
+    - dev: device being commanded (if specified, as it will be for calls to Device.startCmd)
     - locCmdID: command ID number (assigned when the device command is created);
         this is the command ID for the command sent to the device
     """
@@ -208,20 +207,23 @@ class DevCmd(BaseCmd):
         callFunc = None,
         userCmd = None,
         timeLim = None,
+        dev = None,
     ):
         """Construct a DevCmd
         
-        Inputs:
-        - cmdStr: command string
-        - callFunc: function to call when command changes state;
+        @param[in] cmdStr: command string
+        @param[in] callFunc: function to call when command changes state, or None;
             receives one argument: this command
-        - userCmd: user command to set done when device command is done, or None
-        - timeLim: time limit for command (sec); if None or 0 then no time limit
+        @param[in] userCmd: user command to set done when device command is done, or None
+        @param[in] timeLim: time limit for command (sec); if None or 0 then no time limit
+        @param[in] dev: device being commanded; for simple actors and devices this can probably be left None,
+            but for complex actors it can be very helpful information, e.g. for callback functions
 
         If userCmd is specified then its state is set to the same state as the device command
         when the device command is done (e.g. Cancelled, Done or Failed).
         """
         self.locCmdID = self._LocCmdIDGen.next()
+        self.dev = dev
         BaseCmd.__init__(self,
             cmdStr = cmdStr,
             callFunc = callFunc,
@@ -251,21 +253,22 @@ class DevCmdVar(BaseCmd):
         callFunc = None,
         userCmd = None,
         timeLim = None,
+        dev = None,
     ):
         """Construct an DevCmdVar
         
-        Inputs:
-        - cmdVar: the command variable to wrap (an instance of opscore.actor.CmdVar)
-        - callFunc: function to call when command changes state;
+        @param[in] cmdVar: the command variable to wrap (an instance of opscore.actor.CmdVar)
+        @param[in] callFunc: function to call when command changes state;
             receives one argument: this command
-        - userCmd: a user command that will track this new device command
-        - timeLim: time limit for command (sec); if None or 0 then no time limit
+        @param[in] userCmd: a user command that will track this new device command
+        @param[in] timeLim: time limit for command (sec); if None or 0 then no time limit
         """
         BaseCmd.__init__(self,
             cmdStr = "", # instead of copying cmdVar.cmdStr, override the cmdStr property below
             callFunc = callFunc,
             timeLim = timeLim,
         )
+        self.dev = dev
 
         if userCmd:
             self.userID = userCmd.userID
@@ -310,12 +313,11 @@ class UserCmd(BaseCmd):
     ):
         """Construct a UserCmd
     
-        Inputs:
-        - userID    ID of user (always 0 if a single-user actor)
-        - cmdStr    full command
-        - callFunc  function to call when command finishes or fails;
+        @param[in] userID    ID of user (always 0 if a single-user actor)
+        @param[in] cmdStr    full command
+        @param[in] callFunc  function to call when command finishes or fails;
                     the function receives two arguments: this UserCmd, isOK
-        - timeLim: time limit for command (sec); if None or 0 then no time limit
+        @param[in] timeLim: time limit for command (sec); if None or 0 then no time limit
         """
         BaseCmd.__init__(self,
             cmdStr = cmdStr,
@@ -328,8 +330,7 @@ class UserCmd(BaseCmd):
     def parseCmdStr(self, cmdStr):
         """Parse command
         
-        Inputs:
-        - cmdStr: command string (see module doc string for format)
+        @param[in] cmdStr: command string (see module doc string for format)
         """
         cmdMatch = self._HeaderBodyRE.match(cmdStr)
         if not cmdMatch:

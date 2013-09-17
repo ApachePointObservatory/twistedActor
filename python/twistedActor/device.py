@@ -12,13 +12,14 @@ Device classes.
 __all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 
 from collections import OrderedDict
+
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.AddCallback import BaseMixin
 from RO.Comm.TCPConnection import TCPConnection
 import opscore.actor
+
 from .command import DevCmd, DevCmdVar
-import os
 
 class Device(BaseMixin):
     """Device interface.
@@ -49,16 +50,15 @@ class Device(BaseMixin):
     ):
         """Construct a Device
 
-        Inputs:
-        - name      a short name to identify the device
-        - conn      a connection to the device; see below for details
-        - cmdInfo   a list of (user command verb, device command verb, help string)
+        @param[in] name      a short name to identify the device
+        @param[in] conn      a connection to the device; see below for details
+        @param[in] cmdInfo   a list of (user command verb, device command verb, help string)
                     for user commands that are be sent directly to this device.
                     Specify None for the device command verb if it is the same as the user command verb
                     (strongly recommended as it is much easier for the user to figure out what is going on)
-        - callFunc  function to call when state of device changes, or None if none;
+        @param[in] callFunc  function to call when state of device changes, or None if none;
                     additional functions may be added using addCallback
-        - cmdClass  class for commands for this device
+        @param[in] cmdClass  class for commands for this device
 
         conn is an object implementing these methods:
         - connect()
@@ -93,8 +93,7 @@ class Device(BaseMixin):
     def handleReply(self, replyStr):
         """Handle a line of output from the device.
 
-        Inputs:
-        - replyStr  the reply, minus any terminating \n
+        @param[in] replyStr  the reply, minus any terminating \n
         
         Called whenever the device outputs a new line of data.
         
@@ -115,7 +114,7 @@ class Device(BaseMixin):
     def startCmd(self, cmdStr, callFunc=None, userCmd=None):
         """Start a new command.
         """
-        devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc)
+        devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, dev=self)
         if not self.conn.isConnected:
             # device is not connected fail the command
             devCmd.setState('failed', textMsg="Device name: %s not connected" % self.name)
@@ -142,19 +141,18 @@ class TCPDevice(Device):
     ):
         """Construct a TCPDevice
         
-        Inputs:
-        - name      a short name to identify the device
-        - host      IP address
-        - port      port
-        - cmdInfo   a list of (user command verb, device command verb, help string)
+        @param[in] name      a short name to identify the device
+        @param[in] host      IP address
+        @param[in] port      port
+        @param[in] cmdInfo   a list of (user command verb, device command verb, help string)
                     for user commands that are be sent directly to this device.
                     Specify None for the device command verb if it is the same as the user command verb
                     (strongly recommended as it is much easier for the user to figure out what is going on)
-        - callFunc  function to call when state of device changes, or None if none;
+        @param[in] callFunc  function to call when state of device changes, or None if none;
                     additional functions may be added using addCallback.
                     Note that device state callbacks is NOT automatically called
                     when the connection state changes; register a callback with "conn" for that task.
-        - cmdClass  class for commands for this device
+        @param[in] cmdClass  class for commands for this device
         """
         Device.__init__(self,
             name = name,
@@ -171,9 +169,9 @@ class TCPDevice(Device):
     
     def _readCallback(self, sock, replyStr):
         """Called whenever the device has returned a reply.
-        Inputs:
-        - sock  the socket (ignored)
-        - line  the reply, missing the final \n     
+
+        @param[in] sock  the socket (ignored)
+        @param[in] line  the reply, missing the final \n     
         """
         #print "TCPDevice._readCallback(sock, replyStr=%r)" % (replyStr,)
         self.handleReply(replyStr)
@@ -193,16 +191,15 @@ class ActorDevice(TCPDevice):
     ):
         """Construct an ActorDevice
         
-        Inputs:
-        - name      a short name to identify the device
-        - host      IP address
-        - port      port
-        - modelName the name of the model in the actorkeys package; if none then use name
-        - cmdInfo   a list of (user command verb, device command verb, help string)
+        @param[in] name      a short name to identify the device
+        @param[in] host      IP address
+        @param[in] port      port
+        @param[in] modelName the name of the model in the actorkeys package; if none then use name
+        @param[in] cmdInfo   a list of (user command verb, device command verb, help string)
                     for user commands that are be sent directly to this device.
                     Specify None for the device command verb if it is the same as the user command verb
                     (strongly recommended as it is much easier for the user to figure out what is going on)
-        - callFunc  function to call when state of device changes, or None if none;
+        @param[in] callFunc  function to call when state of device changes, or None if none;
                     additional functions may be added using addCallback.
                     Note that device state callbacks is NOT automatically called
                     when the connection state changes; register a callback with "conn" for that task.
@@ -213,6 +210,7 @@ class ActorDevice(TCPDevice):
             port = port,
             cmdInfo = cmdInfo,
             callFunc = callFunc,
+            cmdClass = cmdClass,
         )
         if modelName is None:
             modelName = name
@@ -233,18 +231,17 @@ class ActorDevice(TCPDevice):
     ):
         """Start a new command.
         
-        Inputs:
-        - cmdStr: the command; no terminating \n wanted
-        - callFunc: a callback function; it receives one argument: a CmdVar object
-        - userCmd: user command that will track this command; None if none
-        - timeLim: maximum time before command expires, in sec; 0 for no limit
-        - timeLimKeyVar: a KeyVar specifying a delta-time by which the command must finish
+        @param[in] cmdStr: the command; no terminating \n wanted
+        @param[in] callFunc: a callback function; it receives one argument: a CmdVar object
+        @param[in] userCmd: user command that will track this command; None if none
+        @param[in] timeLim: maximum time before command expires, in sec; 0 for no limit
+        @param[in] timeLimKeyVar: a KeyVar specifying a delta-time by which the command must finish
             this KeyVar must be registered with the message dispatcher.
-        - timeLimKeyInd: the index of the time limit value in timeLimKeyVar; defaults to 0;
+        @param[in] timeLimKeyInd: the index of the time limit value in timeLimKeyVar; defaults to 0;
             ignored if timeLimKeyVar is None.
-        - abortCmdStr: a command string that will abort the command.
+        @param[in] abortCmdStr: a command string that will abort the command.
             Sent to the actor if abort is called and if the command is executing.
-        - keyVars: a sequence of 0 or more keyword variables to monitor for this command.
+        @param[in] keyVars: a sequence of 0 or more keyword variables to monitor for this command.
             Any data for those variables that arrives IN RESPONSE TO THIS COMMAND is saved
             and can be retrieved using cmdVar.getKeyVarData or cmdVar.getLastKeyVarData.
         """
@@ -256,10 +253,11 @@ class ActorDevice(TCPDevice):
             abortCmdStr = abortCmdStr,
             keyVars = keyVars,
         )
-        devCmdVar = DevCmdVar(
+        devCmdVar = self.cmdClass(
             cmdVar = cmdVar,
             userCmd = userCmd,
-            callFunc = callFunc
+            callFunc = callFunc,
+            dev = self,
         )
         self.dispatcher.executeCmd(cmdVar)
         return devCmdVar
@@ -274,8 +272,7 @@ class DeviceCollection(object):
     def __init__(self, devList):
         """Construct a DeviceCollection
         
-        Inputs:
-        - devList: a collection of devices (instances of device.Device).
+        @param[in] devList: a collection of devices (instances of device.Device).
             Required attributes are:
             - name: name of device
             - connection: connection used by device

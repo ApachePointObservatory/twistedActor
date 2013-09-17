@@ -7,7 +7,6 @@ import sys
 import types
 import traceback
 
-import RO.SeqUtil
 from RO.StringUtil import quoteStr, strFromException
 
 from .baseActor import BaseActor
@@ -137,11 +136,7 @@ class Actor(BaseActor):
         state, reason = conn.fullState
         if cmd and conn.isDone:
             succeeded = (bool(wantConn) == conn.isConnected)
-            #cmdState = "done" if succeeded else "failed"
-            if succeeded:
-                cmdState = "done" 
-            else:
-                cmdState = "failed" 
+            cmdState = "done" if succeeded else "failed"
             cmd.setState(cmdState, textMsg=reason)
             dev.connReq = (wantConn, None)
     
