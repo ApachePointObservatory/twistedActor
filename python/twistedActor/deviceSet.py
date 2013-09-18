@@ -3,6 +3,7 @@ import itertools
 import sys
 import traceback
 
+from RO.StringUtil import quoteStr
 from twistedActor import UserCmd
 
 __all__ = ["DeviceSet"]
@@ -166,7 +167,7 @@ class DeviceSet(object):
         devCmdDict = dict()
         failNameSet = set()
 
-        def checkDone():
+        def checkDone(dumArg=None):
             """If all device commands are finished, then set userCmd to Failed or Done as appropriate
             """
             for name, devCmd in devCmdDict.iteritems():
@@ -197,12 +198,19 @@ class DeviceSet(object):
                     if callFunc:
                         try:
                             newDevCmd = callFunc(DevCmdInfo(name=name, dev=dev, devCmd=devCmd, userCmd=userCmd))
+                            # the callFunc will have registered any interesting callbacks it needs;
+                            # all this code has to do is check for completion
                             if newDevCmd:
+                                newDevCmd.addCallback(checkDone)
                                 devCmdDict[name] = newDevCmd
                         except Exception:
                             failNameSet.add(name)
-                            self.actor.writeToUsers("f", textMsg="%s command %r failed" % (name, devCmd.cmdStr))
+                            textBody = "%s command %r failed" % (name, devCmd.cmdStr)
+                            msgStr = "Text=%s" % (quoteStr(textBody),)
+                            self.actor.writeToUsers("f", msgStr=msgStr)
                             traceback.print_exc(file=sys.stderr)
+
+                    checkDone()
 
                 devCmd = dev.startCmd(cmdList[i])
                 devCmdDict[dev.name] = devCmd
