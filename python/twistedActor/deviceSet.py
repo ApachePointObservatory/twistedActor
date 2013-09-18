@@ -20,6 +20,14 @@ class DevCmdInfo(object):
 
 class DeviceSet(object):
     """A collection of related devices (e.g. axes or mirrors), some of which may not exist
+
+    Note that a DeviceSet has a list of device names that is independent of
+    the actual devices. This is because a particular device may not exist
+    (but its slot should still have a name), or multiple devices may exist
+    that can be swapped out in one slot. For example: suppose a telescope has
+    multiple instrument rotator and one can be in use at a particular time (perhaps none).
+    In that case the axis DeviceSet's names might be ("az", "alt", "rot"),
+    while the rotator device in the set might be None or might have a name such as "rot1" or "rot2".
     """
     def __init__(self, actor, nameList, devList):
         """Construct a DeviceSet
@@ -38,20 +46,30 @@ class DeviceSet(object):
             raise RuntimeError("devList and nameList must have the same length")
         
         self.actor = actor
-        self._devDict = collections.OrderedDict((dev, name) for dev, name in itertools.izip(devList, nameList))
+        # dict of device name (from nameList): device
+        self._devDict = collections.OrderedDict((name, dev) for name, dev in itertools.izip(nameList, devList))
         self._nameIndexDict = dict((name, i) for i, name in enumerate(nameList))
 
         if len(self._devDict) < len(nameList):
             raise RuntimeError("Names in nameList=%s not unique" % (nameList,))
 
-    def checkDoDev(self, doDev):
-        """Raise RuntimeError if doDev is the wrong length or is true for nonexistent device
+    def expandDoDev(self, doDev):
+        """Expand doDev, changing None to the correct list.
+
+        @param[in] doDev: which devices to command: a sequence of bools (one per device) or None for all existing devices;
+            raise RuntimeError if doDev True for a non-existent device
+
+        Raise RuntimeError if doDev is the wrong length or is true for nonexistent device
         """
+        if doDev == None:
+            return self.devExists
+
         if len(doDev) != len(self._devDict):
             raise RuntimeError("doDev=%s; need %s values" % (doDev, len(self._devDict)))
         for dd, (name, dev) in itertools.izip(doDev, self._devDict.iteritems()):
             if dd and (dev is None):
                 raise RuntimeError("doDev true for nonexistent device %s" % (name,))
+        return doDev
 
     @property
     def devExists(self):
@@ -95,7 +113,7 @@ class DeviceSet(object):
             raise RuntimeError("Invalid name %s" % (name,))
         self._devDict[name] = dev
 
-    def startOneCmd(self, cmdStr, doDev=None, userCmd=None, callFunc=None):
+    def startCmd(self, cmdStr, doDev=None, userCmd=None, callFunc=None):
         """Start a command in one or more devices
 
         @param[in] cmdStr: command to send
@@ -111,9 +129,7 @@ class DeviceSet(object):
         - doDev does not have one element per device
         - doDev True for a non-existent device
         """
-        if doDev is None:
-            doDev = self.devExists
-        self.checkDoDev(doDev)
+        doDev = self.expandDoDev(doDev)
         
         cmdList = [cmdStr if dd else None for dd in doDev]
         return self.startCmdList(cmdList=cmdList, userCmd=userCmd, callFunc=callFunc)
