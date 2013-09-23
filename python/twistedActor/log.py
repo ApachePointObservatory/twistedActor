@@ -4,6 +4,7 @@ tweaked from :
 http://twistedmatrix.com/trac/browser/tags/releases/twisted-12.2.0/twisted/python/logfile.py
 http://twistedmatrix.com/trac/browser/tags/releases/twisted-12.2.0/twisted/python/log.py#L392
 """
+import datetime
 import twisted.python.log as log
 from twisted.python.logfile import LogFile
 import os
@@ -21,22 +22,11 @@ def writeToLog(msgStr, systemName, logPath):
 
     if systemName not in [obs.systemName for obs in LocalObservers]:
         # no logs have opened, start this one up
-        LocalObservers.append(startLocalLogging(systemName, logPath))
+        LocalObservers.append(startLogging(systemName, logPath))
     # if log.defaultObserver is not None, a log hasn't been opened
-    log.msg(msgStr, system = systemName)
+    log.msg(msgStr, system = systemName)   
 
-def startGlobalLogging(dir):
-    """ @param[in] dir: directory where the master log file will be placed
-    
-    Will listen to every log event including stdio and stderr and log them.
-    """
-    fName = 'global.log'
-    logFile = LogFile(fName, dir)
-    flo = log.FileLogObserver(logFile)
-    log.startLoggingWithObserver(flo.emit, setStdout=True)
-    return flo    
-
-def startLocalLogging(systemName, dir):
+def startLogging(systemName, dir):
     """
         @param[in] systemName: name of system (usually the name of an Actor or Device). 
             Log messages triggered from inside these objects will be directed
@@ -46,10 +36,14 @@ def startLocalLogging(systemName, dir):
         
         will only place log events with systemName in a log named '<systemName>.log'
     """
-    fName = systemName + '.log'
+    fName = datetime.datetime.now().__str__().replace(' ', 'T').split('.')[0] + '.log'
+    print fName
+    dir += systemName + '/'
+    if not os.path.exists(dir):
+        os.makedirs(dir)
     logFile = LogFile(fName, dir)
     flo = SystemLogObserver(logFile, systemName)
-    log.startLoggingWithObserver(flo.emit, setStdout=False)
+    log.startLoggingWithObserver(flo.emit, setStdout=True)
     return flo
     
 class SystemLogObserver(log.FileLogObserver):
@@ -65,14 +59,24 @@ class SystemLogObserver(log.FileLogObserver):
         """
         log.FileLogObserver.__init__(self, logFile)
         self.systemName = systemName
-    
-    def emit(self, eventDict):
-        """This is where the magic happens.  Before logging (triggered by any
-        log.msg event) may happen, the logging even must have been triggered
-        by the system that this observer cares about.
-        """ 
-        if eventDict['system'] == self.systemName:
-            log.FileLogObserver.emit(self, eventDict)
+
+# note: code below may be used to filter what to print to log based on self.systemName.    
+#     def emit(self, eventDict):
+#         """This is where the magic happens.  Before logging (triggered by any
+#         log.msg event) may happen, the logging even must have been triggered
+#         by the system that this observer cares about.
+#         """ 
+#         allSys = [x.systemName for x in LocalObservers]
+#         if eventDict['system'] == self.systemName:
+#             log.FileLogObserver.emit(self, eventDict)
+#         elif eventDict['system'] not in allSys:
+#             # this is an event automatically generated via twisted, log it
+#             log.FileLogObserver.emit(self, eventDict)
+#         else:
+#             # this event is specific to another log, don't record it
+#             pass
+            
+            
 
 
         
