@@ -11,28 +11,17 @@ Device classes.
 """
 __all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 
-import sys
-import traceback
 from collections import OrderedDict
+import os.path
 
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
-from RO.AddCallback import BaseMixin
+from RO.AddCallback import safeCall, BaseMixin
 from RO.Comm.TCPConnection import TCPConnection
-from RO.StringUtil import strFromException
+from RO.StringUtil import quoteStr, strFromException
 import opscore.actor
 
 from .command import DevCmd, DevCmdVar
-
-class DevCmdInfo(object):
-    """Information about a device command
-
-    Intended to be passed to callback functions for Device commands
-    """
-    def __init__(self, dev, devCmd, userCmd):
-        self.dev = dev
-        self.devCmd = devCmd
-        self.userCmd = userCmd
 
 class Device(BaseMixin):
     """Device interface.
@@ -95,6 +84,86 @@ class Device(BaseMixin):
         self.cmdClass = cmdClass
         if callFunc:
             self.addCallback(callFunc, callNow=False)
+
+    def basicInit(self, userCmd=None, callFunc=None):
+        """Basic initialization
+
+        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
+            if specified it receives one argument: a device command
+        @param[in] userCmd: user command that tracks this command, if any
+
+        subclasses must override; typically this merely calls startCmd with a suitable command string
+        """
+        raise NotImplementedError()
+
+    def getStatus(self, userCmd=None, callFunc=None):
+        """Get status
+
+        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
+            if specified it receives one argument: a device command
+        @param[in] userCmd: user command that tracks this command, if any
+
+        subclasses must override; typically this merely calls startCmd with a suitable command string
+        """
+        raise NotImplementedError()
+
+    def init(self, filePath=None, userCmd=None, callFunc=None):
+        """Initialize the device
+
+        Call basicInit
+        Send a list of commands, if provided
+        Call getStatus
+
+        If any command in cmdList fails then call callFunc based on the failed command, but also call getStatus
+        to try to update status.
+
+        @param[in] filePath: path to a file containing commands to send after basicInit succeeds.
+            Warn but continue if file not found.
+        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
+            if specified it receives one argument: a device command
+        @param[in] userCmd: user command that tracks this command, if any
+        """
+        def finishUp(devCmd, textMsg=None):
+            """Finish the command by calling the callback function with the final devCmd
+            """
+            if textMsg:
+                self.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),), cmd=userCmd)
+            if callFunc:
+                safeCall(callFunc, devCmd)
+            if userCmd:
+                userCmd.setState(state=devCmd.state, textMsg=devCmd.textMsg, hubMsg=devCmd.hubMsg)
+
+        def initCallback(devCmd):
+            if devCmd.didFail:
+                finishUp(devCmd=devCmd)
+
+            cmdList = []
+            if filePath:
+                try:
+                    with file(filePath, "rU") as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            if line[0] == "#":
+                                continue
+                            cmdList.append(line)
+                except Exception, e:
+                    msgStr = "Error reading %s init file %s: %s" % (self.name, filePath, strFromException(e))
+                    self.writeToUsers("w", "Text=%s" % (quoteStr(msgStr),))
+
+            if cmdList:
+                def fileCallback(devCmd):
+                    if devCmd.didFail:
+                        finishUp(devCmd=devCmd, textMsg="Skipping remaining file commands")
+                        self.getStatus() # don't wait for this to complete
+                    else:
+                        self.getStatus(callFunc=finishUp)
+                self.startCmdList(cmdList, callFunc=fileCallback)
+            else:
+                self.getStatus(callFunc=finishUp)
+
+        self.basicInit(callFunc=initCallback)
             
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
@@ -104,13 +173,11 @@ class Device(BaseMixin):
         raise NotImplementedError("Cannot report msgCode=%r; msgStr=%r" % (msgCode, msgStr))
     
     def handleReply(self, replyStr):
-        """Handle a line of output from the device.
+        """Handle a line of output from the device. Called whenever the device outputs a new line of data.
 
         @param[in] replyStr  the reply, minus any terminating \n
         
-        Called whenever the device outputs a new line of data.
-        
-        This is the heart of the device interface and what makes
+        This is the heart of the device interface and an important part of what makes
         each device unique. As such, it must be specified by the subclass.
         
         Tasks include:
@@ -120,7 +187,7 @@ class Device(BaseMixin):
         - Output state data to users (if state has changed)
         - Call the command callback
         
-        Warning: this must be defined by the subclass
+        @warning: must be defined by the subclass
         """
         raise NotImplementedError()
 
@@ -130,9 +197,7 @@ class Device(BaseMixin):
         @param[in] cmdStr: command string
         @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
             if specified it receives one argument: a device command
-        @param[in] userCmd: user command to associate with this device command;
-            if specified then all messages associated with this command are tagged appropriately
-            and userCmd is set done or failed when the device command is set the same
+        @param[in] userCmd: user command that tracks this command, if any
 
         @return devCmd: the device command that was started (and may already have failed)
         """
@@ -156,9 +221,7 @@ class Device(BaseMixin):
             or when a command fails (in which case subsequent commands are ignored), or None;
             if specified it receives one argument: the final device command that was executed
             (if a command fails, it will be the one that failed)
-        @param[in] userCmd: user command to associate with this list of commands;
-            if specified then all messages associated with this command are tagged appropriately
-            and userCmd is set done or failed when the the list of commands succeeds or fails
+        @param[in] userCmd: user command that tracks this list of commands, if any
 
         @return devCmd: the first device command that was started (and may already have failed)
         """
@@ -175,11 +238,7 @@ class Device(BaseMixin):
                 raise RuntimeError("cmdListDone should only be called when devCmd is done")
 
             if callFunc:
-                try:
-                    callFunc(devCmd)
-                except Exception, e:
-                    sys.stderr.write("%s %s callFunc %r failed: %s" % (devCmd.dev.name, devCmd.cmdStr, callFunc, strFromException(e)))
-                    traceback.print_exc(file=sys.stderr)
+                safeCall(callFunc(devCmd))
 
             if userCmd:
                 if devCmd.didFail:
@@ -315,7 +374,7 @@ class ActorDevice(TCPDevice):
         
         @param[in] cmdStr: the command; no terminating \n wanted
         @param[in] callFunc: a callback function; it receives one argument: a CmdVar object
-        @param[in] userCmd: user command that will track this command; None if none
+        @param[in] userCmd: user command that tracks this command, if any
         @param[in] timeLim: maximum time before command expires, in sec; 0 for no limit
         @param[in] timeLimKeyVar: a KeyVar specifying a delta-time by which the command must finish
             this KeyVar must be registered with the message dispatcher.

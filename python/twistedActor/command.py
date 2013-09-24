@@ -147,7 +147,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         if self.isDone:
             self._timeoutTimer.cancel()
             self._removeAllCallbacks()
-            self._cmdToTrack = None
+            self.untrackCmd()
     
     def setTimeLimit(self, timeLim):
         """Set a new time limit
@@ -171,8 +171,11 @@ class BaseCmd(RO.AddCallback.BaseMixin):
             raise RuntimeError("Finished; cannot track a command")
         if self._cmdToTrack:
             raise RuntimeError("Already tracking a command")
-        cmdToTrack.addCallback(self._cmdCallback)
         self._cmdToTrack = cmdToTrack
+        if cmdToTrack.isDone:
+            self._cmdCallback(cmdToTrack)
+        else:
+            cmdToTrack.addCallback(self._cmdCallback)
     
     def untrackCmd(self):
         """Stop tracking a command if tracking one, else do nothing"""
@@ -183,7 +186,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
     def _cmdCallback(self, cmdToTrack):
         """Tracked command's state has changed"""
         state, textMsg, hubMsg = cmdToTrack.fullState
-        self.setState(state, textMsg=textMsg, hubMsg=hubMsg)
+        self.setState(cmdToTrack.state, textMsg=cmdToTrack.textMsg, hubMsg=cmdToTrack.hubMsg)
     
     def _timeout(self):
         """Time limit timer callback"""
