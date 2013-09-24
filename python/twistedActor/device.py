@@ -82,89 +82,11 @@ class Device(BaseMixin):
         self.connReq = (False, None)
         self.conn = conn
         self.cmdClass = cmdClass
+        self._wasConnected = False
+        self.conn.addCallback(self._connCallback)
         if callFunc:
             self.addCallback(callFunc, callNow=False)
 
-    def basicInit(self, userCmd=None, callFunc=None):
-        """Basic initialization
-
-        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
-            if specified it receives one argument: a device command
-        @param[in] userCmd: user command that tracks this command, if any
-
-        subclasses must override; typically this merely calls startCmd with a suitable command string
-        """
-        raise NotImplementedError()
-
-    def getStatus(self, userCmd=None, callFunc=None):
-        """Get status
-
-        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
-            if specified it receives one argument: a device command
-        @param[in] userCmd: user command that tracks this command, if any
-
-        subclasses must override; typically this merely calls startCmd with a suitable command string
-        """
-        raise NotImplementedError()
-
-    def init(self, filePath=None, userCmd=None, callFunc=None):
-        """Initialize the device
-
-        Call basicInit
-        Send a list of commands, if provided
-        Call getStatus
-
-        If any command in cmdList fails then call callFunc based on the failed command, but also call getStatus
-        to try to update status.
-
-        @param[in] filePath: path to a file containing commands to send after basicInit succeeds.
-            Warn but continue if file not found.
-        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
-            if specified it receives one argument: a device command
-        @param[in] userCmd: user command that tracks this command, if any
-        """
-        def finishUp(devCmd, textMsg=None):
-            """Finish the command by calling the callback function with the final devCmd
-            """
-            if textMsg:
-                self.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),), cmd=userCmd)
-            if callFunc:
-                safeCall(callFunc, devCmd)
-            if userCmd:
-                userCmd.setState(state=devCmd.state, textMsg=devCmd.textMsg, hubMsg=devCmd.hubMsg)
-
-        def initCallback(devCmd):
-            if devCmd.didFail:
-                finishUp(devCmd=devCmd)
-
-            cmdList = []
-            if filePath:
-                try:
-                    with file(filePath, "rU") as f:
-                        for line in f:
-                            line = line.strip()
-                            if not line:
-                                continue
-                            if line[0] == "#":
-                                continue
-                            cmdList.append(line)
-                except Exception, e:
-                    msgStr = "Error reading %s init file %s: %s" % (self.name, filePath, strFromException(e))
-                    self.writeToUsers("w", "Text=%s" % (quoteStr(msgStr),))
-
-            if cmdList:
-                def fileCallback(devCmd):
-                    if devCmd.didFail:
-                        finishUp(devCmd=devCmd, textMsg="Skipping remaining file commands")
-                        self.getStatus() # don't wait for this to complete
-                    else:
-                        self.getStatus(callFunc=finishUp)
-                self.startCmdList(cmdList, callFunc=fileCallback)
-            else:
-                self.getStatus(callFunc=finishUp)
-
-        self.basicInit(callFunc=initCallback)
-            
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
         
@@ -267,6 +189,23 @@ class Device(BaseMixin):
                     cmdListDone(devCmd)
 
         return cmdCallback(None)
+
+    def _newlyConnected(self):
+        """Called when this device is newly connected
+
+        Subclasses typically override to initialize and get status
+        """
+        pass
+
+    def _connCallback(self, conn=None):
+        """Call when the connection state changes
+        """
+        try:
+            if self.conn.isConnected and not self._wasConnected:
+                self._newlyConnected()
+
+        finally:
+            self._wasConnected = self.conn.isConnected
 
 
 class TCPDevice(Device):
