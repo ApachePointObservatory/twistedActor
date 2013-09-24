@@ -145,7 +145,7 @@ class DeviceSet(object):
         @raise RuntimeError if slotList has empty or non-existent slots
         """
         if slotList is None:
-            slotList = self.fullSlotList()
+            slotList = self.fullSlotList
         cmdDict = collections.OrderedDict((slot, cmdStrOrList) for slot in slotList)
         return self.startCmdDict(cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd)
 
