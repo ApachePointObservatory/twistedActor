@@ -221,7 +221,7 @@ class DeviceSet(object):
 
                 checkDone()
 
-            if RO.SeqUtil.isSequence(cmdStrOrList):
+            if not RO.SeqUtil.isSequence(cmdStrOrList):
                 devCmd = dev.startCmd(cmdStrOrList)
             else:
                 devCmd = dev.startCmdList(cmdStrOrList)
