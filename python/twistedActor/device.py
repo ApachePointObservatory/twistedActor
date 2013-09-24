@@ -11,15 +11,28 @@ Device classes.
 """
 __all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 
+import sys
+import traceback
 from collections import OrderedDict
 
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.AddCallback import BaseMixin
 from RO.Comm.TCPConnection import TCPConnection
+from RO.StringUtil import strFromException
 import opscore.actor
 
 from .command import DevCmd, DevCmdVar
+
+class DevCmdInfo(object):
+    """Information about a device command
+
+    Intended to be passed to callback functions for Device commands
+    """
+    def __init__(self, dev, devCmd, userCmd):
+        self.dev = dev
+        self.devCmd = devCmd
+        self.userCmd = userCmd
 
 class Device(BaseMixin):
     """Device interface.
@@ -113,19 +126,88 @@ class Device(BaseMixin):
 
     def startCmd(self, cmdStr, callFunc=None, userCmd=None):
         """Start a new command.
+
+        @param[in] cmdStr: command string
+        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
+            if specified it receives one argument: a device command
+        @param[in] userCmd: user command to associate with this device command;
+            if specified then all messages associated with this command are tagged appropriately
+            and userCmd is set done or failed when the device command is set the same
+
+        @return devCmd: the device command that was started (and may already have failed)
         """
         devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, dev=self)
         if not self.conn.isConnected:
-            # device is not connected fail the command
-            devCmd.setState('failed', textMsg="Device name: %s not connected" % self.name)
+            devCmd.setState(devCmd.Failed, textMsg="%s %s failed: not connected" % (self.name, cmdStr))
         else:
             fullCmdStr = devCmd.fullCmdStr
             try:
                 self.conn.writeLine(fullCmdStr)
             except Exception, e:
-                devCmd.setState(isDone=True, isOK=False, textMsg=str(e))
+                devCmd.setState(devCmd.Failed, textMsg="%s %s failed: %s" % (self.name, cmdStr, strFromException(e)))
         
         return devCmd
+
+    def startCmdList(self, cmdList, callFunc=None, userCmd=None):
+        """Start a sequence of commands; if a command fails then subsequent commands are ignored
+
+        @param[in] cmdList: a sequence of command strings
+        @param[in] callFunc: callback function: function to call when the final command is done
+            or when a command fails (in which case subsequent commands are ignored), or None;
+            if specified it receives one argument: the final device command that was executed
+            (if a command fails, it will be the one that failed)
+        @param[in] userCmd: user command to associate with this list of commands;
+            if specified then all messages associated with this command are tagged appropriately
+            and userCmd is set done or failed when the the list of commands succeeds or fails
+
+        @return devCmd: the first device command that was started (and may already have failed)
+        """
+        locCmdList = cmdList[:]
+
+        def cmdListDone(devCmd):
+            """Finish the sequence of commands by calling callFunc and setting state of userCmd
+
+            @param[in] devCmd: the last device command executed (final device command of the list if all commands succeeded,
+                else the first device command that failed)
+            @raise RuntimeError if not devCmd.isDone
+            """
+            if not devCmd.isDone:
+                raise RuntimeError("cmdListDone should only be called when devCmd is done")
+
+            if callFunc:
+                try:
+                    callFunc(devCmd)
+                except Exception, e:
+                    sys.stderr.write("%s %s callFunc %r failed: %s" % (devCmd.dev.name, devCmd.cmdStr, callFunc, strFromException(e)))
+                    traceback.print_exc(file=sys.stderr)
+
+            if userCmd:
+                if devCmd.didFail:
+                    userCmd.setState(userCmd.Failed, textMsg=devCmd.textMsg, hubMsg=devCmd.hubMsg)
+                else:
+                    userCmd.setState(userCmd.Done)
+
+        def cmdCallback(devCmd):
+            """Device command callback for running a list of commands
+
+            If the command failed, stop and fail the userCmd (if any)
+            If the command succeeded then execute the next command
+            If there are no more command to execute, then conclude the userCmd (if any)
+
+            @param[in] devCmd: device command, or None to start the first command
+            """
+            if not devCmd.isDone:
+                return
+            if devCmd and devCmd.didFail:
+                cmdListDone(devCmd)
+            else:
+                if locCmdList:
+                    cmdStr = locCmdList.pop(0)
+                    return self.startCmd(cmdStr, callFunc=cmdCallback)
+                else:
+                    cmdListDone(devCmd)
+
+        return cmdCallback(None)
 
 
 class TCPDevice(Device):

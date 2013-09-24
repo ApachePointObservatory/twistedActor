@@ -111,7 +111,15 @@ class BaseCmd(RO.AddCallback.BaseMixin):
             msgInfo.append("Text=%s" % (quoteStr(textPrefix + self._textMsg),))
         msgStr = "; ".join(msgInfo)
         return (msgCode, msgStr)
-    
+
+    @property
+    def hubMsg(self):
+        return self._hubMsg
+
+    @property
+    def textMsg(self):
+        return self._textMsg
+
     def setState(self, newState, textMsg="", hubMsg=""):
         """Set the state of the command and call callbacks.
         
