@@ -117,7 +117,21 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """The state of the command, as a string which is one of the state constants, e.g. self.Done
         """
         return self._state
-    
+
+    def addCallback(self, callFunc, callNow=False):
+        """Add a callback function
+
+        @param[in] callFunc: callback function:
+        - it receives one argument: this command
+        - it is called whenever the state changes, and immediately if the command is already done
+            or callNow is True
+        @param[in] callNow: if True, call callFunc immediately
+        """
+        if self.isDone:
+            RO.AddCallback.safeCall(callFunc(self))
+        else:
+            RO.AddCallback.BaseMixin.addCallback(self, callFunc, callNow=callNow)
+
     def hubFormat(self, textPrefix=""):
         """Return (msgCode, msgStr) for output of status as a hub-formatted message
         """

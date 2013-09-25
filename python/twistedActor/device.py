@@ -112,19 +112,20 @@ class Device(BaseMixin):
         """
         raise NotImplementedError()
 
-    def startCmd(self, cmdStr, callFunc=None, userCmd=None):
+    def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=0):
         """Start a new command.
 
         @param[in] cmdStr: command string
         @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
             if specified it receives one argument: a device command
         @param[in] userCmd: user command that tracks this command, if any
+        @param[in] timeLim: maximum time before command expires, in sec; 0 for no limit
 
         @return devCmd: the device command that was started (and may already have failed)
 
         @note: if callFunc and userCmd are both specified callFunc is called before userCmd is updated.
         """
-        devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, dev=self)
+        devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, timeLim=timeLim, dev=self)
         if not self.conn.isConnected:
             devCmd.setState(devCmd.Failed, textMsg="%s %s failed: not connected" % (self.name, cmdStr))
         else:
@@ -178,16 +179,19 @@ class Device(BaseMixin):
 
             @param[in] devCmd: device command, or None to start the first command
             """
-            if not devCmd.isDone:
+            if devCmd is None:
+                pass
+            elif not devCmd.isDone:
                 return
-            if devCmd and devCmd.didFail:
+            elif devCmd and devCmd.didFail:
                 cmdListDone(devCmd)
+                return
+
+            if locCmdList:
+                cmdStr = locCmdList.pop(0)
+                return self.startCmd(cmdStr, callFunc=cmdCallback)
             else:
-                if locCmdList:
-                    cmdStr = locCmdList.pop(0)
-                    return self.startCmd(cmdStr, callFunc=cmdCallback)
-                else:
-                    cmdListDone(devCmd)
+                cmdListDone(devCmd)
 
         return cmdCallback(None)
 
@@ -304,7 +308,7 @@ class ActorDevice(TCPDevice):
         cmdStr,
         callFunc = None,
         userCmd = None,
-        timeLimit = 0,
+        timeLim = 0,
         timeLimKeyVar = None,
         timeLimKeyInd = 0,
         abortCmdStr = None,
@@ -335,7 +339,7 @@ class ActorDevice(TCPDevice):
         """
         cmdVar = opscore.actor.CmdVar(
             cmdStr = cmdStr,
-            timeLim = timeLimit,
+            timeLim = timeLim,
             timeLimKeyVar = timeLimKeyVar,
             timeLimKeyInd = timeLimKeyInd,
             abortCmdStr = abortCmdStr,
