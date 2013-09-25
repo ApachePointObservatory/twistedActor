@@ -83,7 +83,7 @@ class Device(BaseMixin):
         self.conn = conn
         self.cmdClass = cmdClass
         self._wasConnected = False
-        self.conn.addCallback(self._connCallback)
+        self.conn.addStateCallback(self._connCallback)
         if callFunc:
             self.addCallback(callFunc, callNow=False)
 
