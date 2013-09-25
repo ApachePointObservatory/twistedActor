@@ -1,20 +1,19 @@
 """Contains objects for managing multiple commands at once.
 """
-from .command import UserCmd
-from bisect import insort_right, insort_left
+from bisect import insort_left
 
+from .command import UserCmd
 
 __all__ = ["LinkCommands", "CommandQueue"]
 
-
 class LinkCommands(object):
     """Link commands such that completion of the main command depends on one or more sub-commands
-    
+
     The main command is done when all sub-commands are done; the main command finishes
     successfully only if all sub-commands finish successfully.
-    
+
     @note: To use, simply construct this object; you need not keep a reference to the resulting instance.
-    
+
     @note: if early termination behavior is required it can easily be added as follows:
     - add an alternate callback function that fails early;
         note that on early failure it must remove the callback on any sub-commands that are not finished
@@ -23,7 +22,7 @@ class LinkCommands(object):
     """
     def __init__(self, mainCmd, subCmdList):
         """Link a main command to a collection of sub-commands
-        
+
         @param[in] mainCmd: the main command, a BaseCmd
         @param[in] subCmdList: a collection of sub-commands, each a BaseCmd
         """
@@ -45,25 +44,27 @@ class LinkCommands(object):
             # not all device commands have terminated so keep waiting
             return
 
-        failedCmds = [(subCmd.cmdStr, subCmd.fullState) for subCmd in self.subCmdList if subCmd.didFail]
+        failedCmds = ["%s: %s" % (subCmd.cmdStr, subCmd.textMsg) for subCmd in self.subCmdList if subCmd.didFail]
         if failedCmds:
             # at least one device command failed, fail the user command and say why
             state = self.mainCmd.Failed
-            textMsg = "Sub-command(s) failed: %s" % failedCmds
+            summaryStr = "; ".join(failedCmds)
+            textMsg = "Sub-command(s) failed: %s" % (summaryStr,)
         else:
             # all device commands terminated successfully
             # set user command to done
             state = self.mainCmd.Done
-            textMsg = ''
+            textMsg = ""
         self.mainCmd.setState(state, textMsg = textMsg)
+
 
 class QueuedCommand(object):
     def __init__(self, cmd, priority, callFunc):
         """The type of object queued in the CommandQueue.
-        
+
             @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
             @param[in] priority: an integer, or CommandQueue.Immediate
-            @param[in] callFunc: function to call when cmd is exectued, 
+            @param[in] callFunc: function to call when cmd is exectued,
                 receives no arguments (use lambda to pass arguments!)
         """
         if not hasattr(cmd, 'cmdVerb'):
@@ -80,7 +81,7 @@ class QueuedCommand(object):
         self.priority = priority
         self.callFunc = callFunc
 
-    # overridden methods mainly for sorting purposes    
+    # overridden methods mainly for sorting purposes
     def __lt__(self, other):
         if (self.priority == CommandQueue.Immediate) and (other.priority != CommandQueue.Immediate):
             return False
@@ -88,27 +89,28 @@ class QueuedCommand(object):
             return True
         else:
             return self.priority < other.priority
- 
+
     def __gt__(self, other):
         if self.priority == other.priority:
             return False
         else:
             return not (self < other)
-    
+
     def __eq__(self, other):
         return self.priority == other.priority
-    
+
     def __ne__(self, other):
         return not (self == other)
-    
+
     def __le__(self, other):
         return (self == other) or (self < other)
-    
+
     def __ge__(self, other):
-        return (self == other) or (self > other)     
-        
+        return (self == other) or (self > other)
+
+
 class CommandQueue(object):
-    """A command queue.  Default behavior is to queue all commands and 
+    """A command queue.  Default behavior is to queue all commands and
     execute them one at a time in order of priority.  Equal priority commands are
     executed in the order received.  Special rules may be defined for handling special cases
     of command collisions.
@@ -118,12 +120,12 @@ class CommandQueue(object):
     CancelQueued = 'cancelqueued'
     KillRunning = 'killrunning'
     def __init__(self, killFunc, priorityDict):
-        """ This is an object which keeps track of commands and smartly handles 
+        """ This is an object which keeps track of commands and smartly handles
             command collisions based on rules chosen by you.
-            
-            @ param[in] killFunc: a function to call when a running command needs to be 
+
+            @ param[in] killFunc: a function to call when a running command needs to be
                 killed.  Accepts 1 parameter, the command to be canceled.  This function
-                must eventually ensure that the running command is canceled safely 
+                must eventually ensure that the running command is canceled safely
                 allowing for the next queued command to go.
             @ a dictionary keyed by cmdVerb, with integer values or Immediate
         """
@@ -134,21 +136,21 @@ class CommandQueue(object):
         self.currExeCmd = QueuedCommand(dumCmd, 0, lambda: '')
         self.killFunc = killFunc
         self.priorityDict = priorityDict
-        self.ruleDict = {} 
+        self.ruleDict = {}
 
- 
+
     def __getitem__(self, ind):
         return self.cmdQueue[ind]
 
     def __len__(self):
         return len(self.cmdQueue)
-    
+
     def addRule(self, action, newCmds, queuedCmds):
         """Add special case rules for collisions.
-        
+
         @param[in] action: one of CancelNew, CancelQueued, KillRunning
         @param[in] newCmds: a list of incoming commands to which this rule applies
-        @param[in] queuedCmds: a list of the commands presently on the queue 
+        @param[in] queuedCmds: a list of the commands presently on the queue
             (or running) to which this rule applies
         """
         for cmdName in newCmds + queuedCmds:
@@ -170,44 +172,44 @@ class CommandQueue(object):
                         (action, nc, qc, self.ruleDict[nc][qc])
                     )
                 self.ruleDict[nc][qc] = action
-    
+
     def getRule(self, newCmd, queuedCmd):
         if (newCmd in self.ruleDict) and (queuedCmd in self.ruleDict[newCmd]):
-            return self.ruleDict[newCmd][queuedCmd]  
+            return self.ruleDict[newCmd][queuedCmd]
         else:
-            return None  
-            
+            return None
+
     def addCmd(self, cmd, callFunc):
         """ Add a command to the queue.
-        
+
             @param[in] toQueue: a QueuedCommand object
         """
         if cmd.cmdVerb not in self.priorityDict:
             raise RuntimeError('Cannont queue unrecognized command: %s' % (cmd.cmdVerb,))
-        
+
         toQueue = QueuedCommand(
             cmd = cmd,
             priority = self.priorityDict[cmd.cmdVerb],
             callFunc = callFunc
         )
-        
+
 #         if self.currExeCmd.cmd.isActive and (self.currExeCmd.priority == CommandQueue.Immediate):
 #             # queue is locked until the immediate priority command is finished
 #             toQueue.cmd.setState(
-#                 toQueue.cmd.Cancelled, 
+#                 toQueue.cmd.Cancelled,
 #                 'Cancelled by a currently executing command %s' % (self.currExeCmd.cmd.cmdVerb)
 #             )
-#             return            
-         
+#             return
+
         toQueue.cmd.addCallback(self.runQueue)
-        
+
         if toQueue.priority == CommandQueue.Immediate:
             # clear the cmdQueue
             ditchTheseCmds = [q.cmd for q in self.cmdQueue] # will be canceled
             insort_left(self.cmdQueue, toQueue)
             for sadCmd in ditchTheseCmds:
                 sadCmd.setState(sadCmd.Cancelled)
-            if not self.currExeCmd.cmd.isDone: 
+            if not self.currExeCmd.cmd.isDone:
                 self.killFunc(self.currExeCmd.cmd)
             self.runQueue()
         else:
@@ -225,14 +227,14 @@ class CommandQueue(object):
                         # cancel the incoming command before ever running
                         # never reaches the queue
                         toQueue.cmd.setState(
-                            toQueue.cmd.Cancelled, 
+                            toQueue.cmd.Cancelled,
                             'Cancelled by a preceeding command in the queue %s' % (cmdOnStack.cmd.cmdVerb)
                         )
                         return
                     else:
                         # must be a cancel other command
                         assert action in (self.CancelQueued, self.KillRunning)
-                        # cancel the queued command, only other action option 
+                        # cancel the queued command, only other action option
                         # note the command will automatically remove itself from the queue
                         cmdOnStack.cmd.setState(
                             cmdOnStack.cmd.Cancelled,
@@ -246,11 +248,11 @@ class CommandQueue(object):
                     )
 
             insort_left(self.cmdQueue, toQueue) # inserts in sorted order
-            self.runQueue() 
-   
+            self.runQueue()
+
     def runQueue(self, optCmd=None):
         """ Manage Executing commands
-        
+
         @param[in] optCmd: a BaseCommand, to be used incase of callback
         """
         if optCmd != None:
@@ -276,12 +278,10 @@ class CommandQueue(object):
                 self.killFunc(self.currExeCmd.cmd)
             elif action == self.CancelNew:
                 self.cmdQueue[0].cmd.setState(
-                    self.cmdQueue[0].cmd.Cancelled, 
+                    self.cmdQueue[0].cmd.Cancelled,
                     '%s cancelled by currently executing command: %s' \
                         % (self.cmdQueue[0].cmd.cmdVerb, self.currExeCmd.cmd.cmbVerb)
                 )
         else:
             # command is currently active and should remain that way
-            pass 
-        
-        
+            pass

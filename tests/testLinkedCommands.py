@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Ensure that command.LinkCommands works correctly
 """
 import unittest
