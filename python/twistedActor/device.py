@@ -12,13 +12,12 @@ Device classes.
 __all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 
 from collections import OrderedDict
-import os.path
 
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.AddCallback import safeCall, BaseMixin
 from RO.Comm.TCPConnection import TCPConnection
-from RO.StringUtil import quoteStr, strFromException
+from RO.StringUtil import strFromException
 import opscore.actor
 
 from .command import DevCmd, DevCmdVar
@@ -122,6 +121,8 @@ class Device(BaseMixin):
         @param[in] userCmd: user command that tracks this command, if any
 
         @return devCmd: the device command that was started (and may already have failed)
+
+        @note: if callFunc and userCmd are both specified callFunc is called before userCmd is updated.
         """
         devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, dev=self)
         if not self.conn.isConnected:
@@ -312,6 +313,9 @@ class ActorDevice(TCPDevice):
         """Start a new command.
         
         @param[in] cmdStr: the command; no terminating \n wanted
+        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
+            if specified it receives one argument: an opscore.actor.CmdVar object
+        @param[in] userCmd: user command that tracks this command, if any
         @param[in] callFunc: a callback function; it receives one argument: a CmdVar object
         @param[in] userCmd: user command that tracks this command, if any
         @param[in] timeLim: maximum time before command expires, in sec; 0 for no limit
@@ -324,6 +328,10 @@ class ActorDevice(TCPDevice):
         @param[in] keyVars: a sequence of 0 or more keyword variables to monitor for this command.
             Any data for those variables that arrives IN RESPONSE TO THIS COMMAND is saved
             and can be retrieved using cmdVar.getKeyVarData or cmdVar.getLastKeyVarData.
+
+        @return devCmd: the device command that was started (and may already have failed)
+
+        @note: if callFunc and userCmd are both specified callFunc is called before userCmd is updated.
         """
         cmdVar = opscore.actor.CmdVar(
             cmdStr = cmdStr,
@@ -342,8 +350,9 @@ class ActorDevice(TCPDevice):
         self.dispatcher.executeCmd(cmdVar)
         return devCmdVar
 
+
 class DeviceCollection(object):
-    """A collection of devices that provides easy access
+    """A collection of devices that provides easy access to them
     
     Access is as follows:
     - .<name> for the device named <name>, e.g. .foo for the device "foo"
