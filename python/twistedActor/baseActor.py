@@ -88,9 +88,13 @@ class BaseActor(object):
         if not cmdStr:
             return
         userID = getSocketUserID(sock)
-        
-        cmd = UserCmd(userID, cmdStr, self.cmdCallback)
         try:
+            cmd = UserCmd(userID, cmdStr, self.cmdCallback)
+        except Exception, e:
+            self.writeToUsers("i", "Could not form command from input: %r"%cmdStr)
+            return
+        try:
+
             self.parseAndDispatchCmd(cmd)
         except Exception, e:
             cmd.setState(cmd.Failed, "Command %r failed: %s" % (cmd.cmdBody, strFromException(e)))
