@@ -47,6 +47,7 @@ class Device(BaseMixin):
         conn,
         cmdInfo = None,
         callFunc = None,
+        connCallFunc = None,
         cmdClass = DevCmd,
     ):
         """Construct a Device
@@ -59,6 +60,9 @@ class Device(BaseMixin):
                     (strongly recommended as it is much easier for the user to figure out what is going on)
         @param[in] callFunc  function to call when state of device changes, or None if none;
                     additional functions may be added using addCallback
+        @param[in] connCallFunc function to call when connection state changes;
+            receives one argument: this device (unlike adding a callback directly
+            to dev.conn, which receives dev.conn)
         @param[in] cmdClass  class for commands for this device
 
         conn is an object implementing these methods:
@@ -80,6 +84,7 @@ class Device(BaseMixin):
         self.cmdInfo = cmdInfo or()
         self.connReq = (False, None)
         self.conn = conn
+        self.connCallFunc = connCallFunc
         self.cmdClass = cmdClass
         self._wasConnected = False
         self.conn.addStateCallback(self._connCallback)
@@ -112,14 +117,14 @@ class Device(BaseMixin):
         """
         raise NotImplementedError()
 
-    def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=0):
+    def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=None):
         """Start a new command.
 
         @param[in] cmdStr: command string
         @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
             if specified it receives one argument: a device command
         @param[in] userCmd: user command that tracks this command, if any
-        @param[in] timeLim: maximum time before command expires, in sec; 0 for no limit
+        @param[in] timeLim: maximum time before command expires, in sec; None for no limit
 
         @return devCmd: the device command that was started (and may already have failed)
 
@@ -137,7 +142,7 @@ class Device(BaseMixin):
         
         return devCmd
 
-    def startCmdList(self, cmdList, callFunc=None, userCmd=None):
+    def startCmdList(self, cmdList, callFunc=None, userCmd=None, timeLim=None):
         """Start a sequence of commands; if a command fails then subsequent commands are ignored
 
         @param[in] cmdList: a sequence of command strings
@@ -146,6 +151,7 @@ class Device(BaseMixin):
             if specified it receives one argument: the final device command that was executed
             (if a command fails, it will be the one that failed)
         @param[in] userCmd: user command that tracks this list of commands, if any
+        @param[in] timeLim: maximum time before each command in the list expires, in sec; None for no limit
 
         @return devCmd: the first device command that was started (and may already have failed)
         """
@@ -189,7 +195,7 @@ class Device(BaseMixin):
 
             if locCmdList:
                 cmdStr = locCmdList.pop(0)
-                return self.startCmd(cmdStr, callFunc=cmdCallback)
+                return self.startCmd(cmdStr, callFunc=cmdCallback, timeLim=timeLim)
             else:
                 cmdListDone(devCmd)
 
@@ -211,6 +217,11 @@ class Device(BaseMixin):
 
         finally:
             self._wasConnected = self.conn.isConnected
+        if self.connCallFunc:
+            safeCall(self.connCallFunc(self))
+
+    def __repr__(self):
+        return "%s(name=%s)" % (type(self).__name__, self.name)
 
 
 class TCPDevice(Device):
@@ -260,6 +271,9 @@ class TCPDevice(Device):
         """
         #print "TCPDevice._readCallback(sock, replyStr=%r)" % (replyStr,)
         self.handleReply(replyStr)
+
+    def __repr__(self):
+        return "%s(name=%s, host=%s, port=%s)" % (type(self).__name__, self.name, self.host, self.port)
 
 
 class ActorDevice(TCPDevice):
@@ -354,6 +368,9 @@ class ActorDevice(TCPDevice):
         self.dispatcher.executeCmd(cmdVar)
         return devCmdVar
 
+    def __repr__(self):
+        return "%s(name=%s, host=%s, port=%s, modelName=%s)" % \
+            (type(self).__name__, self.name, self.host, self.port, self.dispatcher.name)
 
 class DeviceCollection(object):
     """A collection of devices that provides easy access to them

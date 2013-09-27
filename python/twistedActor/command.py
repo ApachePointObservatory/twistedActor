@@ -71,6 +71,10 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         self.setTimeLimit(timeLim)
 
         RO.AddCallback.BaseMixin.__init__(self, callFunc)
+
+    @property
+    def timeLim(self):
+        return self._timeLim
     
     @property
     def cmdStr(self):
@@ -182,7 +186,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         If the command is running the timer starts now (any time spent before now is ignored).
         If the command is done then the new time limit is silently ignored.
         """
-        self._timeLim = float(timeLim) if timeLim is not None else None
+        self._timeLim = float(timeLim) if timeLim else None
         if self._timeLim:
             if self._timeoutTimer.isActive:
                 self._timeoutTimer.start(self._timeLim, self._timeout)
