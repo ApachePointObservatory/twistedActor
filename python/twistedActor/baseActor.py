@@ -91,7 +91,7 @@ class BaseActor(object):
         try:
             cmd = UserCmd(userID, cmdStr, self.cmdCallback)
         except Exception, e:
-            self.writeToUsers("i", "Could not form command from input: %r"%cmdStr)
+            self.writeToUsers("f", "Could not parse the following as a command: %r"%cmdStr)
             return
         try:
             self.parseAndDispatchCmd(cmd)
