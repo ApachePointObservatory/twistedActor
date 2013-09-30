@@ -171,15 +171,6 @@ class DeviceSet(object):
         """
         return self._slotDevDict.values()
 
-    def __getitem__(self, slot):
-        """Return the device in the specified slot
-        """
-        return self._slotDevDict[slot]
-
-    def __len__(self):
-        """Return number of slots"""
-        return len(self._slotDevDict)
-
     @property
     def slotList(self):
         """Return the list of slot names
@@ -199,10 +190,15 @@ class DeviceSet(object):
         """
         return self._slotIndexDict[slot]
 
+    def slotFromDevName(self, devName):
+        """Get the slot name from the device name
+        """
+        return self._devNameSlotDict[devName]
+
     def replaceDev(self, slot, dev):
         """Replace or remove one device
 
-        The old device (if it exists) is closed by calling closeDev
+        The old device (if it exists) is closed by calling init()
 
         @param[in] slot: slot slot of device (must match a slot in slotList)
         @param[in] dev: the new device, or None to remove the existing device
@@ -213,18 +209,9 @@ class DeviceSet(object):
             raise RuntimeError("Invalid slot %s" % (slot,))
         oldDev = self._slotDevDict[slot]
         if oldDev:
-            self.closeDev(oldDev)
+            oldDev.init()
         self._slotDevDict[slot] = dev
         self._devNameDict[dev.name] = slot
-
-    def closeDev(self, dev):
-        """Called when a device is removed
-
-        Use this to remove any DeviceSet-related callbacks
-
-        @param[in] dev: the device to close (must not be None)
-        """
-        pass
 
     def startCmd(self, cmdStrOrList, slotList=None, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """Start a command or list of commands on one or more devices
@@ -234,8 +221,8 @@ class DeviceSet(object):
 
         @param[in] cmdStrOrList: command to send
         @param[in] slotList: collection of slot names, or None for all filled slots
-        @param[in] callFunc: callback function when a device command is done, or None;
-            see the description in startCmdList for details.
+        @param[in] callFunc: callback function to call when each device command succeeds or fails, or None.
+            See the description in startCmdList for details.
         @param[in] userCmd: user command whose set state is set to Done or Failed when all device commands are done;
             if None a new UserCmd is created and returned
         @return userCmd: the supplied userCmd or a newly created UserCmd
@@ -269,74 +256,101 @@ class DeviceSet(object):
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
-        self.checkSlotList(cmdDict.keys())
-        if userCmd is None:
-            userCmd = UserCmd()
-        elif userCmd.isDone:
-            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
-        
-        devCmdDict = dict()
-        failSlotSet = set()
-
-        def checkDone(dumArg=None):
-            """If all device commands are finished, then set userCmd to Failed or Done as appropriate
-            """
-            for slot, devCmd in devCmdDict.iteritems():
-                if not devCmd.isDone:
-                    return
-                if devCmd.didFail:
-                    failSlotSet.add(slot)
-
-            if not userCmd.isDone:
-                if failSlotSet:
-                    failedAxisStr = ", ".join(slot for slot in failSlotSet)
-                    userCmd.setState(userCmd.Failed, textMsg="Command failed for %s" % (failedAxisStr,))
-                else:
-                    userCmd.setState(userCmd.Done)
-
-
-        for slot, cmdStrOrList in cmdDict.iteritems():
-            dev = self[slot]
-
-            def devCmdCallback(devCmd, slot=slot, dev=dev):
-                if devCmd.didFail:
-                    failSlotSet.add(slot)
-                
-                devCmdDict[slot] = devCmd
-
-                if callFunc:
-                    try:
-                        newDevCmd = callFunc(DevCmdInfo(slot=slot, dev=dev, devCmd=devCmd, userCmd=userCmd))
-                        if newDevCmd:
-                            # the callback function started a new command;
-                            # update devCmdDict and checkDone when it is done, but do NOT run callFunc again
-                            devCmdDict[slot] = newDevCmd
-                            def newDevCmdCallback(devCmd, slot=slot, dev=dev):
-                                devCmdDict[slot] = devCmd
-                                checkDone()
-
-                            newDevCmd.addCallback(newDevCmdCallback)
-                            devCmdDict[slot] = newDevCmd
-                    except Exception:
-                        failSlotSet.add(slot)
-                        textBody = "%s command %r failed" % (slot, devCmd.cmdStr)
-                        msgStr = "Text=%s" % (quoteStr(textBody),)
-                        self.actor.writeToUsers("f", msgStr=msgStr)
-                        traceback.print_exc(file=sys.stderr)
-
-                checkDone()
-
-            if not isSequence(cmdStrOrList):
-                devCmd = dev.startCmd(cmdStrOrList, timeLim=timeLim)
-            else:
-                devCmd = dev.startCmdList(cmdStrOrList, timeLim=timeLim)
-            devCmdDict[slot] = devCmd
-            devCmd.addCallback(devCmdCallback)
-
-        checkDone()
-        return userCmd
+        rcd = RunCmdDict(devSet=self, cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd, timeLim=timeLim)
+        return rcd.userCmd
 
     def _newlyConnected(self, dev):
         """Called when a device is newly connected
         """
         pass
+
+    def __getitem__(self, slot):
+        """Return the device in the specified slot
+        """
+        return self._slotDevDict[slot]
+
+    def __len__(self):
+        """Return number of slots"""
+        return len(self._slotDevDict)
+
+
+class RunCmdDict(object):
+    """Run a dictionary of commands
+    """
+    def __init__(self, devSet, callFunc, cmdDict, userCmd, timeLim):
+        """Start running a command dict
+
+        @param[in] devSet: device set
+        @param[in] cmdDict: a dict of slot name: command string or sequence of command strings
+        @param[in] callFunc: callback function to call when each device command succeeds or fails, or None.
+            If supplied, the function receives one positional argument: a DevCmdInfo.
+            The function may return a new devCmd, in which case the completion of the full set of commands
+            is delayed until the new command is finished; one use case is to initialize an actuator if a move fails.
+        @param[in] userCmd: user command to track progress of this command
+        @param[in] timeLim: time limit for command; or None if no limit
+        """
+        devSet.checkSlotList(cmdDict.keys())
+        if userCmd is None:
+            userCmd = UserCmd()
+        elif userCmd.isDone:
+            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
+        self.userCmd = userCmd
+        
+        self.devCmdDict = dict()
+        self.failSlotSet = set()
+
+        for slot, cmdStrOrList in cmdDict.iteritems():
+            dev = devSet[slot]
+
+            def devCmdCallback(devCmd, slot=slot, dev=dev):
+                if devCmd.didFail:
+                    self.failSlotSet.add(slot)
+                
+                self.devCmdDict[slot] = devCmd
+
+                if callFunc:
+                    try:
+                        newDevCmd = callFunc(DevCmdInfo(slot=slot, dev=dev, devCmd=devCmd, userCmd=self.userCmd))
+                        if newDevCmd:
+                            # the callback function started a new command;
+                            # update self.devCmdDict and checkDone when it is done, but do NOT run callFunc again
+                            self.devCmdDict[slot] = newDevCmd
+                            def newDevCmdCallback(devCmd, slot=slot, dev=dev):
+                                self.devCmdDict[slot] = devCmd
+                                self.checkDone()
+
+                            newDevCmd.addCallback(newDevCmdCallback)
+                            self.devCmdDict[slot] = newDevCmd
+                    except Exception:
+                        self.failSlotSet.add(slot)
+                        textBody = "%s command %r failed" % (slot, devCmd.cmdStr)
+                        msgStr = "Text=%s" % (quoteStr(textBody),)
+                        self.actor.writeToUsers("f", msgStr=msgStr)
+                        traceback.print_exc(file=sys.stderr)
+
+                self.checkDone()
+
+            if not isSequence(cmdStrOrList):
+                devCmd = dev.startCmd(cmdStrOrList, timeLim=timeLim)
+            else:
+                devCmd = dev.startCmdList(cmdStrOrList, timeLim=timeLim)
+            self.devCmdDict[slot] = devCmd
+            devCmd.addCallback(devCmdCallback)
+
+        self.checkDone()
+
+    def checkDone(self, dumArg=None):
+        """If all device commands are finished, then set self.userCmd state to Failed or Done as appropriate
+        """
+        for slot, devCmd in self.devCmdDict.iteritems():
+            if not devCmd.isDone:
+                return
+            if devCmd.didFail:
+                self.failSlotSet.add(slot)
+
+        if not self.userCmd.isDone:
+            if self.failSlotSet:
+                failedAxisStr = ", ".join(slot for slot in self.failSlotSet)
+                self.userCmd.setState(self.userCmd.Failed, textMsg="Command failed for %s" % (failedAxisStr,))
+            else:
+                self.userCmd.setState(self.userCmd.Done)
