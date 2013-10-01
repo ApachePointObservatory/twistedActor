@@ -168,20 +168,12 @@ class Device(BaseMixin):
         rcl = RunCmdList(dev=self, cmdList=cmdList, callFunc=callFunc, userCmd=userCmd, timeLim=timeLim)
         return rcl.currDevCmd
 
-    def _newlyConnected(self):
-        """Called when this device is newly connected
-
-        Subclasses typically override to initialize and get status
-        """
-        pass
-
     def _connCallback(self, conn=None):
         """Call when the connection state changes
         """
         try:
             if self.conn.isConnected and not self._wasConnected:
-                self._newlyConnected()
-
+                self.init()
         finally:
             self._wasConnected = self.conn.isConnected
         if self.connCallFunc:
@@ -235,33 +227,40 @@ class RunCmdList(object):
         elif not devCmd.isDone:
             return
         elif devCmd.didFail:
-            self.finish()
+            self.finish(devCmd)
             return
 
         try:
             cmdStr = self.cmdStrIter.next()
         except StopIteration:
-            self.finish()
+            self.finish(devCmd)
             return
 
         self.currDevCmd = self.dev.startCmd(cmdStr, callFunc=self.cmdCallback, timeLim=self.timeLim)
 
-    def finish(self):
+    def finish(self, devCmd):
         """Finish the sequence of commands by calling callFunc and setting state of userCmd
 
-        @raise RuntimeError if no self.currDevCmd or it is not done
+        @raise RuntimeError if devCmd not done
+
+        @note: finish takes devCmd as an argument because it is possible the command
+        started by dev.startCmd will have failed before the new devCmd is returned
         """
-        if self.currDevCmd is None or not self.currDevCmd.isDone:
-            raise RuntimeError("finish should only be called when self.currDevCmd is done")
+        if devCmd is None or not devCmd.isDone:
+            raise RuntimeError("finish should only be called when devCmd is done")
 
         if self.callFunc:
-            safeCall(self.callFunc(self.currDevCmd))
+            safeCall(self.callFunc(devCmd))
 
         if self.userCmd:
-            if self.currDevCmd.didFail:
-                self.userCmd.setState(self.userCmd.Failed, textMsg=self.currDevCmd.textMsg, hubMsg=self.currDevCmd.hubMsg)
+            if devCmd.didFail:
+                self.userCmd.setState(self.userCmd.Failed, textMsg=devCmd.textMsg, hubMsg=devCmd.hubMsg)
             else:
                 self.userCmd.setState(self.userCmd.Done)
+
+    def __repr__(self):
+        return "%s(dev=%r, currDevCmd=%r, callFunc=%s, userCmd=%s, timeLim=%s)" % \
+            (type(self).__name__, self.dev, self.currDevCmd, self.callFunc, self.userCmd, self.timeLim)
 
 
 class TCPDevice(Device):
@@ -313,7 +312,7 @@ class TCPDevice(Device):
         self.handleReply(replyStr)
 
     def __repr__(self):
-        return "%s(name=%s, host=%s, port=%s)" % (type(self).__name__, self.name, self.host, self.port)
+        return "%s(name=%s, host=%s, port=%s)" % (type(self).__name__, self.name, self.conn.host, self.conn.port)
 
 
 class ActorDevice(TCPDevice):

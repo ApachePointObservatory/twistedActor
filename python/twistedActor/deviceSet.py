@@ -63,6 +63,10 @@ class DeviceSet(object):
         if len(self._slotDevDict) < len(slotList):
             raise RuntimeError("Names in slotList=%s are not unique" % (slotList,))
 
+        for dev in self.devList:
+            if dev:
+                self._addDevCallbacks(dev)
+
     def checkSlotList(self, slotList):
         """Raise RuntimeError if any slots in slotList do not contain a device
         """
@@ -75,8 +79,8 @@ class DeviceSet(object):
         if emptySlotList:
             raise RuntimeError("One or more slots is empty: %s" % (", ".join(emptySlotList),))
 
-    def connect(self, doConnect=True, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
-        """Connect or disconnect devices specified by slot name
+    def connect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
+        """Connect devices specified by slot name
 
         @param[in] doConnect: if True, connect the specified devices, else disconnect them
         @param[in] slotList: collection of slot names, or None for all filled slots
@@ -88,63 +92,24 @@ class DeviceSet(object):
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
-        if userCmd is None:
-            userCmd = UserCmd()
-        elif userCmd.isDone:
-            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
+        cd = ConnectDevices(devSet=self, slotList=slotList, doConnect=True, userCmd=userCmd, timeLim=timeLim)
+        return cd.userCmd
 
-        slotList = self.expandSlotList(slotList)
-        if not slotList:
-            if userCmd:
-                userCmd.setState(userCmd.Done, textMsg="No slots specified; nothing done")
+    def disconnect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
+        """Connect devices specified by slot name
 
-        devList = []
-        connDevDict = dict()
-        connTimer = Timer()
+        @param[in] doConnect: if True, connect the specified devices, else disconnect them
+        @param[in] slotList: collection of slot names, or None for all filled slots
+        @param[in] userCmd: user command whose set state is set to Done or Failed when the command is done
 
-        def connCallback(conn=None):
-            """callback for dev.conn"""
-            if conn and conn.isConnected:
-                dev = connDevDict[id(conn)]
-                safeCall(self._newlyConnected, dev)
-            if all(dev.conn.isDone for dev in devList):
-                # all connections finished
-                finish()
-            if timeLim and not connTimer.isActive:
-                # time out
-                finish()
+        @return userCmd: the specified userCmd or a newly generated one
 
-        def finish():
-            """Call to finish command -- for success or failure"""
-            connTimer.cancel()
-            for dev in devList:
-                dev.conn.removeStateCallback(connCallback)
-            if not userCmd.isDone:
-                if doConnect:
-                    failDevList = [dev.name for dev in devList if not dev.conn.isConnected]
-                    opStr = "connect"
-                else:
-                    failDevList = [dev.name for dev in devList if dev.conn.isConnected]
-                    opStr = "disconnect"
-
-                if failDevList:
-                    userCmd.setState(userCmd.Failed,
-                        textMsg="One or more devices failed to %s: %s" % (opStr, ", ".join(failDevList)))
-                else:
-                    userCmd.setState(userCmd.Done)
-
-        if timeLim:
-            connTimer.start(timeLim, connCallback)
-        for slot in slotList:
-            dev = self[slot]
-            devList.append(dev)
-            connDevDict[id(dev.conn)] = dev
-            dev.conn.addStateCallback(connCallback)
-            if doConnect:
-                dev.conn.connect()
-            else:
-                dev.conn.disconnect()
-        connCallback()
+        @raise RuntimeError if:
+        - a command is specified for an empty or unknown slot
+        - userCmd is already done
+        """
+        cd = ConnectDevices(devSet=self, slotList=slotList, doConnect=False, userCmd=userCmd, timeLim=timeLim)
+        return cd.userCmd
 
     def expandSlotList(self, slotList):
         """Expand a collection of slot names, changing None to the correct list and checking the list
@@ -195,7 +160,7 @@ class DeviceSet(object):
         """
         return self._devNameSlotDict[devName]
 
-    def replaceDev(self, slot, dev):
+    def replaceDev(self, slot, dev, userCmd=None):
         """Replace or remove one device
 
         The old device (if it exists) is closed by calling init()
@@ -203,15 +168,20 @@ class DeviceSet(object):
         @param[in] slot: slot slot of device (must match a slot in slotList)
         @param[in] dev: the new device, or None to remove the existing device
 
+        @return userCmd: the supplied userCmd or a newly created UserCmd
+
         @raise RuntimeError if slot is not in slotList
         """
         if slot not in self._slotDevDict:
             raise RuntimeError("Invalid slot %s" % (slot,))
         oldDev = self._slotDevDict[slot]
         if oldDev:
+            self._removeDevCallbacks(oldDev)
             oldDev.init()
         self._slotDevDict[slot] = dev
         self._devNameDict[dev.name] = slot
+        self._addDevCallbacks(dev)
+        return dev.connect(userCmd=userCmd)
 
     def startCmd(self, cmdStrOrList, slotList=None, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """Start a command or list of commands on one or more devices
@@ -259,8 +229,17 @@ class DeviceSet(object):
         rcd = RunCmdDict(devSet=self, cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd, timeLim=timeLim)
         return rcd.userCmd
 
-    def _newlyConnected(self, dev):
-        """Called when a device is newly connected
+    def _addDevCallbacks(self, dev):
+        """Add device-specific callbacks
+
+        Called when adding a device
+        """
+        pass
+
+    def _removeDevCallbacks(self, dev):
+        """Remove device-specific callbacks
+
+        Called when removing a device
         """
         pass
 
@@ -272,6 +251,76 @@ class DeviceSet(object):
     def __len__(self):
         """Return number of slots"""
         return len(self._slotDevDict)
+
+
+class ConnectDevices(object):
+    """Connect or disconnect one or more devices
+    """
+    def __init__(self, devSet, slotList, doConnect, userCmd, timeLim):
+        """Start connecting or disconnecting one or more devices
+        """
+        self.devSet = devSet
+        self.doConnect = bool(doConnect)
+        self.timeLim = timeLim
+
+        slotList = devSet.expandSlotList(slotList)
+        if not slotList:
+            if self.userCmd:
+                self.userCmd.setState(self.userCmd.Done, textMsg="No slots specified; nothing done")
+
+        if userCmd is None:
+            userCmd = UserCmd()
+        elif userCmd.isDone:
+            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
+        self.userCmd = userCmd
+
+        self.devList = []
+        self.connDevDict = dict()
+        self.connTimer = Timer()
+
+        if self.timeLim:
+            self.connTimer.start(self.timeLim, self.finish)
+        for slot in slotList:
+            dev = devSet[slot]
+            self.devList.append(dev)
+            self.connDevDict[id(dev.conn)] = dev
+            dev.conn.addStateCallback(self.connCallback)
+            if self.doConnect:
+                dev.conn.connect()
+            else:
+                safeCall(dev.init)
+                dev.conn.disconnect()
+        self.connCallback()
+
+    def connCallback(self, conn=None):
+        """Callback for dev.conn and for initial check if all done
+        """
+        if conn and conn.isConnected:
+            dev = self.connDevDict[id(conn)]
+            safeCall(dev.init)
+        if all(dev.conn.isDone for dev in self.devList):
+            # all connections finished
+            self.finish()
+
+    def finish(self):
+        """Call to finish command -- for success or failure
+        """
+        self.connTimer.cancel()
+        for dev in self.devList:
+            dev.conn.removeStateCallback(self.connCallback)
+        if not self.userCmd.isDone:
+            if self.doConnect:
+                failDevList = [dev.name for dev in self.devList if not dev.conn.isConnected]
+                opStr = "connect"
+            else:
+                failDevList = [dev.name for dev in self.devList if dev.conn.isConnected]
+                opStr = "disconnect"
+
+            if failDevList:
+                self.userCmd.setState(self.userCmd.Failed,
+                    textMsg="One or more devices failed to %s: %s" % (opStr, ", ".join(failDevList)))
+            else:
+                self.userCmd.setState(self.userCmd.Done)
 
 
 class RunCmdDict(object):
