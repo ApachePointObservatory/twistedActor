@@ -3,11 +3,12 @@ import itertools
 import sys
 import traceback
 
-from RO.Comm.TwistedTimer import Timer
 from RO.SeqUtil import isSequence
 from RO.AddCallback import safeCall
 from RO.StringUtil import quoteStr
-from twistedActor import UserCmd
+
+from .command import UserCmd
+from .manageCommands import LinkCommands
 
 __all__ = ["DeviceSet"]
 
@@ -84,32 +85,34 @@ class DeviceSet(object):
 
         @param[in] doConnect: if True, connect the specified devices, else disconnect them
         @param[in] slotList: collection of slot names, or None for all filled slots
-        @param[in] userCmd: user command whose set state is set to Done or Failed when the command is done
+        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+            if supplied, its state is set to Done or Failed when the command is done
+        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
 
-        @return userCmd: the specified userCmd or a newly generated one
+        @return userCmd: the specified userCmd or if that was None, then a new empty one
 
         @raise RuntimeError if:
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
-        cd = ConnectDevices(devSet=self, slotList=slotList, doConnect=True, userCmd=userCmd, timeLim=timeLim)
-        return cd.userCmd
+        return self._connectOrDisconnect(doConnect=True, slotList=slotList, userCmd=userCmd, timeLim=timeLim)
 
     def disconnect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
         """Connect devices specified by slot name
 
         @param[in] doConnect: if True, connect the specified devices, else disconnect them
         @param[in] slotList: collection of slot names, or None for all filled slots
-        @param[in] userCmd: user command whose set state is set to Done or Failed when the command is done
+        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+            if supplied, its state is set to Done or Failed when the command is done
+        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
 
-        @return userCmd: the specified userCmd or a newly generated one
+        @return userCmd: the specified userCmd or if that was None, then a new empty one
 
         @raise RuntimeError if:
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
-        cd = ConnectDevices(devSet=self, slotList=slotList, doConnect=False, userCmd=userCmd, timeLim=timeLim)
-        return cd.userCmd
+        return self._connectOrDisconnect(doConnect=False, slotList=slotList, userCmd=userCmd, timeLim=timeLim)
 
     def expandSlotList(self, slotList):
         """Expand a collection of slot names, changing None to the correct list and checking the list
@@ -193,11 +196,11 @@ class DeviceSet(object):
         @param[in] slotList: collection of slot names, or None for all filled slots
         @param[in] callFunc: callback function to call when each device command succeeds or fails, or None.
             See the description in startCmdList for details.
-        @param[in] userCmd: user command whose set state is set to Done or Failed when all device commands are done;
-            if None a new UserCmd is created and returned
-        @return userCmd: the supplied userCmd or a newly created UserCmd
-        @param[in] timeLim: time limit for command; if None then the time limit in userCmd is used
-            (if any) else there is no time limit
+        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+            if supplied, its state is set to Done or Failed when the command is done
+        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+
+        @return userCmd: the specified userCmd or if that was None, then a new empty one
 
         @raise RuntimeError if:
         - slotList has empty or non-existent slots
@@ -217,10 +220,11 @@ class DeviceSet(object):
             If supplied, the function receives one positional argument: a DevCmdInfo.
             The function may return a new devCmd, in which case the completion of the full set of commands
             is delayed until the new command is finished; one use case is to initialize an actuator if a move fails.
-        @param[in] userCmd: user command whose set state is set to Done or Failed when all device commands are done;
-            if None a new UserCmd is created and returned
-        @param[in] timeLim: time limit for command; or None if no limit
-        @return userCmd: the supplied userCmd or a newly created UserCmd
+        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+            if supplied, its state is set to Done or Failed when the command is done
+        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+
+        @return userCmd: the specified userCmd or if that was None, then a new empty one
 
         @raise RuntimeError if:
         - a command is specified for an empty or unknown slot
@@ -242,7 +246,34 @@ class DeviceSet(object):
         Called when removing a device
         """
         pass
+    
+    def _connectOrDisconnect(self, doConnect, slotList, userCmd, timeLim):
+        """Connect or disconnect a set of devices
 
+        @param[in] doConnect: if True connect, else disconnect
+        @param[in] slotList: collection of slot names, or None for all filled slots
+        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+            if supplied, its state is set to Done or Failed when the command is done
+        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+
+        @return userCmd: the specified userCmd or if that was None, then a new empty one        
+        """
+        if userCmd is None:
+            userCmd = UserCmd()
+        elif userCmd.isDone:
+            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
+
+        slotList = self.expandSlotList(slotList)
+        userCmdList = []
+        for slot in slotList:
+            dev = self[slot]
+            if dev:
+                if doConnect:
+                    userCmdList.append(dev.connect(timeLim=timeLim))
+                else:
+                    userCmdList.append(dev.disconnect(timeLim=timeLim))
+        LinkCommands(userCmd, userCmdList)
+        return userCmd
     def __getitem__(self, slot):
         """Return the device in the specified slot
         """
@@ -252,75 +283,8 @@ class DeviceSet(object):
         """Return number of slots"""
         return len(self._slotDevDict)
 
-
-class ConnectDevices(object):
-    """Connect or disconnect one or more devices
-    """
-    def __init__(self, devSet, slotList, doConnect, userCmd, timeLim):
-        """Start connecting or disconnecting one or more devices
-        """
-        self.devSet = devSet
-        self.doConnect = bool(doConnect)
-        self.timeLim = timeLim
-
-        slotList = devSet.expandSlotList(slotList)
-        if not slotList:
-            if self.userCmd:
-                self.userCmd.setState(self.userCmd.Done, textMsg="No slots specified; nothing done")
-
-        if userCmd is None:
-            userCmd = UserCmd()
-        elif userCmd.isDone:
-            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
-        self.userCmd = userCmd
-
-        self.devList = []
-        self.connDevDict = dict()
-        self.connTimer = Timer()
-
-        if self.timeLim:
-            self.connTimer.start(self.timeLim, self.finish)
-        for slot in slotList:
-            dev = devSet[slot]
-            self.devList.append(dev)
-            self.connDevDict[id(dev.conn)] = dev
-            dev.conn.addStateCallback(self.connCallback)
-            if self.doConnect:
-                dev.conn.connect()
-            else:
-                safeCall(dev.init)
-                dev.conn.disconnect()
-        self.connCallback()
-
-    def connCallback(self, conn=None):
-        """Callback for dev.conn and for initial check if all done
-        """
-        if conn and conn.isConnected:
-            dev = self.connDevDict[id(conn)]
-            safeCall(dev.init)
-        if all(dev.conn.isDone for dev in self.devList):
-            # all connections finished
-            self.finish()
-
-    def finish(self):
-        """Call to finish command -- for success or failure
-        """
-        self.connTimer.cancel()
-        for dev in self.devList:
-            dev.conn.removeStateCallback(self.connCallback)
-        if not self.userCmd.isDone:
-            if self.doConnect:
-                failDevList = [dev.name for dev in self.devList if not dev.conn.isConnected]
-                opStr = "connect"
-            else:
-                failDevList = [dev.name for dev in self.devList if dev.conn.isConnected]
-                opStr = "disconnect"
-
-            if failDevList:
-                self.userCmd.setState(self.userCmd.Failed,
-                    textMsg="One or more devices failed to %s: %s" % (opStr, ", ".join(failDevList)))
-            else:
-                self.userCmd.setState(self.userCmd.Done)
+    def __repr__(self):
+        return type(self).__name__
 
 
 class RunCmdDict(object):
@@ -335,8 +299,11 @@ class RunCmdDict(object):
             If supplied, the function receives one positional argument: a DevCmdInfo.
             The function may return a new devCmd, in which case the completion of the full set of commands
             is delayed until the new command is finished; one use case is to initialize an actuator if a move fails.
-        @param[in] userCmd: user command to track progress of this command
-        @param[in] timeLim: time limit for command; or None if no limit
+        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+            if supplied, its state is set to Done or Failed when the command is done
+        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+
+        @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
         devSet.checkSlotList(cmdDict.keys())
         if userCmd is None:

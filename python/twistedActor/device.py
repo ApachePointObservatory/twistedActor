@@ -16,11 +16,12 @@ from collections import OrderedDict
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.AddCallback import safeCall, BaseMixin
+from RO.Comm.TwistedTimer import Timer
 from RO.Comm.TCPConnection import TCPConnection
 from RO.StringUtil import strFromException
 import opscore.actor
 
-from .command import DevCmd, DevCmdVar
+from .command import DevCmd, DevCmdVar, UserCmd
 
 class Device(BaseMixin):
     """Device interface.
@@ -90,6 +91,28 @@ class Device(BaseMixin):
         self.conn.addStateCallback(self._connCallback)
         if callFunc:
             self.addCallback(callFunc, callNow=False)
+
+    def connect(self, userCmd=None, timeLim=None):
+        """Connect the device and start init (on success)
+
+        A no-op if already connected
+
+        @param[in] userCmd: user command (or None); if None a new one is generated
+            to allow tracking the progress of this command
+        @return userCmd: supplied userCmd or if that wa userCmd by which to track progress of this command
+        """
+        cd = ConnectDevice(dev=self, doConnect=True, userCmd=userCmd, timeLim=timeLim)
+        return cd.userCmd
+
+    def disconnect(self, userCmd=None, timeLim=None):
+        """Start init and disconnect the device
+
+        A no-op if already disconnected
+        """
+        if self.conn.isConnected:
+            safeCall(self.init)
+        cd = ConnectDevice(dev=self, doConnect=False, userCmd=userCmd, timeLim=timeLim)
+        return cd.userCmd
 
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
@@ -171,16 +194,69 @@ class Device(BaseMixin):
     def _connCallback(self, conn=None):
         """Call when the connection state changes
         """
-        try:
-            if self.conn.isConnected and not self._wasConnected:
-                self.init()
-        finally:
-            self._wasConnected = self.conn.isConnected
+        if self.conn.isConnected and not self._wasConnected:
+            safeCall(self.init)
+        self._wasConnected = self.conn.isConnected
         if self.connCallFunc:
-            safeCall(self.connCallFunc(self))
+            safeCall(self.connCallFunc, self)
 
     def __repr__(self):
         return "%s(name=%s)" % (type(self).__name__, self.name)
+
+
+class ConnectDevice(object):
+    """Connect or disconnect a device
+    """
+    def __init__(self, dev, doConnect, userCmd, timeLim):
+        """Start connecting or disconnecting the device
+        """
+        self.dev = dev
+        self.doConnect = bool(doConnect)
+        self.timeLim = timeLim
+        if userCmd is None:
+            userCmd = UserCmd()
+        elif userCmd.isDone:
+            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
+        self.userCmd = userCmd
+        self.connTimer = Timer()
+
+        if bool(doConnect) == bool(self.dev.conn.isConnected):
+            # already done
+            self.finish()
+            return
+
+        if self.timeLim:
+            self.connTimer.start(self.timeLim, self.finish)
+
+        dev.conn.addStateCallback(self.connCallback)
+        if self.doConnect:
+            dev.conn.connect()
+        else:
+            dev.conn.disconnect()
+
+    def connCallback(self, conn):
+        """Callback for device connection state
+        """
+        if self.dev.conn.isDone:
+            self.finish()
+
+    def finish(self):
+        """Call to finish command -- for success or failure
+        """
+        self.connTimer.cancel()
+        self.dev.conn.removeStateCallback(self.connCallback)
+        if not self.userCmd.isDone:
+            if self.doConnect:
+                didFail = not self.dev.conn.isConnected
+                opStr = "connect"
+            else:
+                didFail = self.dev.conn.isConnected
+                opStr = "disconnect"
+
+            if didFail:
+                self.userCmd.setState(self.userCmd.Failed, textMsg="%s failed to %s" % (self.dev, opStr))
+            else:
+                self.userCmd.setState(self.userCmd.Done)
 
 
 class RunCmdList(object):
@@ -250,7 +326,7 @@ class RunCmdList(object):
             raise RuntimeError("finish should only be called when devCmd is done")
 
         if self.callFunc:
-            safeCall(self.callFunc(devCmd))
+            safeCall(self.callFunc, devCmd)
 
         if self.userCmd:
             if devCmd.didFail:
@@ -308,7 +384,7 @@ class TCPDevice(Device):
         @param[in] sock  the socket (ignored)
         @param[in] line  the reply, missing the final \n     
         """
-        #print "TCPDevice._readCallback(sock, replyStr=%r)" % (replyStr,)
+        # print "TCPDevice._readCallback(sock, replyStr=%r)" % (replyStr,)
         self.handleReply(replyStr)
 
     def __repr__(self):
