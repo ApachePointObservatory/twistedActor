@@ -172,6 +172,8 @@ class Device(BaseMixin):
         @return devCmd: the device command that was started (and may already have failed)
 
         @note: if callFunc and userCmd are both specified callFunc is called before userCmd is updated.
+
+        @warning: subclasses must supplement or override this method to set the devCmd done when finished
         """
         devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, timeLim=timeLim, dev=self)
         if not self.conn.isConnected:
@@ -249,7 +251,7 @@ class ConnectDevice(object):
         """Callback for device connection state
         """
         if self.dev.conn.isDone:
-            initUserCmd = UserCmd(callFunc=self.initCallback)
+            initUserCmd = UserCmd(cmdStr="connect %s" % (self.dev.name,), callFunc=self.initCallback)
             self.dev.init(userCmd=initUserCmd, timeLim=self.timeLim)
 
     def finish(self):

@@ -132,7 +132,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         @param[in] callNow: if True, call callFunc immediately
         """
         if self.isDone:
-            RO.AddCallback.safeCall(callFunc(self))
+            RO.AddCallback.safeCall(callFunc, self)
         else:
             RO.AddCallback.BaseMixin.addCallback(self, callFunc, callNow=callNow)
 
@@ -162,6 +162,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         Error conditions:
         - Raise RuntimeError if this command is finished.
         """
+        # print "%r.setState(newState=%s); self._cmdToTrack=%r" % (self, newState, self._cmdToTrack)
         if self.isDone:
             raise RuntimeError("Command is done; cannot change state")
         if newState not in self.AllStates:
@@ -215,7 +216,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """Stop tracking a command if tracking one, else do nothing
         """
         if self._cmdToTrack:
-            self._cmdToTrack.addCallback(self._cmdCallback)
+            self._cmdToTrack.removeCallback(self._cmdCallback)
             self._cmdToTrack = None
     
     def _cmdCallback(self, cmdToTrack):
@@ -322,6 +323,7 @@ class DevCmdVar(BaseCmd):
             self.userID = userCmd.userID
             self.cmdID = userCmd.cmdID
             userCmd.trackCmd(self)
+        self.userCmd=userCmd
 
         self.cmdVar = cmdVar
         self.cmdVar.addCallback(self._cmdVarCallback)
