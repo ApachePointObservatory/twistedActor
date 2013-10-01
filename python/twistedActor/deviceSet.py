@@ -8,6 +8,7 @@ from RO.AddCallback import safeCall
 from RO.StringUtil import quoteStr
 
 from .command import UserCmd
+from .device import expandUserCmd
 from .manageCommands import LinkCommands
 
 __all__ = ["DeviceSet"]
@@ -258,10 +259,7 @@ class DeviceSet(object):
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one        
         """
-        if userCmd is None:
-            userCmd = UserCmd()
-        elif userCmd.isDone:
-            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
+        userCmd = expandUserCmd(userCmd)
 
         slotList = self.expandSlotList(slotList)
         userCmdList = []
@@ -306,11 +304,7 @@ class RunCmdDict(object):
         @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
         devSet.checkSlotList(cmdDict.keys())
-        if userCmd is None:
-            userCmd = UserCmd()
-        elif userCmd.isDone:
-            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
-        self.userCmd = userCmd
+        self.userCmd = expandUserCmd(userCmd)
         
         self.devCmdDict = dict()
         self.failSlotSet = set()

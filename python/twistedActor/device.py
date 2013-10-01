@@ -18,10 +18,23 @@ RO.Comm.Generic.setFramework("twisted")
 from RO.AddCallback import safeCall, BaseMixin
 from RO.Comm.TwistedTimer import Timer
 from RO.Comm.TCPConnection import TCPConnection
-from RO.StringUtil import strFromException
+from RO.StringUtil import quoteStr, strFromException
 import opscore.actor
 
 from .command import DevCmd, DevCmdVar, UserCmd
+
+def expandUserCmd(userCmd):
+    """If userCmd is None, make a new one; if userCmd is done, raise RuntimeError
+
+    @param[in] userCmd: user command (twistedActor.UserCmd) or None
+    @return userCmd: return supplied userCmd if not None, else a new twistedActor.UserCmd
+    @raise RuntimeError if userCmd is done
+    """
+    if userCmd is None:
+        userCmd = UserCmd()
+    elif userCmd.isDone:
+        raise RuntimeError("userCmd=%s already finished" % (userCmd,))
+    return userCmd    
 
 class Device(BaseMixin):
     """Device interface.
@@ -87,7 +100,6 @@ class Device(BaseMixin):
         self.conn = conn
         self.connCallFunc = connCallFunc
         self.cmdClass = cmdClass
-        self._wasConnected = False
         self.conn.addStateCallback(self._connCallback)
         if callFunc:
             self.addCallback(callFunc, callNow=False)
@@ -101,7 +113,7 @@ class Device(BaseMixin):
             to allow tracking the progress of this command
         @return userCmd: supplied userCmd or if that wa userCmd by which to track progress of this command
         """
-        cd = ConnectDevice(dev=self, doConnect=True, userCmd=userCmd, timeLim=timeLim)
+        cd = ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
         return cd.userCmd
 
     def disconnect(self, userCmd=None, timeLim=None):
@@ -109,9 +121,7 @@ class Device(BaseMixin):
 
         A no-op if already disconnected
         """
-        if self.conn.isConnected:
-            safeCall(self.init)
-        cd = ConnectDevice(dev=self, doConnect=False, userCmd=userCmd, timeLim=timeLim)
+        cd = DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
         return cd.userCmd
 
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
@@ -194,9 +204,6 @@ class Device(BaseMixin):
     def _connCallback(self, conn=None):
         """Call when the connection state changes
         """
-        if self.conn.isConnected and not self._wasConnected:
-            safeCall(self.init)
-        self._wasConnected = self.conn.isConnected
         if self.connCallFunc:
             safeCall(self.connCallFunc, self)
 
@@ -205,34 +212,96 @@ class Device(BaseMixin):
 
 
 class ConnectDevice(object):
-    """Connect or disconnect a device
+    """Connect a device and send dev.init
+
+    If the device is already connected then do nothing
     """
-    def __init__(self, dev, doConnect, userCmd, timeLim):
-        """Start connecting or disconnecting the device
+    def __init__(self, dev, userCmd, timeLim):
+        """Start connecting a device
         """
         self.dev = dev
-        self.doConnect = bool(doConnect)
         self.timeLim = timeLim
-        if userCmd is None:
-            userCmd = UserCmd()
-        elif userCmd.isDone:
-            raise RuntimeError("userCmd=%s already finished" % (userCmd,))
-        self.userCmd = userCmd
+        self.userCmd = expandUserCmd(userCmd)
         self.connTimer = Timer()
+        self.addedConnCallback = False
 
-        if bool(doConnect) == bool(self.dev.conn.isConnected):
-            # already done
+        if self.dev.conn.isConnected:
+            # already done; don't send init
             self.finish()
             return
 
         if self.timeLim:
             self.connTimer.start(self.timeLim, self.finish)
 
-        dev.conn.addStateCallback(self.connCallback)
-        if self.doConnect:
-            dev.conn.connect()
+        self.dev.conn.addStateCallback(self.connCallback)
+        self.addedConnCallback = True
+        if self.dev.conn.mayConnect:
+            self.dev.conn.connect()
+            # else already connecting; wait and see if it works
+
+    def initCallback(self, userCmd):
+        if userCmd.didFail:
+            textMsg = "%s initialization failed: %s" % (self.dev.name, userCmd.textMsg)
+            self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
+        self.finish()
+
+    def connCallback(self, conn):
+        """Callback for device connection state
+        """
+        if self.dev.conn.isDone:
+            initUserCmd = UserCmd(callFunc=self.initCallback)
+            self.dev.init(userCmd=initUserCmd, timeLim=self.timeLim)
+
+    def finish(self):
+        """Call to finish command -- for success or failure
+        """
+        self.connTimer.cancel()
+        if self.addedConnCallback:
+            self.dev.conn.removeStateCallback(self.connCallback)
+        if not self.userCmd.isDone:
+            if not self.dev.conn.isConnected:
+                self.userCmd.setState(self.userCmd.Failed, textMsg="%s failed to connect" % (self.dev,))
+            else:
+                self.userCmd.setState(self.userCmd.Done)
+
+
+class DisconnectDevice(object):
+    """Send dev.init (if the device is fully connected) and disconnect a device
+    """
+    def __init__(self, dev, userCmd, timeLim):
+        """Start connecting a device
+        """
+        self.dev = dev
+        self.timeLim = timeLim
+        self.userCmd = expandUserCmd(userCmd)
+        self.connTimer = Timer()
+        self.addedConnCallback = False
+
+        if not self.dev.conn.isConnected:
+            # cannot send init but maybe can still disconnect
+            textMsg = "%s connection state=%s; cannot initialize before disconnecting" % (self.dev.name, self.dev.conn.state)
+            self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
+            self.initCallback()
+            return
+
+        initUserCmd = UserCmd(callFunc=self.initCallback)
+        self.dev.init(userCmd=initUserCmd, timeLim=timeLim)
+
+    def initCallback(self, initUserCmd=None):
+        if initUserCmd and initUserCmd.didFail:
+            textMsg = "%s initialization failed: %s" % (self.dev.name, initUserCmd.textMsg,)
+            self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
+
+        if self.dev.conn.isDone and not self.dev.conn.isConnected:
+            # fully disconnected; no more to be done
+            self.finish()
         else:
-            dev.conn.disconnect()
+            if self.timeLim:
+                self.connTimer.start(self.timeLim, self.finish)
+
+            self.dev.conn.addStateCallback(self.connCallback)
+            self.addedConnCallback = True
+            self.dev.conn.disconnect()
 
     def connCallback(self, conn):
         """Callback for device connection state
@@ -244,17 +313,11 @@ class ConnectDevice(object):
         """Call to finish command -- for success or failure
         """
         self.connTimer.cancel()
-        self.dev.conn.removeStateCallback(self.connCallback)
+        if self.addedConnCallback:
+            self.dev.conn.removeStateCallback(self.connCallback)
         if not self.userCmd.isDone:
-            if self.doConnect:
-                didFail = not self.dev.conn.isConnected
-                opStr = "connect"
-            else:
-                didFail = self.dev.conn.isConnected
-                opStr = "disconnect"
-
-            if didFail:
-                self.userCmd.setState(self.userCmd.Failed, textMsg="%s failed to %s" % (self.dev, opStr))
+            if not self.dev.conn.isDone or self.dev.conn.isConnected:
+                self.userCmd.setState(self.userCmd.Failed, textMsg="%s failed to disconnect" % (self.dev,))
             else:
                 self.userCmd.setState(self.userCmd.Done)
 
