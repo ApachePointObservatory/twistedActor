@@ -183,18 +183,26 @@ class DeviceSet(object):
             raise RuntimeError("Invalid slot %s" % (slot,))
         userCmd = expandUserCmd(userCmd)
 
-        def initCallback(initCmd, devSet=self, slot=slot, dev=dev, userCmd=userCmd):
-            if initCmd.didFail:
-                errMsg = "Failed to initialize new rotator %s: %s" % (dev.name, initCmd.textMsg)
-                devSet.actor.writeToUsers("w", "Text=%s" % (quoteStr(errMsg),))
-
-            oldDev = devSet._slotDevDict[slot]
+        if dev is None:
+            oldDev = self._slotDevDict[slot]
             if oldDev:
                 self._removeDevCallbacks(oldDev)
                 oldDev.init()
-            devSet._slotDevDict[slot] = dev
-            devSet._devNameSlotDict[dev.name] = slot
-            devSet._addDevCallbacks(dev)
+            userCmd.setState(userCmd.Done)
+            return
+
+        def initCallback(initCmd, slot=slot, dev=dev, userCmd=userCmd):
+            if initCmd.didFail:
+                errMsg = "Failed to initialize new rotator %s: %s" % (dev.name, initCmd.textMsg)
+                self.actor.writeToUsers("w", "Text=%s" % (quoteStr(errMsg),))
+
+            oldDev = self._slotDevDict[slot]
+            if oldDev:
+                self._removeDevCallbacks(oldDev)
+                oldDev.init()
+            self._slotDevDict[slot] = dev
+            self._devNameSlotDict[dev.name] = slot
+            self._addDevCallbacks(dev)
             if not userCmd.isDone:
                 userCmd.setState(userCmd.Done)
 
