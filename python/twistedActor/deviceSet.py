@@ -164,13 +164,16 @@ class DeviceSet(object):
         """
         return self._devNameSlotDict[devName]
 
-    def replaceDev(self, slot, dev, userCmd=None):
+    def replaceDev(self, slot, dev, userCmd=None, timeLim=DefaultTimeLim):
         """Replace or remove one device
 
         The old device (if it exists) is closed by calling init()
 
         @param[in] slot: slot slot of device (must match a slot in slotList)
         @param[in] dev: the new device, or None to remove the existing device
+        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+            if supplied, its state is set to Done or Failed when the command is done
+        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
 
         @return userCmd: the supplied userCmd or a newly created UserCmd
 
@@ -178,14 +181,26 @@ class DeviceSet(object):
         """
         if slot not in self._slotDevDict:
             raise RuntimeError("Invalid slot %s" % (slot,))
-        oldDev = self._slotDevDict[slot]
-        if oldDev:
-            self._removeDevCallbacks(oldDev)
-            oldDev.init()
-        self._slotDevDict[slot] = dev
-        self._devNameSlotDict[dev.name] = slot
-        self._addDevCallbacks(dev)
-        return dev.connect(userCmd=userCmd)
+        userCmd = expandUserCmd(userCmd)
+
+        def initCallback(initCmd, devSet=self, slot=slot, dev=dev, userCmd=userCmd):
+            if initCmd.didFail:
+                errMsg = "Failed to initialize new rotator %s: %s" % (dev.name, initCmd.textMsg)
+                devSet.actor.writeToUsers("w", "Text=%s" % (quoteStr(errMsg),))
+
+            oldDev = devSet._slotDevDict[slot]
+            if oldDev:
+                self._removeDevCallbacks(oldDev)
+                oldDev.init()
+            devSet._slotDevDict[slot] = dev
+            devSet._devNameSlotDict[dev.name] = slot
+            devSet._addDevCallbacks(dev)
+            if not userCmd.isDone:
+                userCmd.setState(userCmd.Done)
+
+        initCmd = UserCmd(callFunc=initCallback)
+        dev.connect(userCmd=initCmd, timeLim=timeLim)
+        return userCmd
 
     def startCmd(self, cmdStrOrList, slotList=None, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """Start a command or list of commands on one or more devices
