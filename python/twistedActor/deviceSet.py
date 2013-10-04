@@ -183,7 +183,7 @@ class DeviceSet(object):
             self._removeDevCallbacks(oldDev)
             oldDev.init()
         self._slotDevDict[slot] = dev
-        self._devNameDict[dev.name] = slot
+        self._devNameSlotDict[dev.name] = slot
         self._addDevCallbacks(dev)
         return dev.connect(userCmd=userCmd)
 
