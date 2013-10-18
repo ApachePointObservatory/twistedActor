@@ -1,18 +1,13 @@
 """For creating twisted log files for use with actors and devices
 
-tweaked from :
-http://twistedmatrix.com/trac/browser/tags/releases/twisted-12.2.0/twisted/python/logfile.py
-http://twistedmatrix.com/trac/browser/tags/releases/twisted-12.2.0/twisted/python/log.py#L392
+refs :
+https://twistedmatrix.com/documents/12.2.0/core/howto/logging.html
+http://hg.python.org/cpython/file/2.7/Lib/logging/handlers.py
 """
-import shutil
-import datetime
 from twisted.python import log
-from twisted.python.logfile import LogFile
-from twisted.internet.task import LoopingCall
 import os
 import logging
 from logging.handlers import TimedRotatingFileHandler
-from RO.Comm.TwistedTimer import Timer
 import sys
 import time
 
@@ -20,8 +15,12 @@ StartedLogging = False
 SuppressSTDIO = False
 
 _NOON = 12*60*60
+#_NOON = (11*60 + 21)*60
 
 class NoonRotatingFileHandler(TimedRotatingFileHandler):
+    """Modified TimedRotatingFileHandler to rollover at noon.  Note that this is very similar to the 
+    midnight rollover implementation of the base class.
+    """
     def __init__(self, filename):
         TimedRotatingFileHandler.__init__(self, filename, when='midnight', interval=1, backupCount=0, encoding=None, delay=False, utc=False)
 
@@ -46,11 +45,16 @@ class NoonRotatingFileHandler(TimedRotatingFileHandler):
 
 
 def returnFileHandler(logPath):
-    # look in logDir. If twistedActor.log is present, check when it was last modified
-    #
+    """Get a file handler for logging purposes
+
+    @param[in] logPath: the path to the logging directory
+
+    This function will look in the logPath directory.  If no current log file is present, it will make one.
+    If the current log file is old (eg from yesterday), it will rotate it.
+    If the current file is todays log file, it will continue to write to that one.
+    """
     fName = 'twistedActor.log'
     filename=os.path.join(logPath, fName)
-    shouldRollover = False
     if os.path.exists(filename):
         # determine if the existing file should be rotated or not
         # parse the first line for the date of the first entry
@@ -58,23 +62,35 @@ def returnFileHandler(logPath):
         with open(filename, 'r') as f:
             year, month, day = [int(x) for x in f.readline().strip().split(" ", 1)[0].split("-")]
         if not (t.tm_year==year and t.tm_mon==month and t.tm_mday==day and t.tm_hour < 12):
-            shouldRollover = True
+            # manually rename this file, adding a date suffix from the earliest entry in the log.
+            dateSuffix = ".%i-%i-%i" % (year, month, day) # 
+            newfilename = filename + dateSuffix
+            n = 1
+            while os.path.exists(newfilename): # incase there is already a log file of this name (paranoid?)
+                newfilename += ".%i" % n
+                n += 1
+                if n > 500: # something very wrong
+                    raise RuntimeError('bug here, infinite loop while searching for available log files names?')
+            os.rename(filename, newfilename)
 
     fh = NoonRotatingFileHandler(filename)
-    if shouldRollover:
-        fh.doRollover()
     return fh 
 
 def captureStdErr():
+    """For sending stderr writes to the log
+    """
     #sys.stdout = log.StdioOnnaStick(0, getattr(sys.stdout, "encoding", None))
     sys.stderr = log.StdioOnnaStick(1, getattr(sys.stderr, "encoding", None))
 
 def writeToLog(msgStr, logLevel=logging.INFO):
-    """ @param[in] msgStr: string to be logged
-        @param[in] systemName: string, system that this message is coming from
-        @param[in] logPath: path to directory where logs will be written
-        
-        note: startLogging must be called before writeToLog
+    """ Write to current log.
+
+        @param[in] msgStr: string to be logged
+        @param[in] logLevel: a log level available from pythons logging framework
+
+    If StartedLogging is not set, log messages are printed to screen, except if SuppressSTDIO==True in which case nothing is seen.
+    Call startLogging to set StartedLogging==True
+    
     """
     global StartedLogging
     if not StartedLogging:
@@ -86,16 +102,13 @@ def writeToLog(msgStr, logLevel=logging.INFO):
         log.msg(msgStr, logLevel=logLevel)#, system = systemName)   
 
 
-################## Twisted and Logging ##############################
+
 def startLogging(logPath):
-    """
-        @param[in] systemName: name of system (usually the name of an Actor or Device). 
-            Log messages triggered from inside these objects will be directed
-            to a unique log file named <systemName>.log
-            
+    """ 
+        Start logging to a file twistedActor.log.  This file is rotated at noon. After
+        rotation a date suffix is added to the file.
+
         @param[in] logPath: directory where the log file will be placed
-        
-        will only place log events with systemName in a log named '<systemName>.log'
     """
     global StartedLogging
     if StartedLogging:
@@ -103,145 +116,14 @@ def startLogging(logPath):
         return
     if not os.path.exists(logPath):
         os.makedirs(logPath)
-    # fName = 'twistedActor.log'
-    # filename=os.path.join(logPath, fName)
-    #logging.basicConfig(filename=os.path.join(logPath, fName), format='%(asctime)s %(message)s', level=logging.DEBUG)
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-
     fh = returnFileHandler(logPath)
     fh.setLevel(logging.DEBUG)
     formatter = logging.Formatter("%(asctime)s %(message)s")
     fh.setFormatter(formatter)
-
-    #ch = logging.StreamHandler()
-    #ch.setLevel(logging.ERROR)
-
     logger.addHandler(fh)
-    #logger.addHandler(ch)
-    #flo = SystemLogObserver(logFile, systemName)
     flo = log.PythonLoggingObserver()
-    
     flo.start()
     captureStdErr()
     StartedLogging = True
-    #log.startLoggingWithObserver(flo.emit, setStdout=True)
-    #return flo
-##############################################################################################  
-############################ Just Twisted ############################
-
-def startLogging_(systemName, logPath):
-    """
-        @param[in] systemName: name of system (usually the name of an Actor or Device). 
-            Log messages triggered from inside these objects will be directed
-            to a unique log file named <systemName>.log
-            
-        @param[in] logPath: directory where the log file will be placed
-        
-        will only place log events with systemName in a log named '<systemName>.log'
-    """
-    global StartedLogging
-    if StartedLogging:
-        # logging already started do nothing
-        return
-    # fName = datetime.datetime.now().__str__().replace(' ', 'T').split('.')[0] + '.log'
-    # fname = "log"
-    #logPath += systemName + '/'
-    if not os.path.exists(logPath):
-        os.makedirs(logPath)
-    #logFile = LogFile(fName, logPath)
-    fName = 'log'
-    logFile = LogFile(fName, logPath, rotateLength=3000)
-    # rotateTimer = Timer()
-    # def rotateLog():
-    #     global n
-    #     print "logpath ", logPath
-    #     shutil.copyfile(logPath + "log", logPath + "cache/log%i"%n)
-    #     logFile.rotate()
-    #     n+=1
-    #lc = LoopingCall(logFile.rotate)
-    #     rotateTimer.start(Interval, rotateLog)
-    #rotateTimer.start(Interval, rotateLog)
-    log.startLogging(logFile, setStdout=0)
-    captureStdErr()
-    def printLoop():
-        print "TEST"
-        sys.stdout.write("TEST2\n")
-    def raiseError():
-        raise RuntimeError("KILL")
-    def errWrite():
-        sys.stderr.write('Kill\n')
-        print >> sys.stderr, "Kill2"
-    x=LoopingCall(printLoop)
-    y=LoopingCall(raiseError)
-    z=LoopingCall(errWrite)
-    x.start(1, now=False)
-    y.start(2, now=False)
-    z.start(2, now=False)   
-    #lc.start(5)
-
-
-    StartedLogging = True
-
-
-
-# def setupLogging(self):
-#     logDir = "python/"
-#     filename=os.path.join(logDir, self.filename)
-#     logger = logging.getLogger()
-#     logger.setLevel(logging.DEBUG)
-#     fh = TimedRotatingFileHandler(filename, when='s', interval=5)
-#     fh.setLevel(logging.DEBUG)
-#     logger.addHandler(fh)
-
-# def logMsg(msg):
-#     logging.info(msg)
-
-# class SystemLogObserver(log.PythonLoggingObserver):
-#     """A pickier version of FileLogObserver.  It will only log messages coming
-#     from a certain system (eg, a single actor or device).  stdin and stderr are 
-#     not recorded.
-#     """
-#     def __init__(self, systemName):
-#         """ @param[in] logFile: a twisted LogFile-like object, which can be rotated, etc.
-#             @param[in] systemName: name of system (usually the name of an Actor or Device). 
-#                 Log messages triggered from inside these objects will be directed
-#                 to a unique log file named <systemName>.log
-#         """
-#         log.PythonLoggingObserver.__init__(self)
-#         self.systemName = systemName    
-
-# class SystemLogObserver(log.FileLogObserver):
-#     """A pickier version of FileLogObserver.  It will only log messages coming
-#     from a certain system (eg, a single actor or device).  stdin and stderr are 
-#     not recorded.
-#     """
-#     def __init__(self, logFile, systemName):
-#         """ @param[in] logFile: a twisted LogFile-like object, which can be rotated, etc.
-#             @param[in] systemName: name of system (usually the name of an Actor or Device). 
-#                 Log messages triggered from inside these objects will be directed
-#                 to a unique log file named <systemName>.log
-#         """
-#         log.FileLogObserver.__init__(self, logFile)
-#         self.systemName = systemName
-
-# note: code below may be used to filter what to print to log based on self.systemName.    
-#     def emit(self, eventDict):
-#         """This is where the magic happens.  Before logging (triggered by any
-#         log.msg event) may happen, the logging even must have been triggered
-#         by the system that this observer cares about.
-#         """ 
-#         allSys = [x.systemName for x in LocalObservers]
-#         if eventDict['system'] == self.systemName:
-#             log.FileLogObserver.emit(self, eventDict)
-#         elif eventDict['system'] not in allSys:
-#             # this is an event automatically generated via twisted, log it
-#             log.FileLogObserver.emit(self, eventDict)
-#         else:
-#             # this event is specific to another log, don't record it
-#             pass
-            
-            
-
-
-        
