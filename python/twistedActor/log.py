@@ -12,7 +12,7 @@ import sys
 import time
 
 StartedLogging = False
-SuppressSTDIO = False
+ShowSTDIO = False
 
 _NOON = 12*60*60
 #_NOON = (11*60 + 21)*60
@@ -94,12 +94,12 @@ def writeToLog(msgStr, logLevel=logging.INFO):
     """
     global StartedLogging
     if not StartedLogging:
-        if SuppressSTDIO:
-            return
-        print "Log Msg: '%s', use startLogging() to begin logging to file" % msgStr
-        #raise RuntimeError("Cannot Log Msg: %s. Must call startLogging() first")
+        if ShowSTDIO:
+            print "Log Msg: '%s', use startLogging() to begin logging to file" % msgStr
     else:
-        log.msg(msgStr, logLevel=logLevel)#, system = systemName)   
+        log.msg(msgStr, logLevel=logLevel)#, system = systemName)
+        if ShowSTDIO:
+            print "Msg Logged: '%s'" % msgStr   
 
 
 
