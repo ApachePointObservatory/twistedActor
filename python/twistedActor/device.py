@@ -550,7 +550,7 @@ class ActorDevice(TCPDevice):
 
     def __repr__(self):
         return "%s(name=%s, host=%s, port=%s, modelName=%s)" % \
-            (type(self).__name__, self.name, self.host, self.port, self.dispatcher.name)
+            (type(self).__name__, self.name, self.conn.host, self.conn.port, self.dispatcher.name)
 
 class DeviceCollection(object):
     """A collection of devices that provides easy access to them

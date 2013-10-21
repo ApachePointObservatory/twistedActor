@@ -93,6 +93,7 @@ def writeToLog(msgStr, logLevel=logging.INFO):
     
     """
     global StartedLogging
+    global ShowSTDIO
     if not StartedLogging:
         if ShowSTDIO:
             print "Log Msg: '%s', use startLogging() to begin logging to file" % msgStr
@@ -101,15 +102,20 @@ def writeToLog(msgStr, logLevel=logging.INFO):
         if ShowSTDIO:
             print "Msg Logged: '%s'" % msgStr   
 
+def setSTDIO(stdio=True):
+    global ShowSTDIO
+    ShowSTDIO = True
 
-
-def startLogging(logPath):
+def startLogging(logPath, showSTDIO=False):
     """ 
         Start logging to a file twistedActor.log.  This file is rotated at noon. After
         rotation a date suffix is added to the file.
 
         @param[in] logPath: directory where the log file will be placed
     """
+    global ShowSTDIO
+    if showSTDIO:
+        ShowSTDIO = True
     global StartedLogging
     if StartedLogging:
         # logging already started do nothing
