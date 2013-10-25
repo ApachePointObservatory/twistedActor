@@ -191,7 +191,7 @@ def startLogging(logPath, showSTDIO=False, rolloverTime = _NOON):
     """
     if LogState.startedLogging:
         # logging already started do nothing
-        raise RuntimeError("cannot start logging, already logging")
+        return
     if not os.path.exists(logPath):
         os.makedirs(logPath)
     logger = logging.getLogger()
