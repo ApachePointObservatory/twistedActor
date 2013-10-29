@@ -55,7 +55,7 @@ class LogTest(TestCase):
 
     def setUp(self):
         if not os.path.exists(path2logs):
-            os.makdedirs(path2logs)
+            os.makedirs(path2logs)
         self.deleteLogs()
         # manually set a rollover time that shouldn't interfere with these
         # test
