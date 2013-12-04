@@ -182,11 +182,15 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """Set a new time limit
         
         If the new limit is 0 or None then there is no time limit.
+        If the new limit is < 0, it is ignored and a warning is printed to stderr
         
         If the command is has not started running, then the timer starts when the command starts running.
         If the command is running the timer starts now (any time spent before now is ignored).
         If the command is done then the new time limit is silently ignored.
         """
+        if timeLim and float(timeLim) < 0:
+            sys.stderr.write("Negative time limit received: %0.2f, and ignored\n"%timeLim)
+            return
         self._timeLim = float(timeLim) if timeLim else None
         if self._timeLim:
             if self._timeoutTimer.isActive:
