@@ -123,9 +123,10 @@ def parseLogFile(logfile):
     # return a list of tuples containing: [(datetime, logMsg)]
     outList = []
     with open(logfile, "r") as f:
-        loggedLines = f.readlines()
-    for loggedLine in loggedLines:
-        outList.append(parseLogLine(loggedLine))
+        for ind, loggedLine in enumerate(f):
+            loggedLine = loggedLine.strip()
+            print 'logged line!', loggedLine
+            outList.append(parseLogLine(loggedLine))
     return outList
 
 def returnFileHandler(logPath, rolloverTime = _NOON):
@@ -140,18 +141,17 @@ def returnFileHandler(logPath, rolloverTime = _NOON):
     fName = 'twistedActor.log'
     filename=os.path.join(logPath, fName)
     if os.path.exists(filename):
+        # look at the first line of the current file,
+        # decide if we will log to it
+        with open(filename, "r") as f:
+            firstLine = f.readline()
         try:
-            parsedExistingLog = parseLogFile(filename)
-            if len(parsedExistingLog) == 0:
-                raise EmptyFileError("empty file")
-        except EmptyFileError:
-            pass # do nothing, we will log to the empty file
-        except:
+            begLogTime, foo = parseLogLine(firstLine)
+        except Exception as e:
+            print 'log parse problem', e
             # logfile in an unexpected format, force a rollover
             manualRollover(filename, suffix="UNRECOGNIZED_BY_LOGGER")
         else:
-            # when was the first entry of the existing log?
-            begLogTime = parsedExistingLog[0][0]
             # should logging continue to the present log?
             deltaTime = datetime.datetime.now() - begLogTime
             secondsTillRollover = _NOON - ((begLogTime.hour*60 + begLogTime.minute)*60 + begLogTime.second)
