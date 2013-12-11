@@ -61,7 +61,6 @@ class Actor(BaseActor):
             if attrName.startswith("cmd_"):
                 cmdVerb = attrName[4:].lower()
                 self.locCmdDict[cmdVerb] = getattr(self, attrName)
-        
         cmdVerbSet = set(self.locCmdDict.keys())
         cmdCollisionSet = set()
         
@@ -202,7 +201,7 @@ class Actor(BaseActor):
                 devCmdStr = cmd.cmdArgs
         if dev and devCmdStr:
             try:
-                dev.newCmd(devCmdStr, cmd=cmd)
+                dev.startCmd(devCmdStr, userCmd=cmd, timeLim=2)
             except CommandError, e:
                 cmd.setState("failed", strFromException(e))
                 return

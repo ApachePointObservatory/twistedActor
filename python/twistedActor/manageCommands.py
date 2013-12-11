@@ -277,10 +277,12 @@ class CommandQueue(object):
             if action == self.KillRunning:
                 self.killFunc(self.currExeCmd.cmd)
             elif action == self.CancelNew:
+                currCmdVerb = self.currExeCmd.cmd.cmdVerb
+                qCmdVerb = self.cmdQueue[0].cmd.cmdVerb
                 self.cmdQueue[0].cmd.setState(
                     self.cmdQueue[0].cmd.Cancelled,
                     '%s cancelled by currently executing command: %s' \
-                        % (self.cmdQueue[0].cmd.cmdVerb, self.currExeCmd.cmd.cmbVerb)
+                        % (qCmdVerb, currCmdVerb)
                 )
         else:
             # command is currently active and should remain that way

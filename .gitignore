@@ -3,3 +3,4 @@
 config.log
 tests/.tests
 *.cfgc
+tests/logtest
