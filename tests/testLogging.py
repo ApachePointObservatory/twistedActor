@@ -54,9 +54,23 @@ class TimedCallableQueue(object):
 class LogTest(TestCase):
 
     def setUp(self):
-        if not os.path.exists(path2logs):
-            os.makedirs(path2logs)
-        self.deleteLogs()
+        testLogPath = path2logs
+        n = 0
+        while os.path.exists(testLogPath):
+            n += 1
+            # append numbers to directory
+            # this way if any unittests are running simultaneously
+            # under scons, each test has it's own test directory
+            head, tail = os.path.split(testLogPath)
+            newTail = tail + "%i" % n
+            testLogPath = os.path.join(head, newTail)
+            if n > 50:
+                # runaway loop?
+                raise RuntimeError("Runnaway Loop")
+        self.testLogPath = testLogPath
+        os.makedirs(self.testLogPath)
+
+        #self.deleteLogs()
         # manually set a rollover time that shouldn't interfere with these
         # test
         manRollover = secsNow() - 60*60 # set the rollover time to an hour ago.
@@ -66,7 +80,7 @@ class LogTest(TestCase):
         #twistedActor.log.setSTDIO()
         # twistedActor.log._NOON = 5
         # print twistedActor.log._NOON
-        startLogging(path2logs)
+        startLogging(self.testLogPath)        
 
     def deleteLogs(self):
         oldLogs = self.getAllLogs()
@@ -78,12 +92,14 @@ class LogTest(TestCase):
         return (t.tm_hour*60 + t.tm_min)*60 + t.tm_sec
 
     def getAllLogs(self):
-        return glob.glob(os.path.join(path2logs, "twistedActor.*"))
+        return glob.glob(os.path.join(self.testLogPath, "twistedActor.*"))
 
     def getLog(self, filename):
-        return os.path.join(path2logs, filename)
+        return os.path.join(self.testLogPath, filename)
 
     def tearDown(self):
+        self.deleteLogs()
+        os.rmdir(self.testLogPath)
         stopLogging()
 
     def getLogInfo(self, filename = "twistedActor.log"):
@@ -104,7 +120,7 @@ class LogTest(TestCase):
         writeToLog(logMsgs[0])
         stopLogging()
         writeToLog(logMsgs[1])
-        startLogging(path2logs)
+        startLogging(self.testLogPath)
         writeToLog(logMsgs[2])
         loggedInfo = self.getLogInfo()
         self.assertTrue(len(loggedInfo)==2)
@@ -118,7 +134,7 @@ class LogTest(TestCase):
 
         # twistedActor.log.__NOON = tSecs + 1
         # print "diff", twistedActor.log._NOON - tSecs
-        startLogging(path2logs, rolloverTime = self.getSecsNow() + 1) # now let r rip
+        startLogging(self.testLogPath, rolloverTime = self.getSecsNow() + 1) # now let r rip
         d = Deferred()
         preRoll = "Before Rollover"
         postRoll = "After Rollover"
@@ -139,7 +155,7 @@ class LogTest(TestCase):
         self.preRoll, self.postRoll = preRoll, postRoll
         stopLogging()
         def waitasec():
-            startLogging(path2logs, rolloverTime=self.getSecsNow() - 1) 
+            startLogging(self.testLogPath, rolloverTime=self.getSecsNow() - 1) 
             # set rollover time to a second ago
             # the previous log should rollover
             writeToLog(postRoll)
@@ -165,17 +181,17 @@ class LogTest(TestCase):
         self.assertTrue(loggedInfo[0][1]==self.preRoll)
 
     def testUnrecognizedLog(self):
-        with open(os.path.join(path2logs, "twistedActor.log"), "w") as f:
+        with open(os.path.join(self.testLogPath, "twistedActor.log"), "w") as f:
             f.write("No date prepended, This is total garbage, and shouldnt be recognized as a log.\n")
         stopLogging()
-        startLogging(path2logs)
+        startLogging(self.testLogPath)
         writeToLog("This isn't garbage!")
         # with logging restarted the present log file should have this suffix appended to it
         suffix = "UNRECOGNIZED_BY_LOGGER"
         presentLogs = self.getAllLogs()
-        print 'Present logs', presentLogs
-        self.assertTrue(os.path.join(path2logs, "twistedActor.log") in presentLogs)
-        self.assertTrue(os.path.join(path2logs,"twistedActor.log"+suffix) in presentLogs)
+        #print 'Present logs', presentLogs
+        self.assertTrue(os.path.join(self.testLogPath, "twistedActor.log") in presentLogs)
+        self.assertTrue(os.path.join(self.testLogPath,"twistedActor.log"+suffix) in presentLogs)
 
 
 

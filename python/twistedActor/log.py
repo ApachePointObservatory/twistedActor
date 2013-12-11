@@ -125,7 +125,6 @@ def parseLogFile(logfile):
     with open(logfile, "r") as f:
         for ind, loggedLine in enumerate(f):
             loggedLine = loggedLine.strip()
-            print 'logged line!', loggedLine
             outList.append(parseLogLine(loggedLine))
     return outList
 
@@ -146,9 +145,13 @@ def returnFileHandler(logPath, rolloverTime = _NOON):
         with open(filename, "r") as f:
             firstLine = f.readline()
         try:
+            # if firstLine is emtpy don't try and parse it
+            # just continue logging to this file
+            if not firstLine:
+                # file was empty, just log to it
+                return NoonRotatingFileHandler(filename, rolloverTime = rolloverTime)
             begLogTime, foo = parseLogLine(firstLine)
         except Exception as e:
-            print 'log parse problem', e
             # logfile in an unexpected format, force a rollover
             manualRollover(filename, suffix="UNRECOGNIZED_BY_LOGGER")
         else:
