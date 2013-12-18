@@ -5,4 +5,5 @@ from .baseActor import *
 from .actor import *
 from .manageCommands import *
 from .log import *
+from .actorTest import *
 from .version import __version__
