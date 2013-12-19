@@ -1,13 +1,17 @@
 """A convenient framework for testing actors, devices etc which rely on sending asynchronous commands
 and responses over network sockets
 """
-__all__ = ["getOpenPort", "CommunicationChain"]
+__all__ = ["getOpenPort", "CommunicationChain", "Commander"]
 
 #from twisted.trial.unittest import TestCase
 from twisted.internet.defer import Deferred, gatherResults, maybeDeferred
-from twistedActor import Actor, TCPDevice
+#from twistedActor import Actor, TCPDevice
 from RO.Comm.TwistedSocket import setCallbacks, _SocketProtocolFactory
+from RO.Comm.TCPConnection import TCPConnection
+from opscore.actor import ActorDispatcher, CmdVar
 import socket
+
+from twisted.internet import reactor
 
 def getOpenPort():
     """Return an open port number.  It seems to work fine.
@@ -37,20 +41,20 @@ class SocketDeferredWrapper(object):
         in the desired state. In this case they will return a fired Deferred object
         """
         self.socketObj = socketObj
+        self.connDeferred = Deferred()
+        self.disConnDeferred = Deferred()
         try:
-            # servers have setStateCallback
-            self.socketObj.setStateCallback(callFunc=self.stateCallback)
-        except AttributeError:
             # connections have addStateCallback
             self.socketObj.addStateCallback(stateCallback = self.stateCallback)
+        except:
+            #servers have setStateCallback
+           self.socketObj.setStateCallback(callFunc=self.stateCallback)
         if False in [callable(connMethod), callable(disConnMethod)]:
             raise RuntimeError("SocketDeferredWrapper requires callable connection/disconnection inputs")
         self.connMethod = connMethod
         self.disConnMethod = disConnMethod
         self.connState = connState
         self.disConnState = disConnState
-
-        self.connDeferred = Deferred()
         self.disConnDeferred = Deferred()
 
     @property
@@ -69,7 +73,6 @@ class SocketDeferredWrapper(object):
         ***So code handling this methods should use maybeDeferred***
         """
         if self.state == self.connState:
-            print 'already connected!!!!!!!!!'
             self.connDeferred.callback("")
         else:
             # make connection
@@ -99,6 +102,62 @@ class SocketDeferredWrapper(object):
         elif self.state == self.disConnState:
             self.disConnDeferred.callback("")
 
+class ROServerWrapper(SocketDeferredWrapper):
+    def __init__(self, server):
+        """Wrap up a server socket for ease of handling by a CommunicationChain.
+        @param[in] server: a RO server instance
+        """
+        SocketDeferredWrapper.__init__(self,
+            socketObj = server,
+            connMethod = ServerConn(server),
+            disConnMethod = server.close,
+            connState = server.Listening,
+            disConnState = server.Closed,
+        )
+
+class ConnectionWrapper(SocketDeferredWrapper):
+    def __init__(self, conn):
+        """Wrap up a (TCP) connection socket for ease of handling by a CommunicationChain
+        @param[in] conn: a RO TCPConnection object
+        """
+        SocketDeferredWrapper.__init__(self,
+            socketObj = conn,
+            connMethod = conn.connect,
+            disConnMethod = conn.disconnect,
+            connState = conn.Connected,
+            disConnState = conn.Disconnected,
+        )
+
+class CommanderWrapper(SocketDeferredWrapper):
+    def __init__(self, dispatcher):
+        """Wrap up an opscore dispatcher object
+        @param[in] commander: a obscore CmdKeyDispatcher instance
+        """ 
+        SocketDeferredWrapper.__init__(self,
+            socketObj = dispatcher.connection,
+            connMethod = dispatcher.connection.connect,
+            disConnMethod = dispatcher.disconnect, #dispatcher includes other cleanup
+            connState = dispatcher.connection.Connected,
+            disConnState = dispatcher.connection.Disconnected,
+        )
+        ## add a brief wait to disConnDeferred to aid in proper closure
+        self.delayedDeferred = Deferred()
+        def fireIt():
+            """fire deleayedDeferred"""
+            self.delayedDeferred.callback("")
+        def wait(foo):
+            """ wait a very short amount of time before firing delayedDeferred """
+            reactor.callLater(.01, fireIt)
+        self.disConnDeferred.addCallback(wait)
+
+    def shutDown(self):
+        """Chain a delayed deferred to the 
+        Deferred produced by the base class shutDown method.
+        This is necessary due to a race condition in the opscore dispatcher?
+        """
+        SocketDeferredWrapper.shutDown(self)
+        return self.delayedDeferred      
+
 class ServerConn(object):
     """Note, this function may be completely unnecessary because servers start
     themselves upon construction...
@@ -117,12 +176,37 @@ class ServerConn(object):
 
 
 class Commander(object):
-    def __init__(self, port):
-        isReady = False # dispatcher is connected
-        pass
+    def __init__(self, port, modelName):
+        """Construct a commander.  Sends commands via opscore protocols to a port
+        @param[in] port: port to connect and send commands to
+        @param[in] modelName: name of a model which must reside in the actorkeys package
+        """
+        self.modelName = modelName
+        conn = TCPConnection(
+            host = 'localhost',
+            port = port,
+            readLines = True,
+            name = "Commander",
+        )
 
-    def startUp(self):
-        pass
+        self.dispatcher = ActorDispatcher(
+            name = self.modelName,
+            connection = conn,
+#            logFunc = showReply,
+        )
+
+    def sendCmd(self, cmdStr):
+        """ Turn a string into a command var and execute it.
+        @param[in] cmdStr: command string to be sent over the wire
+        @return cmdVar, the resulting command var
+        """
+        cmdVar = CmdVar(
+            actor = self.modelName,
+            cmdStr = cmdStr,
+            #callFunc = CmdCallback(d),
+        ) 
+        self.dispatcher.executeCmd(cmdVar)
+        return cmdVar   
 
     def shutDown(self):
         pass
@@ -134,6 +218,7 @@ class CommunicationChain(object):
         """
         self.listeners = []
         self.connectors = []
+        self.commander = None
 
     def walkChain(self, begOrEnd):
         """Startup or shut down the chain.
@@ -159,19 +244,23 @@ class CommunicationChain(object):
         def done(foo):
             """@param[in] foo: passed via callback, ignored
             """
-            deferredSequence = None # paranoia
-            foo = None # paranoia
+            print 'done', begOrEnd
+            # global deferredSequence
+            # deferredSequence = None # paranoia
+            # foo = None # paranoia
             fireWhenReady.callback("here we go")
         def doConnectors(foo):
             """@param[in] foo: passed via callback, ignored
             """
-            foo = None # paranoia
+            print "connect", begOrEnd
+            # foo = None # paranoia
             # calls startUp or shutDown on each connector, gathers and returns all the (likely) Deferred(s) together
             return maybeDeferred(gatherResults, [maybeDeferred(getattr(connector, begOrEnd)) for connector in self.connectors])
         def doListeners(foo):
             """@param[in] foo: passed via callback, ignored
             """
-            foo = None # paranoia
+            print "listen", begOrEnd
+            # foo = None # paranoia
             # calls startUp or shutDown on each listener, gathers and returns all the (likely) Deferred(s) together
             return maybeDeferred(gatherResults, [maybeDeferred(getattr(listener, begOrEnd)) for listener in self.listeners])
         if startUp:
@@ -203,27 +292,20 @@ class CommunicationChain(object):
         @param[in] actor: a TwistedActor
         """
         self.listeners.append(
-            SocketDeferredWrapper(
-                socketObj = actor.server,
-                connMethod = ServerConn(actor.server),
-                disConnMethod = actor.server.close,
-                connState = actor.server.Listening,
-                disConnState = actor.server.Closed,
-            )
+            ROServerWrapper(actor.server)
         )
         for dev in actor.dev.nameDict.values():
             self.connectors.append(
-                SocketDeferredWrapper(
-                    socketObj = dev.conn,
-                    connMethod = dev.conn.connect,
-                    disConnMethod = dev.conn.disconnect,
-                    connState = dev.conn.Connected,
-                    disConnState = dev.conn.Disconnected,
-                )
+                ConnectionWrapper(dev.conn)
             )
 
     def addFactory(self, factory):
         pass
 
-    def addCommander(self):
-        pass
+    def addCommander(self, commander):
+        """Add a commander to the chain.
+        @param[in] commander: an instance of a Commander object
+        """
+        self.connectors.append(
+            CommanderWrapper(commander.dispatcher)
+        )
