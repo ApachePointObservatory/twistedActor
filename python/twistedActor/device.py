@@ -220,6 +220,10 @@ class ConnectDevice(object):
     """
     def __init__(self, dev, userCmd, timeLim):
         """Start connecting a device
+        
+        @param[in] dev: device
+        @param[in] userCmd: user command associated with the connection, or None
+        @param[in] timeLim: time limit (sec) to make this connection
         """
         self.dev = dev
         self.timeLim = timeLim
@@ -242,6 +246,8 @@ class ConnectDevice(object):
             # else already connecting; wait and see if it works
 
     def initCallback(self, userCmd):
+        """Callback for device initialization
+        """
         if userCmd.didFail:
             textMsg = "%s initialization failed: %s" % (self.dev.name, userCmd.textMsg)
             self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
@@ -255,7 +261,7 @@ class ConnectDevice(object):
             self.dev.init(userCmd=initUserCmd, timeLim=self.timeLim)
 
     def finish(self):
-        """Call to finish command -- for success or failure
+        """Call on success or failure to finish the command
         """
         self.connTimer.cancel()
         if self.addedConnCallback:
@@ -290,6 +296,8 @@ class DisconnectDevice(object):
         self.dev.init(userCmd=initUserCmd, timeLim=timeLim)
 
     def initCallback(self, initUserCmd=None):
+        """Callback for device initialization
+        """
         if initUserCmd and initUserCmd.didFail:
             textMsg = "%s initialization failed: %s" % (self.dev.name, initUserCmd.textMsg,)
             self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
@@ -312,7 +320,7 @@ class DisconnectDevice(object):
             self.finish()
 
     def finish(self):
-        """Call to finish command -- for success or failure
+        """Call on success or failure to finish the command
         """
         self.connTimer.cancel()
         if self.addedConnCallback:

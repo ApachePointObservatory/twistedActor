@@ -42,6 +42,7 @@ class Actor(BaseActor):
         doDebugMsgs = False,
         version = "?",
         name = "Actor",
+        doConnect = True,
     ):
         """Construct an Actor
     
@@ -51,8 +52,8 @@ class Actor(BaseActor):
         @param[in] doDebugMsgs: print debug messages?
         @param[in] version: actor version str
         @param[in] name: actor name, used for logging
+        @param[in] doConnect: if True then connect devices on construction
         """
-        devs = tuple(devs)
         # local command dictionary containing cmd verb: method
         # all methods whose name starts with cmd_ are added
         # each such method must accept one argument: a UserCmd
@@ -64,7 +65,7 @@ class Actor(BaseActor):
         cmdVerbSet = set(self.locCmdDict.keys())
         cmdCollisionSet = set()
         
-        self.dev = DeviceCollection(devs)
+        self.dev = DeviceCollection(devs) # using a short name allows easy access, e.g. self.dev.dev1Name
         self.devCmdDict = {} # dev command verb: (dev, cmdHelp)
         for dev in devs:
             dev.writeToUsers = self.writeToUsers
@@ -89,8 +90,10 @@ class Actor(BaseActor):
             version = version,
             name = name,
         )
+
         # connect all devices
-        self.initialConn()        
+        if doConnect:
+            self.initialConn()        
 
     def initialConn(self):
         """Perform initial connections.
