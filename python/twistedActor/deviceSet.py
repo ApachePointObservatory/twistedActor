@@ -309,9 +309,11 @@ class DeviceSet(object):
             dev = self[slot]
             if dev:
                 if doConnect:
-                    userCmdList.append(dev.connect(timeLim=timeLim))
+                    connObj = dev.connect(timeLim=timeLim)
+                    userCmdList.append(connObj.userCmd)
                 else:
-                    userCmdList.append(dev.disconnect(timeLim=timeLim))
+                    disconnObj = dev.disconnect(timeLim=timeLim)
+                    userCmdList.append(disconnObj.userCmd)
         LinkCommands(userCmd, userCmdList)
         return userCmd
 

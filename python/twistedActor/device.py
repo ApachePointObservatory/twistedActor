@@ -107,22 +107,30 @@ class Device(BaseMixin):
     def connect(self, userCmd=None, timeLim=None):
         """Connect the device and start init (on success)
 
-        A no-op if already connected
+        If already connected then simply set userCmd's state to userCmd.Done.
 
         @param[in] userCmd: user command (or None); if None a new one is generated
             to allow tracking the progress of this command
-        @return userCmd: supplied userCmd or if that wa userCmd by which to track progress of this command
+        @return ConnectDevice: an object that monitors the state of the connection; useful attributes include:
+            - userCmd: supplied userCmd if not None, else a new twistedActor.UserCmd
+            - deferred: a twisted Deferred, or None if nothing to defer.
+                - callback(None) is called if the connection succeeds
+                - errback(reason) is called if the connection fails
         """
-        cd = ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
-        return cd.userCmd
+        return ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
 
     def disconnect(self, userCmd=None, timeLim=None):
         """Start init and disconnect the device
 
-        A no-op if already disconnected
+        If already disconnected then simply set userCmd's state to userCmd.Done.
+
+        @return ConnectDevice: an object that monitors the state of the connection; useful attributes include:
+            - userCmd: supplied userCmd if not None, else a new twistedActor.UserCmd
+            - deferred: a twisted Deferred, or None if nothing to defer.
+                - callback(None) is called if the connection succeeds
+                - errback(reason) is called if the connection fails
         """
-        cd = DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
-        return cd.userCmd
+        return DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
 
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
@@ -216,7 +224,13 @@ class Device(BaseMixin):
 class ConnectDevice(object):
     """Connect a device and send dev.init
 
-    If the device is already connected then do nothing
+    If the device is already connected then generate a new userCmd, if needed,
+    and sets userCmd's state to userCmd.Done.
+    
+    Public attributes:
+    - dev: the provided device
+    - userCmd: the provided userCmd, or a new one if none provided
+    - deferred: a connection Deferred, or None if not waiting for connection
     """
     def __init__(self, dev, userCmd, timeLim):
         """Start connecting a device
@@ -226,24 +240,26 @@ class ConnectDevice(object):
         @param[in] timeLim: time limit (sec) to make this connection
         """
         self.dev = dev
-        self.timeLim = timeLim
+        self._timeLim = timeLim
         self.userCmd = expandUserCmd(userCmd)
-        self.connTimer = Timer()
-        self.addedConnCallback = False
+        self.deferred = None
+        self._connTimer = Timer()
+        self._addedConnCallback = False
 
         if self.dev.conn.isConnected:
             # already done; don't send init
             self.finish()
             return
 
-        if self.timeLim:
-            self.connTimer.start(self.timeLim, self.finish)
-
         self.dev.conn.addStateCallback(self.connCallback)
-        self.addedConnCallback = True
+        self._addedConnCallback = True
         if self.dev.conn.mayConnect:
-            self.dev.conn.connect()
-            # else already connecting; wait and see if it works
+            self.deferred = self.dev.conn.connect(timeLim=timeLim)
+        else:
+            if self._timeLim:
+                # start timer for the connection that is occurring now
+                self._connTimer.start(self._timeLim, self.finish)
+            self.deferred = self.dev.conn._sock.getReadyDeferred()
 
     def initCallback(self, userCmd):
         """Callback for device initialization
@@ -258,32 +274,45 @@ class ConnectDevice(object):
         """
         if self.dev.conn.isDone:
             initUserCmd = UserCmd(cmdStr="connect %s" % (self.dev.name,), callFunc=self.initCallback)
-            self.dev.init(userCmd=initUserCmd, timeLim=self.timeLim)
+            self.dev.init(userCmd=initUserCmd, timeLim=self._timeLim)
 
     def finish(self):
         """Call on success or failure to finish the command
         """
-        self.connTimer.cancel()
-        if self.addedConnCallback:
+        self._connTimer.cancel()
+        if self._addedConnCallback:
             self.dev.conn.removeStateCallback(self.connCallback)
-        if not self.userCmd.isDone:
-            if not self.dev.conn.isConnected:
+        if not self.dev.conn.isConnected:
+            if not self.userCmd.isDone:
                 self.userCmd.setState(self.userCmd.Failed, textMsg="%s failed to connect" % (self.dev,))
-            else:
+            if self.deferred:
+                self.deferred.cancel()
+            self.dev.conn.disconnect()
+        else:
+            if not self.userCmd.isDone:
                 self.userCmd.setState(self.userCmd.Done)
 
 
 class DisconnectDevice(object):
     """Send dev.init (if the device is fully connected) and disconnect a device
+
+    If the device is already disconnected then generate a new userCmd, if needed,
+    and sets userCmd's state to userCmd.Done.
+
+    Public attributes:
+    - dev: the provided device
+    - userCmd: the provided userCmd, or a new one if none provided
+    - deferred: a connection Deferred, or None if not waiting for disconnection
     """
     def __init__(self, dev, userCmd, timeLim):
         """Start connecting a device
         """
         self.dev = dev
-        self.timeLim = timeLim
         self.userCmd = expandUserCmd(userCmd)
-        self.connTimer = Timer()
-        self.addedConnCallback = False
+        self.deferred = None
+        self._timeLim = timeLim
+        self._connTimer = Timer()
+        self._addedConnCallback = False
 
         if not self.dev.conn.isConnected:
             # cannot send init but maybe can still disconnect
@@ -306,12 +335,13 @@ class DisconnectDevice(object):
             # fully disconnected; no more to be done
             self.finish()
         else:
-            if self.timeLim:
-                self.connTimer.start(self.timeLim, self.finish)
+            if self._timeLim:
+                # start timer for disconnection
+                self._connTimer.start(self._timeLim, self.finish)
 
             self.dev.conn.addStateCallback(self.connCallback)
-            self.addedConnCallback = True
-            self.dev.conn.disconnect()
+            self._addedConnCallback = True
+            self.deferred = self.dev.conn.disconnect()
 
     def connCallback(self, conn):
         """Callback for device connection state
@@ -322,8 +352,8 @@ class DisconnectDevice(object):
     def finish(self):
         """Call on success or failure to finish the command
         """
-        self.connTimer.cancel()
-        if self.addedConnCallback:
+        self._connTimer.cancel()
+        if self._addedConnCallback:
             self.dev.conn.removeStateCallback(self.connCallback)
         if not self.userCmd.isDone:
             if not self.dev.conn.isDone or self.dev.conn.isConnected:
@@ -353,7 +383,7 @@ class RunCmdList(object):
         self.cmdStrIter = iter(cmdList)
         self.callFunc = callFunc
         self.userCmd = userCmd
-        self.timeLim = timeLim
+        self._timeLim = timeLim
         self.currDevCmd = None
 
         if not cmdList:
@@ -385,7 +415,7 @@ class RunCmdList(object):
             self.finish(devCmd)
             return
 
-        self.currDevCmd = self.dev.startCmd(cmdStr, callFunc=self.cmdCallback, timeLim=self.timeLim)
+        self.currDevCmd = self.dev.startCmd(cmdStr, callFunc=self.cmdCallback, timeLim=self._timeLim)
 
     def finish(self, devCmd):
         """Finish the sequence of commands by calling callFunc and setting state of userCmd
@@ -409,7 +439,7 @@ class RunCmdList(object):
 
     def __repr__(self):
         return "%s(dev=%r, currDevCmd=%r, callFunc=%s, userCmd=%s, timeLim=%s)" % \
-            (type(self).__name__, self.dev, self.currDevCmd, self.callFunc, self.userCmd, self.timeLim)
+            (type(self).__name__, self.dev, self.currDevCmd, self.callFunc, self.userCmd, self._timeLim)
 
 
 class TCPDevice(Device):
