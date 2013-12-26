@@ -305,7 +305,7 @@ class DisconnectDevice(object):
     - deferred: a connection Deferred, or None if not waiting for disconnection
     """
     def __init__(self, dev, userCmd, timeLim):
-        """Start connecting a device
+        """Start disconnecting a device
         """
         self.dev = dev
         self.userCmd = expandUserCmd(userCmd)
@@ -321,7 +321,7 @@ class DisconnectDevice(object):
             self.initCallback()
             return
 
-        initUserCmd = UserCmd(callFunc=self.initCallback)
+        initUserCmd = UserCmd(callFunc=self.initCallback, timeLim=timeLim)
         self.dev.init(userCmd=initUserCmd, timeLim=timeLim)
 
     def initCallback(self, initUserCmd=None):
