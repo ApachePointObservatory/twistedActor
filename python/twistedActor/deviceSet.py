@@ -151,6 +151,20 @@ class DeviceSet(object):
         """Return the list of names of filled slots
         """
         return [slot for slot, dev in self._slotDevDict.iteritems() if dev]
+    
+    def slotListFromBoolList(self, boolList):
+        """Return a list of slot names given a list of bools
+        
+        @param[in] boolList: a list of bool values of length len(self);
+
+        @return a list of slot names corresponding to True values in boolList
+
+        @warning there is no checking that the slot is filled.
+        """
+        if len(boolList) != len(self):
+            raise RuntimeError("Expected %s bools but got %s" % (len(self), boolList))
+        slotList = self._slotDevDict.keys()
+        return [slot for slot, boolVal in enumerate(boolList) if boolVal] 
 
     def getIndex(self, slot):
         """Get the index of the slot
@@ -163,6 +177,11 @@ class DeviceSet(object):
         """Get the slot name from the device name
         """
         return self._devNameSlotDict[devName]
+
+    def slotFromIndex(self, index):
+        """Get the slot name from the index
+        """
+        return self._slotDevDict.keys()[index]
 
     def replaceDev(self, slot, dev, userCmd=None, timeLim=DefaultTimeLim):
         """Replace or remove one device
@@ -290,11 +309,14 @@ class DeviceSet(object):
             dev = self[slot]
             if dev:
                 if doConnect:
-                    userCmdList.append(dev.connect(timeLim=timeLim))
+                    connObj = dev.connect(timeLim=timeLim)
+                    userCmdList.append(connObj.userCmd)
                 else:
-                    userCmdList.append(dev.disconnect(timeLim=timeLim))
+                    disconnObj = dev.disconnect(timeLim=timeLim)
+                    userCmdList.append(disconnObj.userCmd)
         LinkCommands(userCmd, userCmdList)
         return userCmd
+
     def __getitem__(self, slot):
         """Return the device in the specified slot
         """

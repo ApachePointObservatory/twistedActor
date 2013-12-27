@@ -115,7 +115,7 @@ class BaseActor(object):
         
         self.userDict[userID] = sock
         sock.setReadCallback(self.newCmd)
-        sock.setStateCallback(self.userSocketClosing)
+        sock.addStateCallback(self.userSocketClosing)
         
         # report user information and additional info
         fakeCmd = UserCmd(userID=userID)
@@ -176,7 +176,7 @@ class BaseActor(object):
         except KeyError:
             sys.stderr.write("Warning: user socket closed but could not find user %s in userDict\n" % 
                 (getSocketUserID(sock),))
-        sock.setStateCallback() # I'm done with this socket; I don't want to know when it is fully closed
+        sock.removeStateCallback(self.userSocketClosing, doRaise=False) # I'm done with this socket; I don't want to know when it is fully closed
         self.showUserList(cmd=UserCmd(userID=0))
     
     def showVersion(self, cmd, onlyOneUser=False):
