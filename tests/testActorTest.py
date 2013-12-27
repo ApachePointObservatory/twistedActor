@@ -3,6 +3,7 @@ from twisted.trial.unittest import TestCase
 import twisted
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
+from mirrorCtrl.fakeGalil import FakeGalilFactory
 #twisted.internet.base.DelayedCall.debug = True
 
 class DevShell(TCPDevice):
@@ -48,11 +49,13 @@ def getActorDevShell(devConnPort):
 class ActorTestCase(TestCase):
     def setUp(self):
         self.cc = CommunicationChain()
-        pt1, act1 = getActorShell() # deviceless actor listens on pt1
-        #pt2, act2 = getActorDevShell(pt1) # device connects to pt1, actor listens on pt2
-        self.cc.addActor(act1)
-       # self.cc.addActor(act2)
-        self.cc.addCommander(Commander(pt1, "mirror"))
+        pt0 = getOpenPort()
+        self.cc.addServerFactory(FakeGalilFactory(verbose=False, wakeUpHomed=True), pt0)
+        #pt1, act1 = getActorShell() # deviceless actor listens on pt1
+        pt2, act2 = getActorDevShell(pt0) # device connects to pt1, actor listens on pt2
+       # self.cc.addActor(act1)
+        self.cc.addActor(act2)
+        self.cc.addCommander(Commander(pt2, "mirror"))
         return self.cc.startUp()
 
     def testNothing(self):

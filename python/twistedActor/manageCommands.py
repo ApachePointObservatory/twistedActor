@@ -183,6 +183,7 @@ class CommandQueue(object):
         """ Add a command to the queue.
 
             @param[in] toQueue: a QueuedCommand object
+            @param[in] callFunc: callback function to add to the command
         """
         if cmd.cmdVerb not in self.priorityDict:
             raise RuntimeError('Cannont queue unrecognized command: %s' % (cmd.cmdVerb,))

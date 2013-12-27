@@ -10,7 +10,7 @@ from RO.Comm.TwistedSocket import setCallbacks, _SocketProtocolFactory
 from RO.Comm.TCPConnection import TCPConnection
 from opscore.actor import ActorDispatcher, CmdVar
 import socket
-
+from collections import OrderedDict
 from twisted.internet import reactor
 
 def getOpenPort():
@@ -24,6 +24,22 @@ def getOpenPort():
     port = s.getsockname()[1]
     s.close()
     return port
+
+class CmdCallback(object):
+    def __init__(self, deferred):
+        """Call a deferred when a command is finished
+        @param[in] deferred: a Deferred object to be fired once
+            the command finishes
+        """
+        self.deferred = deferred
+    
+    def __call__(self, cmd):
+        """If the executing command is finished fire the deferred
+        @param[in] cmd, an opscore CmdVar passed via callback
+        """
+        if cmd.isDone:
+            deferred, self.deferred = self.deferred, None
+            deferred.callback("done")
 
 class SocketDeferredWrapper(object):
     def __init__(self, socketObj, connMethod, disConnMethod, connState, disConnState):
@@ -128,6 +144,27 @@ class ConnectionWrapper(SocketDeferredWrapper):
             disConnState = conn.Disconnected,
         )
 
+class TwistedFactoryServerWrapper(object):
+    def __init__(self, factory, port):
+        """Expose setUp and tearDown methods for a twisted Factory server
+        @param[in] factory: an instance of the twisted factory
+        @param [in] port: a port to start the factory listening on 
+        """
+
+        self.factory = factory
+        self.port = port
+        self.portObj = None
+
+    def startUp(self):
+        """Start the server listening
+        """
+        ## note: twisted documentation shows this is immediate (no deferred returned)
+        self.portObj = reactor.listenTCP(port=self.port, factory=self.factory)
+
+    def shutDown(self):
+        return self.portObj.stopListening()
+
+### this should be unnecessary later
 class CommanderWrapper(SocketDeferredWrapper):
     def __init__(self, dispatcher):
         """Wrap up an opscore dispatcher object
@@ -157,6 +194,7 @@ class CommanderWrapper(SocketDeferredWrapper):
         """
         SocketDeferredWrapper.shutDown(self)
         return self.delayedDeferred      
+##################
 
 class ServerConn(object):
     """Note, this function may be completely unnecessary because servers start
@@ -180,6 +218,10 @@ class Commander(object):
         """Construct a commander.  Sends commands via opscore protocols to a port
         @param[in] port: port to connect and send commands to
         @param[in] modelName: name of a model which must reside in the actorkeys package
+
+
+        @note could possibly use manageCommands.CommandQueue but I believe that
+        is overkill, with the added complexity of the queue setup and definitions
         """
         self.modelName = modelName
         conn = TCPConnection(
@@ -194,22 +236,67 @@ class Commander(object):
             connection = conn,
 #            logFunc = showReply,
         )
+        self.cmdResults = [] ## command results collected here
+        self.cmdsToRun = [] ## list, each element is [cmdStr, callFunc]. replace with queue?
+        self.currCmdInd = 0 ## which index on command stack are we currently at?
+        self.currExeCmd = None
+        self.cmdsFinishedDeferred = Deferred() ## returned from self.runCmds
 
-    def sendCmd(self, cmdStr):
+    @property
+    def endCmdInd(self):
+        return len(self.cmdsToRun)
+
+    def runNextCmd(self, foo=None):
         """ Turn a string into a command var and execute it.
-        @param[in] cmdStr: command string to be sent over the wire
-        @return cmdVar, the resulting command var
+        @param[in] foo: dummy parameter, for callback
+        @return d or None, a deferred to fire once the command is done
         """
-        cmdVar = CmdVar(
-            actor = self.modelName,
-            cmdStr = cmdStr,
-            #callFunc = CmdCallback(d),
-        ) 
-        self.dispatcher.executeCmd(cmdVar)
-        return cmdVar   
+        try:
+            cmdStr = self.cmdsToRun[self.currCmdInd][0]    
+        except IndexError:
+            # we must be done with all commands
+            self.cmdsFinishedDeferred.callback("All Done!")
+            return
+        else:
+            d = Deferred()
+            d.addCallback(self.recordCmdResults) # when this command done, record results
+            d.addCallback(self.runNextCmd) # after results recorded, automatically start the next one
+            cmdVar = CmdVar(
+                actor = self.modelName,
+                cmdStr = cmdStr,
+                callFunc = CmdCallback(d),
+            ) 
+            self.dispatcher.executeCmd(cmdVar)
+            self.currExeCmd = cmdVar
+            return d   
 
-    def shutDown(self):
-        pass
+    def recordCmdResults(self, foo=None):
+        """After command finishes, verify everything worked as expected
+        @param[in] foo: dummy param for callback
+        """
+        cmdOK = not self.currExeCmd.didFail
+        modelOK = self.cmdsToRun[self.currCmdInd][1](self.dispatcher.model)
+        self.currExeCmd = None
+        self.currCmdInd += 1
+        self.cmdResults.append([cmdOK, modelOK])
+
+    def defineCmdAndResponse(self, cmdStr, callFunc):
+        """Define a command string to be dispatched and provide the expected
+        end result upon command completion.
+
+        @param[in] cmdStr: the command string
+        @param[in] callFunc: callable, expectes a model instance 
+            as a sole parameter must return a boolean 
+            (True for pass, False for Fail)
+
+         """
+        self.cmdsToRun.append([cmdStr, callFunc])
+
+    def runCmds(self):
+        """Run the command stack, in an orderly fashion
+        """
+        self.runNextCmd()
+        return self.cmdsFinishedDeferred
 
 class CommunicationChain(object):
     def __init__(self):
@@ -299,13 +386,18 @@ class CommunicationChain(object):
                 ConnectionWrapper(dev.conn)
             )
 
-    def addFactory(self, factory):
-        pass
+    def addServerFactory(self, factory, port):
+        self.listeners.append(TwistedFactoryServerWrapper(factory, port))
 
     def addCommander(self, commander):
         """Add a commander to the chain.
         @param[in] commander: an instance of a Commander object
         """
+        # self.connectors.append(
+        #     ConnectionWrapper(commander.dispatcher.connection)
+        # )
         self.connectors.append(
             CommanderWrapper(commander.dispatcher)
         )
+        self.commander = commander
+   
