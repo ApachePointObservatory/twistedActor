@@ -164,37 +164,19 @@ class TwistedFactoryServerWrapper(object):
     def shutDown(self):
         return self.portObj.stopListening()
 
-### this should be unnecessary later
-class CommanderWrapper(SocketDeferredWrapper):
-    def __init__(self, dispatcher):
-        """Wrap up an opscore dispatcher object
-        @param[in] commander: a obscore CmdKeyDispatcher instance
-        """ 
-        SocketDeferredWrapper.__init__(self,
-            socketObj = dispatcher.connection,
-            connMethod = dispatcher.connection.connect,
-            disConnMethod = dispatcher.disconnect, #dispatcher includes other cleanup
-            connState = dispatcher.connection.Connected,
-            disConnState = dispatcher.connection.Disconnected,
-        )
-        ## add a brief wait to disConnDeferred to aid in proper closure
-        self.delayedDeferred = Deferred()
-        def fireIt():
-            """fire deleayedDeferred"""
-            self.delayedDeferred.callback("")
-        def wait(foo):
-            """ wait a very short amount of time before firing delayedDeferred """
-            reactor.callLater(.01, fireIt)
-        self.disConnDeferred.addCallback(wait)
-
-    def shutDown(self):
-        """Chain a delayed deferred to the 
-        Deferred produced by the base class shutDown method.
-        This is necessary due to a race condition in the opscore dispatcher?
-        """
-        SocketDeferredWrapper.shutDown(self)
-        return self.delayedDeferred      
-##################
+### this should be unnecessary later, use  ConnectionWrapper instead
+# class CommanderWrapper(SocketDeferredWrapper):
+#     def __init__(self, dispatcher):
+#         """Wrap up an opscore dispatcher object
+#         @param[in] commander: a obscore CmdKeyDispatcher instance
+#         """ 
+#         SocketDeferredWrapper.__init__(self,
+#             socketObj = dispatcher.connection,
+#             connMethod = dispatcher.connection.connect,
+#             disConnMethod = dispatcher.disconnect, #dispatcher includes other cleanup
+#             connState = dispatcher.connection.Connected,
+#             disConnState = dispatcher.connection.Disconnected,
+#         )
 
 class ServerConn(object):
     """Note, this function may be completely unnecessary because servers start
@@ -393,11 +375,11 @@ class CommunicationChain(object):
         """Add a commander to the chain.
         @param[in] commander: an instance of a Commander object
         """
-        # self.connectors.append(
-        #     ConnectionWrapper(commander.dispatcher.connection)
-        # )
         self.connectors.append(
-            CommanderWrapper(commander.dispatcher)
+            ConnectionWrapper(commander.dispatcher.connection)
         )
+        # self.connectors.append(
+        #     CommanderWrapper(commander.dispatcher)
+        # )
         self.commander = commander
    
