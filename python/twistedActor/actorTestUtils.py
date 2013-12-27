@@ -88,6 +88,7 @@ class SocketDeferredWrapper(object):
         If the socket is not ready, the deferred is fired once the socket.state == connState
         ***So code handling this methods should use maybeDeferred***
         """
+        print self.name, ' starting up socket'
         if self.state == self.connState:
             self.connDeferred.callback("")
         else:
@@ -103,6 +104,7 @@ class SocketDeferredWrapper(object):
         If the socket is not closed, the deferred is fired once the socket.state == disConnState
         **So code handling this methods should use maybeDeferred**
         """
+        print self.name, ' shutting down socket'
         if self.state == self.disConnState:
             self.disConnDeferred.callback("")
         else:
@@ -123,6 +125,7 @@ class ROServerWrapper(SocketDeferredWrapper):
         """Wrap up a server socket for ease of handling by a CommunicationChain.
         @param[in] server: a RO server instance
         """
+        self.name = 'roServer'
         SocketDeferredWrapper.__init__(self,
             socketObj = server,
             connMethod = ServerConn(server),
@@ -136,6 +139,7 @@ class ConnectionWrapper(SocketDeferredWrapper):
         """Wrap up a (TCP) connection socket for ease of handling by a CommunicationChain
         @param[in] conn: a RO TCPConnection object
         """
+        self.name = 'connection'
         SocketDeferredWrapper.__init__(self,
             socketObj = conn,
             connMethod = conn.connect,
@@ -158,25 +162,28 @@ class TwistedFactoryServerWrapper(object):
     def startUp(self):
         """Start the server listening
         """
+        print 'starting up factory server'
         ## note: twisted documentation shows this is immediate (no deferred returned)
         self.portObj = reactor.listenTCP(port=self.port, factory=self.factory)
 
     def shutDown(self):
+        print 'shutting down factor server'
         return self.portObj.stopListening()
 
 ### this should be unnecessary later, use  ConnectionWrapper instead
-# class CommanderWrapper(SocketDeferredWrapper):
-#     def __init__(self, dispatcher):
-#         """Wrap up an opscore dispatcher object
-#         @param[in] commander: a obscore CmdKeyDispatcher instance
-#         """ 
-#         SocketDeferredWrapper.__init__(self,
-#             socketObj = dispatcher.connection,
-#             connMethod = dispatcher.connection.connect,
-#             disConnMethod = dispatcher.disconnect, #dispatcher includes other cleanup
-#             connState = dispatcher.connection.Connected,
-#             disConnState = dispatcher.connection.Disconnected,
-#         )
+class CommanderWrapper(SocketDeferredWrapper):
+    def __init__(self, dispatcher):
+        """Wrap up an opscore dispatcher object
+        @param[in] commander: a obscore CmdKeyDispatcher instance
+        """ 
+        self.name = 'commander'
+        SocketDeferredWrapper.__init__(self,
+            socketObj = dispatcher.connection,
+            connMethod = dispatcher.connection.connect,
+            disConnMethod = dispatcher.disconnect, #dispatcher includes other cleanup
+            connState = dispatcher.connection.Connected,
+            disConnState = dispatcher.connection.Disconnected,
+        )
 
 class ServerConn(object):
     """Note, this function may be completely unnecessary because servers start
@@ -375,11 +382,11 @@ class CommunicationChain(object):
         """Add a commander to the chain.
         @param[in] commander: an instance of a Commander object
         """
-        self.connectors.append(
-            ConnectionWrapper(commander.dispatcher.connection)
-        )
         # self.connectors.append(
-        #     CommanderWrapper(commander.dispatcher)
+        #     ConnectionWrapper(commander.dispatcher.connection)
         # )
+        self.connectors.append(
+            CommanderWrapper(commander.dispatcher)
+        )
         self.commander = commander
    
