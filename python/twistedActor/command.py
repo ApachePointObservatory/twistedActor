@@ -43,6 +43,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         failed = "f",
         done = ":",
     )
+    _InvMsgCodeDict = dict((val, key) for key, val in _MsgCodeDict.iteritems())
     def __init__(self,
         cmdStr,
         userID = 0,
@@ -222,6 +223,12 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         if self._cmdToTrack:
             self._cmdToTrack.removeCallback(self._cmdCallback)
             self._cmdToTrack = None
+    
+    @classmethod
+    def stateFromMsgCode(cls, msgCode):
+        """Return the command state associated with a particular message code
+        """
+        return cls._InvMsgCodeDict[msgCode]
     
     def _cmdCallback(self, cmdToTrack):
         """Tracked command's state has changed; copy state, textMsg and hubMsg
