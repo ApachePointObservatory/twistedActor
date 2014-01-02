@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+import RO.Comm.Generic
+RO.Comm.Generic.setFramework("twisted")
+from RO.Comm.TwistedSocket import TCPServer
 from twistedActor import CommunicationChain, Actor, TCPDevice, getOpenPort, Commander
 from twisted.trial.unittest import TestCase
 import twisted
@@ -12,12 +16,31 @@ class DevShell(TCPDevice):
         """
         print 'dev reply!', reply
 
-class ActorShell(Actor):
-    def initialConn(self):
-        """Do nothing, connections are handled by test framework.
-        This method is called automatically upon construction of an Actor
-        """
+    def init(self, userCmd=None, timeLim=None):
         pass
+
+class ActorShell(Actor):
+    def __init__(self, 
+        userPort,
+        devs = (),
+        maxUsers = 0,  
+        doDebugMsgs = False,
+        version = "?",
+        name = "Actor",
+        doConnect = False,
+    ):
+        Actor.__init__(self, 
+            userPort,
+            devs,
+            maxUsers,
+            doDebugMsgs,
+            version,
+            name,
+            doConnect,
+    )
+
+    # def initialConn(self):
+    #     pass
 
     def logMsg(self, msg):
         """This method must also be specified.  In this case "log" to screen
@@ -45,24 +68,37 @@ def getActorDevShell(devConnPort):
     openPort = getOpenPort()
     return openPort, ActorShell(userPort = openPort, devs=(dev,))
 
-
-class ActorTestCase(TestCase):
+class TCPServerTest(TestCase):
     def setUp(self):
-        self.cc = CommunicationChain()
-        pt0 = getOpenPort()
-        self.cc.addServerFactory(FakeGalilFactory(verbose=False, wakeUpHomed=True), pt0)
-        #pt1, act1 = getActorShell() # deviceless actor listens on pt1
-        pt2, act2 = getActorDevShell(pt0) # device connects to pt1, actor listens on pt2
-       # self.cc.addActor(act1)
-        self.cc.addActor(act2)
-        self.cc.addCommander(Commander(pt2, "mirror"))
-        return self.cc.startUp()
+        self.server = TCPServer(port=0)
+        return self.server.getReadyDeferred()
 
-    def testNothing(self):
-        print "Testing Nothing!!!!"
+    def test(self):
+        msg = "Server is %s, expected to be %s" % (self.server.state, self.server.Listening)
+        self.assertTrue(self.server.state==self.server.Listening, msg = msg)
 
     def tearDown(self):
-        return self.cc.shutDown()
+        return self.server.close()
+
+# class ActorTestCase(TestCase):
+#     def setUp(self):
+#         self.cc = CommunicationChain()
+#        # pt0 = getOpenPort()
+#        # self.cc.addServerFactory(FakeGalilFactory(verbose=False, wakeUpHomed=True), pt0)
+#         pt1, act1 = getActorShell() # deviceless actor listens on pt1
+#         print "port 1", pt1
+#         #pt2, act2 = getActorDevShell(pt1) # device connects to pt1, actor listens on pt2
+#         #print "port 2", pt2
+#         self.cc.addActor(act1)
+#         #self.cc.addActor(act2)
+#         #self.cc.addCommander(Commander(pt2, "mirror"))
+#         return self.cc.startUp()
+
+#     def testNothing(self):
+#         print "Testing Nothing!!!!"
+
+#     def tearDown(self):
+#         return self.cc.shutDown()
 
 if __name__ == '__main__':
     from unittest import main
