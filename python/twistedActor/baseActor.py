@@ -205,7 +205,15 @@ class BaseActor(object):
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
         
+        @param[in] msgCode: message code (e.g. "i"); see command.py for a full list of message codes.
+        @param[in] cmd: user command; used as a default for userID and cmdID, but see msgCode
+        @param[in] userID: user ID: if None then use cmd.cmdID, but see msgCode
+        @param[in] cmdID: command ID: if None then use cmd.userID, but see msgCode
+        
         cmdID and userID are obtained from cmd unless overridden by the explicit argument. Both default to 0.
+        However, if cmd.isDone and msgCode is not a done code, then cmd is ignored.
+        This allows you to continue to use a completed command to send informational messages,
+        which can simplify code. (It is a serious bug to send multiple done messages for any command.)
         """
         userID, cmdID = self.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
@@ -217,7 +225,15 @@ class BaseActor(object):
     def writeToOneUser(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to one user.
 
+        @param[in] msgCode: message code (e.g. "i"); see command.py for a full list of message codes.
+        @param[in] cmd: user command; used as a default for userID and cmdID, but see msgCode
+        @param[in] userID: user ID: if None then use cmd.cmdID, but see msgCode
+        @param[in] cmdID: command ID: if None then use cmd.userID, but see msgCode
+        
         cmdID and userID are obtained from cmd unless overridden by the explicit argument. Both default to 0.
+        However, if cmd.isDone and msgCode is not a done code, then cmd is ignored.
+        This allows you to continue to use a completed command to send informational messages,
+        which can simplify code. (It is a serious bug to send multiple done messages for any command.)
         """
         userID, cmdID = self.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         if userID == 0:
@@ -233,7 +249,18 @@ class BaseActor(object):
     def writeToStdOut(cls, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to stdout.
         
-        One use is writing properly formatted messages in the absence of an instance of BaseActor.
+        One use is writing properly formatted messages in the absence of an instance of BaseActor
+        (note that this is a class method).
+
+        @param[in] msgCode: message code (e.g. "i"); see command.py for a full list of message codes.
+        @param[in] cmd: user command; used as a default for userID and cmdID, but see msgCode
+        @param[in] userID: user ID: if None then use cmd.cmdID, but see msgCode
+        @param[in] cmdID: command ID: if None then use cmd.userID, but see msgCode
+        
+        cmdID and userID are obtained from cmd unless overridden by the explicit argument. Both default to 0.
+        However, if cmd.isDone and msgCode is not a done code, then cmd is ignored.
+        This allows you to continue to use a completed command to send informational messages,
+        which can simplify code. (It is a serious bug to send multiple done messages for any command.)
         """
         userID, cmdID = cls.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = cls.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
