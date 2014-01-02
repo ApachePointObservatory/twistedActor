@@ -66,9 +66,23 @@ class BaseActor(object):
         #return "%d %d %s %s" % (userID, cmdID, msgCode, msgStr)
     
     @staticmethod
-    def getUserCmdID(cmd=None, userID=None, cmdID=None):
+    def getUserCmdID(msgCode=None, cmd=None, userID=None, cmdID=None):
         """Return userID, cmdID based on user-supplied information.
+        
+        @param[in] msgCode: used to determine if cmd is a valid default:
+            if cmd is provided and cmd.isDone and msgCode is not a done code, then cmd is ignored (treated as None).
+            This allows you to continue to use a completed command to send informational messages,
+            which can simplify code. Note that it is also possible to send multiple done messages for a command,
+            but that indicates a serious bug in your code.
+        @param[in] cmd: user command; used as a default for userID and cmdID, but see msgCode
+        @param[in] userID: user ID: if None then use cmd.cmdID, but see msgCode
+        @param[in] cmdID: command ID: if None then use cmd.userID, but see msgCode
         """
+        if cmd is not None and msgCode is not None and cmd.isDone:
+            state = cmd.stateFromMsgCode(msgCode)
+            if state not in cmd.DoneStates:
+                # ignore command
+                cmd = None
         return (
             userID if userID is not None else (cmd.userID if cmd else 0),
             cmdID if cmdID is not None else (cmd.cmdID if cmd else 0),
@@ -193,7 +207,7 @@ class BaseActor(object):
         
         cmdID and userID are obtained from cmd unless overridden by the explicit argument. Both default to 0.
         """
-        userID, cmdID = self.getUserCmdID(cmd=cmd, userID=userID, cmdID=cmdID)
+        userID, cmdID = self.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToUsers(%s)" % (fullMsgStr,)
         self.logMsg("To All Users(%s)" % (fullMsgStr,))
@@ -205,9 +219,10 @@ class BaseActor(object):
 
         cmdID and userID are obtained from cmd unless overridden by the explicit argument. Both default to 0.
         """
-        userID, cmdID = self.getUserCmdID(cmd=cmd, userID=userID, cmdID=cmdID)
+        userID, cmdID = self.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         if userID == 0:
-            raise RuntimeError("Cannot write to user 0")
+            print "Error: writeToOneUser asked to write to userID=0; msgCode=%r; msgStr=%r; cmd=%r; userID=%r; cmdID=%r" % (msgCode, msgStr, cmd, userID, cmdID)
+            raise RuntimeError("writeToOneUser cannot write to user 0")
         sock = self.userDict[userID]
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToOneUser(%s)" % (fullMsgStr,)
@@ -220,7 +235,7 @@ class BaseActor(object):
         
         One use is writing properly formatted messages in the absence of an instance of BaseActor.
         """
-        userID, cmdID = cls.getUserCmdID(cmd=cmd, userID=userID, cmdID=cmdID)
+        userID, cmdID = cls.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = cls.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         print fullMsgStr
     
