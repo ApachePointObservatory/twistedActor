@@ -5,5 +5,8 @@ from .baseActor import *
 from .actor import *
 from .manageCommands import *
 from .log import *
-from .actorTestUtils import *
+from .baseWrapper import *
+from .deviceWrapper import *
+from .dispatcherWrapper import *
+from .actorWrapper import *
 from .version import __version__
