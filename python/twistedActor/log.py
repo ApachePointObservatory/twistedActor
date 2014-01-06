@@ -151,7 +151,7 @@ def returnFileHandler(logPath, rolloverTime = _NOON):
                 # file was empty, just log to it
                 return NoonRotatingFileHandler(filename, rolloverTime = rolloverTime)
             begLogTime, foo = parseLogLine(firstLine)
-        except Exception as e:
+        except Exception:
             # logfile in an unexpected format, force a rollover
             manualRollover(filename, suffix="UNRECOGNIZED_BY_LOGGER")
         else:

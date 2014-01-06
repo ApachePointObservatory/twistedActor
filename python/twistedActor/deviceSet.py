@@ -4,7 +4,6 @@ import sys
 import traceback
 
 from RO.SeqUtil import isSequence
-from RO.AddCallback import safeCall
 from RO.StringUtil import quoteStr
 
 from .command import UserCmd
@@ -164,7 +163,7 @@ class DeviceSet(object):
         if len(boolList) != len(self):
             raise RuntimeError("Expected %s bools but got %s" % (len(self), boolList))
         slotList = self._slotDevDict.keys()
-        return [slot for slot, boolVal in enumerate(boolList) if boolVal] 
+        return [slotList[ind] for ind, boolVal in enumerate(boolList) if boolVal] 
 
     def getIndex(self, slot):
         """Get the index of the slot

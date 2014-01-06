@@ -3,7 +3,6 @@
 __all__ = ["BaseActor"]
 
 import sys
-import os
 import RO.Comm.TwistedSocket
 from RO.StringUtil import quoteStr, strFromException
 from .command import UserCmd
