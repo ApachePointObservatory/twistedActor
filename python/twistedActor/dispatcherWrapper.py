@@ -1,7 +1,8 @@
-#!/usr/bin/env python
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.Comm.TCPConnection import TCPConnection
+from opscore.actor import ActorDispatcher
+
 from .baseWrapper import BaseWrapper
 
 __all__ = ["DispatcherWrapper"]
@@ -18,8 +19,6 @@ class DispatcherWrapper(BaseWrapper):
     - dispatcher: the actor dispatcher (twistedActor.ActorDispatcher); None until ready
     - readyDeferred: called when the dispatcher is ready
       (for tracking closure use the Deferred returned by the close method, or stateCallback).
-      
-    Subclasses must override _makeDispatcher
     """
     def __init__(self,
         actorWrapper,
@@ -45,7 +44,10 @@ class DispatcherWrapper(BaseWrapper):
     
     def _makeDispatcher(self, connection):
         #print "_makeDispatcher()"
-        raise NotImplementedError()
+        self.dispatcher = ActorDispatcher(
+            connection = connection,
+            name = self._dictName, # name of keyword dictionary
+        )
     
     @property
     def actor(self):
