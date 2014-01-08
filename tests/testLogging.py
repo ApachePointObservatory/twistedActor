@@ -173,7 +173,7 @@ class LogTest(TestCase):
         self.assertTrue(loggedInfo[0][1]==self.postRoll)
         # check the rotated log, first get it's suffix (which is yesterdays date)
         datetimeYesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-        dateSuffix = ".%i-%i-%i"%(datetimeYesterday.year, datetimeYesterday.month, datetimeYesterday.day)
+        dateSuffix = ".%02d-%02d-%02d"%(datetimeYesterday.year, datetimeYesterday.month, datetimeYesterday.day)
         filename = "twistedActor.log" + dateSuffix
         loggedInfo = self.getLogInfo(filename)
         # only one line should have been written
