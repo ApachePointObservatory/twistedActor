@@ -109,7 +109,7 @@ def manualRollover(filename, datetime=None, suffix=None):
     if datetime and suffix:
         raise RuntimeError("Cannont specify both datetime and suffix")
     if datetime:
-        suffix = ".%i-%i-%i" % (datetime.year, datetime.month, datetime.day)
+        suffix = ".%02d-%02d-%02d" % (datetime.year, datetime.month, datetime.day)
     newfilename = filename + suffix
     n = 1
     while os.path.exists(newfilename): # incase there is already a log file of this name (paranoid?)
