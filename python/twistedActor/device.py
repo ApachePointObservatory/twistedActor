@@ -132,12 +132,19 @@ class Device(BaseMixin):
         """
         return DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
 
+    def cleanup(self):
+        """Release resources and halt pending processes
+
+        Called when disconnecting (after disconnection begins)
+        """
+        pass
+
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
         
         This is overridden by Actor when the device is added to the actor
         """
-        raise NotImplementedError("Cannot report msgCode=%r; msgStr=%r" % (msgCode, msgStr))
+        print "msgCode=%r; msgStr=%r" % (msgCode, msgStr)
     
     def handleReply(self, replyStr):
         """Handle a line of output from the device. Called whenever the device outputs a new line of data.
@@ -360,6 +367,7 @@ class DisconnectDevice(object):
                 self.userCmd.setState(self.userCmd.Failed, textMsg="%s failed to disconnect" % (self.dev,))
             else:
                 self.userCmd.setState(self.userCmd.Done)
+        self.dev.cleanup()
 
 
 class RunCmdList(object):

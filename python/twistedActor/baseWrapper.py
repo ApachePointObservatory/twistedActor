@@ -72,23 +72,23 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
     def _stateChanged(self, *args):
         """Called when state changes
         """
-#         print "%r; _stateChanged()" % (self,)
+        # print "%r; _stateChanged()" % (self,)
         if self._closeDeferred: # closing or closed
             if self.isDone:
                 if not self.readyDeferred.called:
                     self.readyDeferred.cancel()
                 if not self._closeDeferred.called:
-                    #print "%s calling closeDeferred" % (self,)
+                    # print "%s calling closeDeferred" % (self,)
                     self._closeDeferred.callback(None)
                 else:
                     sys.stderr.write("Device wrapper state changed after wrapper closed\n")
         else: # opening or open
             if not self.readyDeferred.called:
                 if self.isReady:
-                    #print "%s calling readyDeferred" % (self,)
+                    # print "%s calling readyDeferred" % (self,)
                     self.readyDeferred.callback(None)
                 elif self.didFail:
-                    #print "%s calling readyDeferred.errback" % (self,)
+                    # print "%s calling readyDeferred.errback" % (self,)
                     self.readyDeferred.errback("Failed") # probably should not be a string?
 
 
@@ -101,6 +101,7 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         
         @return a deferred
         """
+        # print "%s.close()" % (self,)
         if self._closeDeferred:
             raise RuntimeError("Already closing or closed")
 
