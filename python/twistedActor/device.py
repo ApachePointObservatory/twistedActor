@@ -271,6 +271,8 @@ class ConnectDevice(object):
     def initCallback(self, userCmd):
         """Callback for device initialization
         """
+        if not userCmd.isDone:
+            return 
         if userCmd.didFail:
             textMsg = "%s initialization failed: %s" % (self.dev.name, userCmd.textMsg)
             self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
@@ -279,7 +281,7 @@ class ConnectDevice(object):
     def connCallback(self, conn):
         """Callback for device connection state
         """
-        if self.dev.conn.isDone:
+        if self.dev.conn.isConnected:
             initUserCmd = UserCmd(cmdStr="connect %s" % (self.dev.name,), callFunc=self.initCallback)
             self.dev.init(userCmd=initUserCmd, timeLim=self._timeLim)
 

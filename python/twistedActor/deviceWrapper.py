@@ -48,6 +48,8 @@ class DeviceWrapper(BaseWrapper):
             raise RuntimeError("You must specify exactly one of controller or controllerWrapper")
         self._isReady = False
         self.device = None # the wrapped device, once it's built
+        self.connCmd = None # the connect device cmd
+        self.disConnCmd = None # the disconnect device command
         self.controller = None
         self.server = None
         self.controllerWrapper = controllerWrapper
@@ -72,7 +74,7 @@ class DeviceWrapper(BaseWrapper):
         """Return True if the controller and device are running
         """
         self._isReady = self._isReady or \
-            (self.server is not None and self.device is not None and self.server.isReady and self.device.conn.isConnected)
+            (self.server is not None and self.device is not None and self.connCmd is not None and self.server.isReady and self.device.conn.isConnected and self.connCmd.isDone)
         return self._isReady
     
     @property
@@ -82,7 +84,7 @@ class DeviceWrapper(BaseWrapper):
         if self.server is None:
             return self.controllerWrapper.didFail # wrapper failed, so controller will not be built
         else:
-            return self.server.isDone and self.device.conn.isDisconnected
+            return self.server.isDone and self.device.conn.isDisconnected and self.disConnCmd is not None and self.disConnCmd.isDone
     
     @property
     def didFail(self):
@@ -95,8 +97,6 @@ class DeviceWrapper(BaseWrapper):
     
     def _basicClose(self):
         """Close everything
-        
-        @return a deferred
         """
         self._isReady = False
         if self.controllerWrapper is not None:
@@ -104,7 +104,8 @@ class DeviceWrapper(BaseWrapper):
         if self.server is not None:
             self.server.close()
         if self.device is not None:
-            self.device.disconnect()
+            self.disConnCmd = self.device.disconnect().userCmd
+            self.disConnCmd.addCallback(self._stateChanged)
 
     def _setController(self, controller):
         """Set self.controller and self.server and server state callbacks
@@ -127,7 +128,8 @@ class DeviceWrapper(BaseWrapper):
             # print "%s._makeDevice()" % (self,)
             self._makeDevice()
             self.device.conn.addStateCallback(self._stateChanged)
-            self.device.connect()
+            self.connCmd = self.device.connect().userCmd
+            self.connCmd.addCallback(self._stateChanged)
         self._stateChanged()
 
     def _controllerWrapperStateChanged(self, dumArg=None):
