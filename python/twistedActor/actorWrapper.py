@@ -57,20 +57,22 @@ class ActorWrapper(BaseWrapper):
     def isReady(self):
         """Return True if the actor has connected to the fake hardware controller
         """
-        return all(dw.isReady for dw in self.deviceWrapperList) and self.actor and self.actor.server.isReady
+        # if self.actor:
+        #     print "%s.isReady: actor.server.state=%s" % (self, self.actor.server.state)
+        return all(dw.isReady for dw in self.deviceWrapperList) and self.actor is not None and self.actor.server.isReady
     
     @property
     def isDone(self):
         """Return True if the actor and fake hardware controller are fully disconnected
         """
-        return all(dw.isDone for dw in self.deviceWrapperList) and self.actor and self.actor.server.isDone
-    
+        return all(dw.isDone for dw in self.deviceWrapperList) and self.actor is not None and self.actor.server.isDone
+
     @property
-    def didFail(self):
-        """Return True if isDone and there was a failure
+    def isFailing(self):
+        """Return True if anything failed
         """
-        return self.isDone and (any(dw.didFail for dw in self.deviceWrapperlist) or self.actor.server.didFail)
-    
+        return any(dw.didFail for dw in self.deviceWrapperList) or self.actor is not None and self.actor.server.didFail
+
     def _basicClose(self):
         """Close clients and servers
         """

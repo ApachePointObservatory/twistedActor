@@ -57,7 +57,13 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
     
     @property
     def didFail(self):
-        """Return True if isDone and there was a failure
+        """Return True if isDone and there is a failure
+        """
+        return self.isDone and self.isFailing
+
+    @property
+    def isFailing(self):
+        """Return True if there is a failure
         """
         raise NotImplementedError()
     
@@ -65,14 +71,15 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         """Close clients and servers
         """
         raise NotImplementedError()
-#         if self.dispatcher:
-#             self.dispatcher.disconnect()
-#         self.actorWrapper.close()
     
     def _stateChanged(self, *args):
         """Called when state changes
         """
         # print "%r; _stateChanged()" % (self,)
+        if self.isFailing and not self.isDone and not self._closeDeferred:
+            self.close()
+            return
+
         if self._closeDeferred: # closing or closed
             if self.isDone:
                 if not self.readyDeferred.called:
@@ -115,5 +122,5 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         return "%s" % (type(self).__name__,)
     
     def __repr__(self):
-        return "%s; isReady=%s, isDone=%s, didFail=%s" % \
-            (type(self).__name__, self.isReady, self.isDone, self.didFail)
+        return "%s; isReady=%s, isDone=%s, didFail=%s, isFailing=%s" % \
+            (type(self).__name__, self.isReady, self.isDone, self.didFail, self.isFailing)

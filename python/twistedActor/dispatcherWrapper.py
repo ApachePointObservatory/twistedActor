@@ -65,19 +65,19 @@ class DispatcherWrapper(BaseWrapper):
     def isReady(self):
         """Return True if the actor has connected to the fake hardware controller
         """
-        return self.actorWrapper.isReady and self.dispatcher and self.dispatcher.connection.isConnected
+        return self.actorWrapper.isReady and self.dispatcher is not None and self.dispatcher.connection.isConnected
     
     @property
     def isDone(self):
         """Return True if the actor and fake hardware controller are fully disconnected
         """
-        return self.actorWrapper.isDone and self.dispatcher and self.dispatcher.connection.isDisconnected
+        return self.actorWrapper.isDone and self.dispatcher is not None and self.dispatcher.connection.isDisconnected
     
     @property
-    def didFail(self):
-        """Return True if isDone and there was a failure
+    def isFailing(self):
+        """Return True if there is a failure
         """
-        return self.isDone and (self.actorWrapper.didFail or self.dispatcher.connection.didFail)
+        return self.actorWrapper.didFail or (self.dispatcher is not None and self.dispatcher.connection.didFail)
     
     def _actorWrapperStateChanged(self, dumArg=None):
         """Called when the device wrapper changes state

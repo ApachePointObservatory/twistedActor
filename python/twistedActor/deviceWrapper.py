@@ -72,7 +72,7 @@ class DeviceWrapper(BaseWrapper):
         """Return True if the controller and device are running
         """
         self._isReady = self._isReady or \
-            (self.server is not None and self.device is not None and self.server.isReady and self.device.conn.isConnected)
+            (self.server is not None and self.server.isReady and self.device is not None and self.device.conn.isConnected)
         return self._isReady
     
     @property
@@ -82,16 +82,16 @@ class DeviceWrapper(BaseWrapper):
         if self.server is None:
             return self.controllerWrapper.didFail # wrapper failed, so controller will not be built
         else:
-            return self.server.isDone and self.device.conn.isDisconnected
+            return self.server.isDone and self.device is not None and self.device.conn.isDisconnected
     
     @property
-    def didFail(self):
-        """Return True if isDone and there was a failure
+    def isFailing(self):
+        """Return True if there is a failure
         """
         if self.server is None:
             return self.controllerWrapper.didFail
         else:
-            return self.isDone and (self.server.didFail or self.device.conn.didFail)
+            return self.server.didFail or (self.device is not None and self.device.conn.didFail)
     
     def _basicClose(self):
         """Close everything
