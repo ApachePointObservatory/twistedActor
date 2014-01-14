@@ -25,25 +25,30 @@ class DeviceWrapper(BaseWrapper):
         (no need to set a state callback; that is done automatically).
     """
     def __init__(self,
+        name = "",
         controller = None,
         controllerWrapper = None,
         stateCallback = None,
+        debug = False,
     ):
         """Construct a DeviceWrapper
 
         You must specify either controller or controllerWrapper but not both
 
+        @param[in] name: name of device
         @param[in] controller: the controller the device talks to (a RO.Comm.TwistedSocket.TCPServer);
             it need not be listening yet, but must be trying to start listening.
         @param[in] controllerWrapper: a wrapper around the controller the device talks to (an ActorWrapper).
         @param[in] stateCallback: function to call when connection state of controller or device changes;
             receives one argument: this device wrapper
+        @param[in] debug: print debug messages to stdout?
 
         @raise RuntimeError if you do not specify exactly one of controller or controllerWrapper
         
         Subclasses must override _makeDevice
         """
-        BaseWrapper.__init__(self, stateCallback=stateCallback, callNow=False)
+        self.name = name
+        BaseWrapper.__init__(self, stateCallback=stateCallback, callNow=False, debug=debug)
         if (controller is None) == (controllerWrapper is None):
             raise RuntimeError("You must specify exactly one of controller or controllerWrapper")
         self._isReady = False
@@ -142,4 +147,7 @@ class DeviceWrapper(BaseWrapper):
         # print "_controllerWrapperStateChanged; controllerWrapper=%s" % (self.controllerWrapper,)
         if self.controllerWrapper.isReady and not self.controller:
             self._setController(self.controllerWrapper.actor)
+
+    def __str__(self):
+        return "%s(%s)" % (type(self).__name__, self.name)
 

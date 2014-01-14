@@ -25,6 +25,7 @@ class DispatcherWrapper(BaseWrapper):
         dictName,
         readCallback = None,
         stateCallback = None,
+        debug = False,
     ):
         """Construct a DispatcherWrapper that manages everything
 
@@ -33,8 +34,9 @@ class DispatcherWrapper(BaseWrapper):
         @param[in] readCallback: function to call when the actor dispatcher has data to read
         @param[in] stateCallback: function to call when connection state of of any socket changes;
             receives one argument: this actor wrapper
+        @param[in] debug: print debug messages to stdout?
         """
-        BaseWrapper.__init__(self, stateCallback=stateCallback, callNow=False)
+        BaseWrapper.__init__(self, stateCallback=stateCallback, callNow=False, debug=debug)
         self.actorWrapper = actorWrapper
         self._dictName = dictName
         self._readCallback = readCallback
@@ -43,7 +45,7 @@ class DispatcherWrapper(BaseWrapper):
         self._actorWrapperStateChanged()
     
     def _makeDispatcher(self, connection):
-        #print "_makeDispatcher()"
+        self.debugMsg("_makeDispatcher()")
         self.dispatcher = ActorDispatcher(
             connection = connection,
             name = self._dictName, # name of keyword dictionary

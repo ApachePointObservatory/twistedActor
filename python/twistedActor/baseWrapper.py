@@ -30,6 +30,7 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
     def __init__(self,
         stateCallback=None,
         callNow=False,
+        debug=False,
     ):
         """Construct a DispatcherWrapper that manages everything
 
@@ -37,8 +38,10 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
             receives one argument: this actor wrapper
         @param[in] callNow: call stateCallback now? (Defaults to false because typically
             subclasses have some additional setup to do before calling callback functions).
+        @param[in] debug: print debug messages to stdout?
         """
         RO.AddCallback.BaseMixin.__init__(self, defCallNow=True)
+        self.debug = bool(debug)
         self.readyDeferred = Deferred()
         self._closeDeferred = None
         self.addCallback(stateCallback, callNow=callNow)
@@ -66,6 +69,10 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         """Return True if there is a failure
         """
         raise NotImplementedError()
+
+    def debugMsg(self, msgStr):
+        if self.debug:
+            print "%s: %s" % (self, msgStr)
     
     def _basicClose(self):
         """Close clients and servers
@@ -75,7 +82,8 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
     def _stateChanged(self, *args):
         """Called when state changes
         """
-        # print "%r; _stateChanged()" % (self,)
+        self.debugMsg("_stateChanged(): isReady=%s, isDone=%s, didFail=%s, isFailing=%s" % \
+            (self.isReady, self.isDone, self.didFail, self.isFailing))
         if self.isFailing and not self.isDone and not self._closeDeferred:
             self.close()
             return
@@ -83,19 +91,20 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         if self._closeDeferred: # closing or closed
             if self.isDone:
                 if not self.readyDeferred.called:
+                    self.debugMsg("canceling readyDeferred in _stateChanged; this should not happen")
                     self.readyDeferred.cancel()
                 if not self._closeDeferred.called:
-                    # print "%s calling closeDeferred" % (self,)
+                    self.debugMsg("calling closeDeferred")
                     self._closeDeferred.callback(None)
                 else:
                     sys.stderr.write("Device wrapper state changed after wrapper closed\n")
         else: # opening or open
             if not self.readyDeferred.called:
                 if self.isReady:
-                    # print "%s calling readyDeferred" % (self,)
+                    self.debugMsg("calling readyDeferred")
                     self.readyDeferred.callback(None)
                 elif self.didFail:
-                    # print "%s calling readyDeferred.errback" % (self,)
+                    self.debugMsg("failing readyDeferred")
                     self.readyDeferred.errback("Failed") # probably should not be a string?
 
 
@@ -108,12 +117,13 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         
         @return a deferred
         """
-        # print "%s.close()" % (self,)
+        self.debugMsg("close()")
         if self._closeDeferred:
             raise RuntimeError("Already closing or closed")
 
         self._closeDeferred = Deferred()
         if not self.readyDeferred.called:
+            self.debugMsg("canceling readyDeferred")
             self.readyDeferred.cancel()
         self._basicClose()
         return self._closeDeferred        
