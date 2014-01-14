@@ -182,7 +182,7 @@ class CommandQueue(object):
     def addCmd(self, cmd, callFunc):
         """ Add a command to the queue.
 
-            @param[in] toQueue: a QueuedCommand object
+            @param[in] cmd: a twistedActor command object
             @param[in] callFunc: callback function to add to the command
         """
         if cmd.cmdVerb not in self.priorityDict:
