@@ -59,13 +59,21 @@ class LinkCommands(object):
 
 
 class QueuedCommand(object):
+    # state constants
+    Done = "done"
+    Cancelled = "cancelled" # including superseded
+    Failed = "failed"
+    Ready = "ready"
+    Running = "running"
+    Cancelling = "cancelling"
+    Failing = "failing"
     def __init__(self, cmd, priority, callFunc):
         """The type of object queued in the CommandQueue.
 
             @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
             @param[in] priority: an integer, or CommandQueue.Immediate
             @param[in] callFunc: function to call when cmd is exectued,
-                receives no arguments (use lambda to pass arguments!)
+                receives no arguments (lambda an option to pass arguments)
         """
         if not hasattr(cmd, 'cmdVerb'):
             raise RuntimeError('QueuedCommand must have a cmdVerb')
@@ -80,6 +88,43 @@ class QueuedCommand(object):
         self.cmd = cmd
         self.priority = priority
         self.callFunc = callFunc
+
+    # access certain cmd attributes for convenience
+    def setState(self, newState, textMsg="", hubMsg=""):
+        return self.cmd.setState(newState, textMsg, hubMsg)
+
+    @property
+    def cmdVerb(self):
+        return self.cmd.cmdVerb
+
+    @property
+    def cmdStr(self):
+        return self.cmd.cmdStr
+
+    @property
+    def didFail(self):
+        """Command failed or was cancelled
+        """
+        return self.cmd.didFail
+    
+    @property
+    def isActive(self):
+        """Command is running, canceling or failing
+        """
+        return self.cmd.isActive
+    
+    @property
+    def isDone(self):
+        """Command is done (whether successfully or not)
+        """
+        return self.cmd.isDone
+
+    @property
+    def state(self):
+        """The state of the command, as a string which is one of the state constants, e.g. self.Done
+        """
+        return self.cmd.state
+
 
     # overridden methods mainly for sorting purposes
     def __lt__(self, other):
@@ -183,7 +228,8 @@ class CommandQueue(object):
         """ Add a command to the queue.
 
             @param[in] cmd: a twistedActor command object
-            @param[in] callFunc: callback function to add to the command
+            @param[in] callFunc: code to be called when this command is 
+              (eventually) ready to be run
         """
         if cmd.cmdVerb not in self.priorityDict:
             raise RuntimeError('Cannont queue unrecognized command: %s' % (cmd.cmdVerb,))
