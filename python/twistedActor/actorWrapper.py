@@ -78,10 +78,10 @@ class ActorWrapper(BaseWrapper):
     def _basicClose(self):
         """Close clients and servers
         """
-        if self.actor:
-            self.actor.server.close()
         for dw in self.deviceWrapperList:
             dw.close()
+        if self.actor:
+            self.actor.close()
     
     def _deviceWrapperStateChanged(self, dumArg=None):
         """Called when the device wrapper changes state

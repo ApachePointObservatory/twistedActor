@@ -644,3 +644,8 @@ class DeviceCollection(object):
         Raise KeyError if not found
         """
         return self._connDict[id(conn)]
+
+    def __iter__(self):
+        """Return an iterator over the devices
+        """
+        return self.nameDict.itervalues()

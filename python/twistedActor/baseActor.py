@@ -41,6 +41,17 @@ class BaseActor(object):
             connCallback = self.newUser,
             port = userPort,
         )
+
+    def _cancelTimers(self):
+        """Cancel all timers
+        """
+        pass
+
+    def close(self):
+        """Close the connection and cancel any timers
+        """
+        self.server.close()
+        self._cancelTimers()
     
     def logMsg(self, msgStr):
         """
