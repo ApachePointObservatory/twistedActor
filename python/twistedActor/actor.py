@@ -93,7 +93,14 @@ class Actor(BaseActor):
 
         # connect all devices
         if doConnect:
-            self.initialConn()        
+            self.initialConn()
+
+    def close(self):
+        """Close the connection and cancel any timers
+        """
+        for dev in self.dev:
+            dev.disconnect()
+        BaseActor.close(self)
 
     def initialConn(self):
         """Perform initial connections.

@@ -25,6 +25,7 @@ class ActorWrapper(BaseWrapper):
         deviceWrapperList,
         userPort = 0,
         stateCallback = None,
+        debug = False,
     ):
         """Construct a ActorWrapper that manages its devices and controllers
 
@@ -33,8 +34,9 @@ class ActorWrapper(BaseWrapper):
         @param[in] userPort: port for mirror controller connections; 0 to auto-select
         @param[in] stateCallback: function to call when state of actor server socket or any device wrapper changes
             receives one argument: this actor wrapper
+        @param[in] debug: print debug messages to stdout?
         """
-        BaseWrapper.__init__(self, stateCallback=stateCallback, callNow=False)
+        BaseWrapper.__init__(self, stateCallback=stateCallback, callNow=False, debug=debug)
         self.deviceWrapperList = deviceWrapperList
         self._userPort = userPort
         self.actor = None # the actor, once it is built; None until then
@@ -76,10 +78,10 @@ class ActorWrapper(BaseWrapper):
     def _basicClose(self):
         """Close clients and servers
         """
-        if self.actor:
-            self.actor.server.close()
         for dw in self.deviceWrapperList:
             dw.close()
+        if self.actor:
+            self.actor.close()
     
     def _deviceWrapperStateChanged(self, dumArg=None):
         """Called when the device wrapper changes state

@@ -232,7 +232,7 @@ class CommandQueue(object):
               (eventually) ready to be run
         """
         if cmd.cmdVerb not in self.priorityDict:
-            raise RuntimeError('Cannont queue unrecognized command: %s' % (cmd.cmdVerb,))
+            raise RuntimeError('Cannot queue unrecognized command: %s' % (cmd.cmdVerb,))
 
         toQueue = QueuedCommand(
             cmd = cmd,
