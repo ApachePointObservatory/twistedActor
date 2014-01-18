@@ -108,13 +108,13 @@ class DeviceWrapper(BaseWrapper):
         """Close everything
         """
         self._isReady = False
+        if self.device is not None:
+            self.disConnCmd = self.device.disconnect().userCmd
+            self.disConnCmd.addCallback(self._stateChanged)
         if self.controllerWrapper is not None:
             self.controllerWrapper.close()
         if self.server is not None:
             self.server.close()
-        if self.device is not None:
-            self.disConnCmd = self.device.disconnect().userCmd
-            self.disConnCmd.addCallback(self._stateChanged)
 
     def _setController(self, controller):
         """Set self.controller and self.server and server state callbacks
