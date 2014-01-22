@@ -80,7 +80,7 @@ class LogTest(TestCase):
         #twistedActor.log.setSTDIO()
         # twistedActor.log._NOON = 5
         # print twistedActor.log._NOON
-        startLogging(self.testLogPath)        
+        startLogging(self.testLogPath, serverMode=False)        
 
     def deleteLogs(self):
         oldLogs = self.getAllLogs()
@@ -120,7 +120,7 @@ class LogTest(TestCase):
         writeToLog(logMsgs[0])
         stopLogging()
         writeToLog(logMsgs[1])
-        startLogging(self.testLogPath)
+        startLogging(self.testLogPath, serverMode=False)
         writeToLog(logMsgs[2])
         loggedInfo = self.getLogInfo()
         self.assertTrue(len(loggedInfo)==2)
@@ -134,7 +134,7 @@ class LogTest(TestCase):
 
         # twistedActor.log.__NOON = tSecs + 1
         # print "diff", twistedActor.log._NOON - tSecs
-        startLogging(self.testLogPath, rolloverTime = self.getSecsNow() + 1) # now let r rip
+        startLogging(self.testLogPath, serverMode = False, rolloverTime = self.getSecsNow() + 1) # now let r rip
         d = Deferred()
         preRoll = "Before Rollover"
         postRoll = "After Rollover"
@@ -155,7 +155,7 @@ class LogTest(TestCase):
         self.preRoll, self.postRoll = preRoll, postRoll
         stopLogging()
         def waitasec():
-            startLogging(self.testLogPath, rolloverTime=self.getSecsNow() - 1) 
+            startLogging(self.testLogPath, serverMode = False, rolloverTime=self.getSecsNow() - 1) 
             # set rollover time to a second ago
             # the previous log should rollover
             writeToLog(postRoll)
@@ -170,6 +170,7 @@ class LogTest(TestCase):
         # check latest log
         loggedInfo = self.getLogInfo()
         self.assertTrue(len(loggedInfo)==1) # one line was written
+        print "Debug: ", loggedInfo[0][1]==self.postRoll, self.postRoll
         self.assertTrue(loggedInfo[0][1]==self.postRoll)
         # check the rotated log, first get it's suffix (which is yesterdays date)
         datetimeYesterday = datetime.datetime.now() - datetime.timedelta(days=1)
@@ -184,7 +185,7 @@ class LogTest(TestCase):
         with open(os.path.join(self.testLogPath, "twistedActor.log"), "w") as f:
             f.write("No date prepended, This is total garbage, and shouldnt be recognized as a log.\n")
         stopLogging()
-        startLogging(self.testLogPath)
+        startLogging(self.testLogPath, serverMode=False)
         writeToLog("This isn't garbage!")
         # with logging restarted the present log file should have this suffix appended to it
         suffix = "UNRECOGNIZED_BY_LOGGER"

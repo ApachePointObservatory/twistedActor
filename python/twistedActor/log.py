@@ -38,6 +38,7 @@ INFO = logging.INFO
 WARNING = logging.WARNING
 ERROR = logging.ERROR
 CRITICAL = logging.CRITICAL
+severity = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 class EmptyFileError(Exception):
     pass
@@ -54,9 +55,10 @@ class LogLineParser(object):
         dash = pp.Literal("-").suppress()
         colon = pp.Literal(":").suppress()
         comma = pp.Literal(",").suppress()
+        severity = pp.oneOf("DEBUG INFO WARNING ERROR CRITICAL").suppress()
         msg = pp.restOfLine.setResultsName("msg").setParseAction(lambda t: t[0].strip())
         # alltogether
-        self.grammar = year + dash + month + dash + day + hour + colon + minute + colon + second + comma + ms + msg
+        self.grammar = year + dash + month + dash + day + hour + colon + minute + colon + second + comma + ms + severity + colon + msg
 
     def __call__(self, line):
         ppOut = self.grammar.parseString(line, parseAll=True)
@@ -195,7 +197,7 @@ class LogStateObj(object):
 
 LogState = LogStateObj()
 
-def startLogging(logPath, fileName, showSTDIO=False, serverMode=True, rolloverTime = _NOON):
+def startLogging(logPath, fileName="twistedActor.log", showSTDIO=False, serverMode=True, rolloverTime = _NOON):
     """ 
         Start logging to a file twistedActor.log.  This file is rotated at noon. After
         rotation a date suffix is added to the file.
