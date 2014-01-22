@@ -17,6 +17,7 @@ import collections
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 import datetime
+import sys
 
 path2logs = os.path.join(os.path.abspath(os.path.dirname(__file__)), "logtest")
 
@@ -194,8 +195,33 @@ class LogTest(TestCase):
         self.assertTrue(os.path.join(self.testLogPath, "twistedActor.log") in presentLogs)
         self.assertTrue(os.path.join(self.testLogPath,"twistedActor.log"+suffix) in presentLogs)
 
+    def testServerMode(self):
+        """Put logger in serverMode, print statements should show up
+        """
+        stopLogging()
+        startLogging(self.testLogPath, serverMode=True)
+        logMsg = "I was just logged"
+        print logMsg # should be redirected to log
+        loggedInfo = self.getLogInfo()
+        self.assertTrue(len(loggedInfo)==1) # only one line in log
+        self.assertTrue(loggedInfo[0][1]==logMsg)     
 
+    def testNotServerMode(self):
+        """print statements should not show up
+        """
+        logMsg = "I was just logged"
+        print logMsg # should be redirected to log
+        loggedInfo = self.getLogInfo()
+        self.assertTrue(len(loggedInfo)==0) # nothing in log
 
+    def testStdErr(self):
+        """Verify that anything sent to std error is sent to log
+        """ 
+        logMsg = "I was just logged"
+        print >> sys.stderr, logMsg # should be redirected to log
+        loggedInfo = self.getLogInfo()
+        self.assertTrue(len(loggedInfo)==1) # only one line in log
+        self.assertTrue(loggedInfo[0][1]==logMsg)  
 
 if __name__ == '__main__':
     from unittest import main

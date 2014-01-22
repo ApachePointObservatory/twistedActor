@@ -276,7 +276,7 @@ def writeToLog(msgStr, logLevel=INFO):
             print "Log Msg: '%s', use startLogging() to begin logging to file" % msgStr
     else:
         twistedLog.msg(msgStr, logLevel=logLevel)#, system = systemName)
-        if LogState.showStdio:
+        if LogState.showStdio and not LogState.serverMode:
             print "Msg Logged: '%s'" % msgStr   
 
 ## below code is a logging module implementation of twisted's StdioOnnaStick
