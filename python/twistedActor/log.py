@@ -22,14 +22,22 @@ import time
 import datetime
 import pyparsing as pp
 
-LogObserver = None
-StartedLogging = False
-ShowSTDIO = False
+# LogObserver = None
+# StartedLogging = False
+# ShowSTDIO = False
 
 _NOON = 12*60*60 # in secs
 secPerHour = 60*60
 noonHour = float(_NOON)/float(secPerHour)
 #_NOON = (11*60 + 21)*60
+
+
+# expose valid logging levels
+DEBUG = logging.DEBUG
+INFO = logging.INFO
+WARNING = logging.WARNING
+ERROR = logging.ERROR
+CRITICAL = logging.CRITICAL
 
 class EmptyFileError(Exception):
     pass
@@ -71,6 +79,7 @@ class NoonRotatingFileHandler(TimedRotatingFileHandler):
     """
     def __init__(self, filename, rolloverTime = _NOON):
         self.rolloverTime = rolloverTime
+        self._filename = filename
         TimedRotatingFileHandler.__init__(self, filename, when='midnight', interval=1, backupCount=0, encoding=None, delay=False, utc=False)
         
 
@@ -128,7 +137,7 @@ def parseLogFile(logfile):
             outList.append(parseLogLine(loggedLine))
     return outList
 
-def returnFileHandler(logPath, rolloverTime = _NOON):
+def returnFileHandler(logPath, fName, rolloverTime = _NOON):
     """Get a file handler for logging purposes
 
     @param[in] logPath: the path to the logging directory
@@ -137,7 +146,7 @@ def returnFileHandler(logPath, rolloverTime = _NOON):
     If the current log file is old (eg from yesterday), it will rotate it.
     If the current file is todays log file, it will continue to write to that one.
     """
-    fName = 'twistedActor.log'
+   # fName = 'twistedActor.log'
     filename=os.path.join(logPath, fName)
     if os.path.exists(filename):
         # look at the first line of the current file,
@@ -182,36 +191,45 @@ class LogStateObj(object):
         self.startedLogging = False
         self.showStdio = False
         self.fh = None
+        self.serverMode = True # server mode will log anything sent to stdout as an ERROR, else stdout is not logged
+
 LogState = LogStateObj()
 
-def startLogging(logPath, showSTDIO=False, rolloverTime = _NOON):
+def startLogging(logPath, fileName, showSTDIO=False, serverMode=True, rolloverTime = _NOON):
     """ 
         Start logging to a file twistedActor.log.  This file is rotated at noon. After
         rotation a date suffix is added to the file.
 
         @param[in] logPath: directory where the log file will be placed
+        @param[in] fileName: base file name
         @param[in] showSTDIO: bool. also print log messages to screen.
-    """
+        @param[in] serverMode: bool. if True, anything sent to stdout will appear in log as an ERROR.
+        @param[in] rolloverTime: time of day (in seconds) at which the log file should rollover
+     """
     if LogState.startedLogging:
-        # logging already started do nothing
+        # logging already started do nothing, add warning to current log
+        writeToLog("startLogging called, but logging is already started.", logLevel=WARNING)
         return
     if not os.path.exists(logPath):
         os.makedirs(logPath)
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    fh = returnFileHandler(logPath, rolloverTime)
+    fh = returnFileHandler(logPath, fileName, rolloverTime)
     fh.setLevel(logging.DEBUG)
-    formatter = logging.Formatter("%(asctime)s %(message)s")
+    formatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     logObserver = twistedLog.PythonLoggingObserver()
     logObserver.start()
     captureStdErr()
+    if serverMode:
+        captureStdOut(logger)
     # update LogState
     LogState.logObserver = logObserver
     LogState.logger = logger
     LogState.fh = fh
     LogState.startedLogging = True
+    LogState.serverMode = serverMode
 
 def stopLogging():
     LogState.logObserver.stop()
@@ -220,6 +238,7 @@ def stopLogging():
     LogState.logger.removeHandler(LogState.fh)
     LogState.logger = None
     LogState.fh = None
+    LogState.serverMode = True
 
 def setSTDIO(stdio=True):
     # begin sending log messages to stdout
@@ -229,10 +248,18 @@ def captureStdErr():
     """For sending stderr writes to the log
        This is the way twisted does it.
     """
-    #sys.stdout = log.StdioOnnaStick(0, getattr(sys.stdout, "encoding", None))
     sys.stderr = twistedLog.StdioOnnaStick(1, getattr(sys.stderr, "encoding", None))
 
-def writeToLog(msgStr, logLevel=logging.INFO):
+def captureStdOut(logger=None):
+    """For sending stdout writed to the log, the way twisted does it.
+    @param[in] logger: the logger instance
+    """
+    # twisted way, logs as info
+    # sys.stdout = twistedLog.StdioOnnaStick(0, getattr(sys.stdout, "encoding", None))
+    sl = StreamToLogger(logger, logging.WARNING)
+    sys.stdout = sl
+
+def writeToLog(msgStr, logLevel=INFO):
     """ Write to current log.
 
         @param[in] msgStr: string to be logged
@@ -250,3 +277,35 @@ def writeToLog(msgStr, logLevel=logging.INFO):
         if LogState.showStdio:
             print "Msg Logged: '%s'" % msgStr   
 
+## below code is a logging module implementation of twisted's StdioOnnaStick
+##
+class StreamToLogger(object):
+   """
+   Fake file-like stream object that redirects writes to a logger instance.
+
+    This code found here:
+    http://www.electricmonk.nl/log/2011/08/14/redirect-stdout-and-stderr-to-a-logger-in-python/
+   """
+   def __init__(self, logger, log_level=logging.INFO):
+      self.logger = logger
+      self.log_level = log_level
+      self.linebuf = ''
+ 
+   def write(self, buf):
+      for line in buf.rstrip().splitlines():
+         self.logger.log(self.log_level, line.rstrip())
+ 
+# logging.basicConfig(
+#    level=logging.DEBUG,
+#    format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
+#    filename="out.log",
+#    filemode='a'
+# )
+ 
+# stdout_logger = logging.getLogger('STDOUT')
+# sl = StreamToLogger(stdout_logger, logging.INFO)
+# sys.stdout = sl
+ 
+# stderr_logger = logging.getLogger('STDERR')
+# sl = StreamToLogger(stderr_logger, logging.ERROR)
+# sys.stderr = sl

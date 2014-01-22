@@ -6,6 +6,7 @@ import sys
 import RO.Comm.TwistedSocket
 from RO.StringUtil import quoteStr, strFromException
 from .command import UserCmd
+from .log import writeToLog
 
 class BaseActor(object):
     """Base class for a hub actor or instrument control computer with no assumption about command format
@@ -52,12 +53,6 @@ class BaseActor(object):
         """
         self.server.close()
         self._cancelTimers()
-    
-    def logMsg(self, msgStr):
-        """
-        Should be specified by subclasses.
-        """
-        raise NotImplementedError("When coding an actor, you must supply a method for logging.")
     
     def cmdCallback(self, cmd):
         """Called when a user command changes state; report completion or failure
@@ -107,7 +102,7 @@ class BaseActor(object):
         - direct device access commands (device name)
         """
         cmdStr = sock.readLine()
-        self.logMsg("UserCmd(%s)" % (cmdStr,))
+        writeToLog("UserCmd(%s)" % (cmdStr,))
         #print "%s.newCmd; cmdStr=%r" % (self, cmdStr,)
         if not cmdStr:
             return
@@ -228,7 +223,7 @@ class BaseActor(object):
         userID, cmdID = self.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToUsers(%s)" % (fullMsgStr,)
-        self.logMsg("To All Users(%s)" % (fullMsgStr,))
+        writeToLog("To All Users(%s)" % (fullMsgStr,))
         for sock in self.userDict.itervalues():
             sock.writeLine(fullMsgStr)
     
@@ -252,7 +247,7 @@ class BaseActor(object):
         sock = self.userDict[userID]
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToOneUser(%s)" % (fullMsgStr,)
-        self.logMsg("To One User(%s)" % (fullMsgStr,))
+        writeToLog("To One User(%s)" % (fullMsgStr,))
         sock.writeLine(fullMsgStr)
 
     @classmethod
