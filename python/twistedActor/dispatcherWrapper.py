@@ -1,3 +1,5 @@
+from twisted.internet.defer import Deferred
+
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.Comm.TCPConnection import TCPConnection
@@ -50,6 +52,8 @@ class DispatcherWrapper(BaseWrapper):
             connection = connection,
             name = self._dictName, # name of keyword dictionary
         )
+        # initialize a command queue
+        self.cmdQueue = DispatcherCmdQueue(self.dispatcher)
     
     @property
     def actor(self):
@@ -104,3 +108,60 @@ class DispatcherWrapper(BaseWrapper):
         if self.dispatcher:
             self.dispatcher.disconnect()
         self.actorWrapper.close()
+
+class DispatcherCmdQueue(object):
+    def __init__(self, dispatcher):
+        """ A simple command queue that dispatches commands in the order received
+
+        @param[in] dispatcher: an opscore dispatcher 
+        """
+        self.dispatcher = dispatcher
+        self.cmdQueue = []
+
+    def addCmd(self, cmdVar):
+        """Add a cmdVar to the queue
+
+        @param[in] cmdVar: an opscore cmdVar object
+        @return a deferred associaited with this command
+        """
+        # append an isRunning flag to the cmdVar
+        cmdVar.isRunning = False
+        def runQueue(dummy=None):
+            """Run the queue, execute next command if previous has finished
+            @param[in] dummy: incase of callback
+            """
+            for cmd in self.cmdQueue:
+                if cmd.isDone:
+                    # onto the next one
+                    continue
+                elif cmd.isRunning:
+                    # cmd is not done and is running
+                    # do nothing
+                    return
+                else:
+                    # cmd is not done not running, start it
+                    # and exit loop
+                    cmd.isRunning = True
+                    self.dispatcher.executeCmd(cmd)
+                    return
+
+        cmdVar.addCallback(runQueue)
+        self.cmdQueue.append(cmdVar)
+        runQueue()
+        return deferredFromCmdVar(cmdVar)
+
+def deferredFromCmdVar(cmdVar):
+    """Return a deferred from a cmdVar.  
+    The deferred is fired when the cmdVar state is Done
+
+    @param[in] cmdVar: an opscore cmdVar object
+    """
+    d = Deferred()
+    def addMe(cmdVar):
+        """add this callback to the cmdVar
+        @param[in] the cmdVar instance, passed via callback
+        """
+        if cmdVar.isDone:
+            d.callback(None)
+    cmdVar.addCallback(addMe)
+    return d
