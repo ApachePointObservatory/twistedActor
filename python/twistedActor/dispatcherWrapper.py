@@ -3,7 +3,7 @@ from twisted.internet.defer import Deferred
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.Comm.TCPConnection import TCPConnection
-from opscore.actor import ActorDispatcher
+from opscore.actor import ActorDispatcher, CmdVar
 
 from .baseWrapper import BaseWrapper
 
@@ -85,6 +85,22 @@ class DispatcherWrapper(BaseWrapper):
         """
         return self.actorWrapper.didFail or (self.dispatcher is not None and self.dispatcher.connection.didFail)
     
+    def queueCmd(self, cmdStr, callFunc=None):
+        """add command to queue, dispatch when ready
+        @param[in] cmdStr: a command string
+        @param[in] callFunc: receives one arguement the CmdVar, called when command completes
+        @return (deferred, cmdVar) deferred fires when the command is completed
+
+        Turn a command string into an opscore cmdVar, return a deferred that fires
+        when the command is completed. Once completed assert that the shouldFail == didFail.
+        """
+        cmdVar = CmdVar (
+                actor = self._dictName,
+                cmdStr = cmdStr,
+                callFunc = callFunc
+            )
+        return self.cmdQueue.addCmd(cmdVar), cmdVar
+
     def _actorWrapperStateChanged(self, dumArg=None):
         """Called when the device wrapper changes state
         """
@@ -152,7 +168,7 @@ class DispatcherCmdQueue(object):
 
 def deferredFromCmdVar(cmdVar):
     """Return a deferred from a cmdVar.  
-    The deferred is fired when the cmdVar state is Done
+    The deferred is fired when the cmdVar state is Done 
 
     @param[in] cmdVar: an opscore cmdVar object
     """
