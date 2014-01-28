@@ -73,7 +73,7 @@ class QueuedCommand(object):
             @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
             @param[in] priority: an integer, or CommandQueue.Immediate
             @param[in] callFunc: function to call when cmd is exectued,
-                receives no arguments (lambda an option to pass arguments)
+                receives cmd as an argument
         """
         if not hasattr(cmd, 'cmdVerb'):
             raise RuntimeError('QueuedCommand must have a cmdVerb')
@@ -92,6 +92,12 @@ class QueuedCommand(object):
     # access certain cmd attributes for convenience
     def setState(self, newState, textMsg="", hubMsg=""):
         return self.cmd.setState(newState, textMsg, hubMsg)
+
+    def setRunning(self):
+        """Set the command state to Running, and execute associated code
+        """
+        self.cmd.setState(self.cmd.Running)
+        self.callFunc(self.cmd)
 
     @property
     def cmdVerb(self):
@@ -313,8 +319,7 @@ class CommandQueue(object):
         elif self.currExeCmd.cmd.isDone:
             # begin the next command on the queue
             self.currExeCmd = self.cmdQueue.pop(-1)
-            self.currExeCmd.cmd.setState(self.currExeCmd.cmd.Running)
-            self.currExeCmd.callFunc()
+            self.currExeCmd.setRunning()
         elif self.currExeCmd.cmd.state == self.currExeCmd.cmd.Cancelling:
             # leave it alone
             pass
