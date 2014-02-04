@@ -207,7 +207,7 @@ class DeviceSet(object):
                 self._removeDevCallbacks(oldDev)
                 oldDev.init()
             userCmd.setState(userCmd.Done)
-            return
+            return userCmd
 
         def initCallback(initCmd, slot=slot, dev=dev, userCmd=userCmd):
             if initCmd.didFail:
@@ -379,7 +379,7 @@ class RunCmdDict(object):
                         self.failSlotSet.add(slot)
                         textBody = "%s command %r failed" % (slot, devCmd.cmdStr)
                         msgStr = "Text=%s" % (quoteStr(textBody),)
-                        self.actor.writeToUsers("f", msgStr=msgStr)
+                        devSet.actor.writeToUsers("f", msgStr=msgStr)
                         traceback.print_exc(file=sys.stderr)
 
                 self.checkDone()
