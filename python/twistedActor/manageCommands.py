@@ -26,7 +26,10 @@ class LinkCommands(object):
         @param[in] mainCmd: the main command, a BaseCmd
         @param[in] subCmdList: a collection of sub-commands, each a BaseCmd
         """
+        if hasattr(mainCmd, 'isLinked'):
+            raise RuntimeError("Cannont link main command %s, it is already linked elsewhere!"%str(mainCmd))
         self.mainCmd = mainCmd
+        self.mainCmd.isLinked = True
         self.subCmdList = subCmdList
         for subCmd in self.subCmdList:
             if not subCmd.isDone:

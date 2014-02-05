@@ -165,7 +165,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """
         # print "%r.setState(newState=%s); self._cmdToTrack=%r" % (self, newState, self._cmdToTrack)
         if self.isDone:
-            raise RuntimeError("Command is done; cannot change state")
+            raise RuntimeError("Command %s is done; cannot change state" % str(self))
         if newState not in self.AllStates:
             raise RuntimeError("Unknown state %s" % newState)
         if self._state == self.Ready and newState in self.ActiveStates and self._timeLim:
