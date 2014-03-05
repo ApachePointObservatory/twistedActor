@@ -7,15 +7,15 @@ from opscore.actor import ActorDispatcher, CmdVar
 
 from .baseWrapper import BaseWrapper
 
-__all__ = ["DispatcherWrapper"]
+__all__ = ["DispatcherWrapper", "deferredFromCmdVar"]
 
 class DispatcherWrapper(BaseWrapper):
     """A wrapper for an opscore.ActorDispatcher talking to an wrapped actor
-    
+
     This wrapper is responsible for starting and stopping everything:
     - It builds an actor dispatcher when the actor wrapper is ready
     - It stops the actor wrapper and actor dispatcher on close()
-    
+
     Public attributes include:
     - actorWrapper: the actor wrapper (twistedActor.ActorWrapper)
     - dispatcher: the actor dispatcher (twistedActor.ActorDispatcher); None until ready
@@ -45,7 +45,7 @@ class DispatcherWrapper(BaseWrapper):
         self.dispatcher = None # the ActorDispatcher, once it's built
         self.actorWrapper.addCallback(self._actorWrapperStateChanged)
         self._actorWrapperStateChanged()
-    
+
     def _makeDispatcher(self, connection):
         self.debugMsg("_makeDispatcher()")
         self.dispatcher = ActorDispatcher(
@@ -54,37 +54,37 @@ class DispatcherWrapper(BaseWrapper):
         )
         # initialize a command queue
         self.cmdQueue = DispatcherCmdQueue(self.dispatcher)
-    
+
     @property
     def actor(self):
         """Return the actor (in this case, the mirror controller)
         """
         return self.actorWrapper.actor
-    
+
     @property
     def userPort(self):
         """Return the actor port, if known, else None
         """
         return self.actorWrapper.userPort
-        
+
     @property
     def isReady(self):
         """Return True if the actor has connected to the fake hardware controller
         """
         return self.actorWrapper.isReady and self.dispatcher is not None and self.dispatcher.connection.isConnected
-    
+
     @property
     def isDone(self):
         """Return True if the actor and fake hardware controller are fully disconnected
         """
         return self.actorWrapper.isDone and self.dispatcher is not None and self.dispatcher.connection.isDisconnected
-    
+
     @property
     def isFailing(self):
         """Return True if there is a failure
         """
         return self.actorWrapper.didFail or (self.dispatcher is not None and self.dispatcher.connection.didFail)
-    
+
     def queueCmd(self, cmdStr, callFunc=None):
         """add command to queue, dispatch when ready
         @param[in] cmdStr: a command string
@@ -117,7 +117,7 @@ class DispatcherWrapper(BaseWrapper):
                 connection.addReadCallback(self._readCallback)
             connection.connect()
         self._stateChanged()
-    
+
     def _basicClose(self):
         """Close dispatcher and actor
         """
@@ -129,7 +129,7 @@ class DispatcherCmdQueue(object):
     def __init__(self, dispatcher):
         """ A simple command queue that dispatches commands in the order received
 
-        @param[in] dispatcher: an opscore dispatcher 
+        @param[in] dispatcher: an opscore dispatcher
         """
         self.dispatcher = dispatcher
         self.cmdQueue = []
@@ -167,8 +167,8 @@ class DispatcherCmdQueue(object):
         return deferredFromCmdVar(cmdVar)
 
 def deferredFromCmdVar(cmdVar):
-    """Return a deferred from a cmdVar.  
-    The deferred is fired when the cmdVar state is Done 
+    """Return a deferred from a cmdVar.
+    The deferred is fired when the cmdVar state is Done
 
     @param[in] cmdVar: an opscore cmdVar object
     """
@@ -178,6 +178,6 @@ def deferredFromCmdVar(cmdVar):
         @param[in] the cmdVar instance, passed via callback
         """
         if cmdVar.isDone:
-            d.callback(None)
+            d.callback(cmdVar) # send this command var with the callback
     cmdVar.addCallback(addMe)
     return d
