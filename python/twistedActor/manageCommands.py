@@ -115,13 +115,13 @@ class QueuedCommand(object):
         """Command failed or was cancelled
         """
         return self.cmd.didFail
-    
+
     @property
     def isActive(self):
         """Command is running, canceling or failing
         """
         return self.cmd.isActive
-    
+
     @property
     def isDone(self):
         """Command is done (whether successfully or not)
@@ -237,7 +237,7 @@ class CommandQueue(object):
         """ Add a command to the queue.
 
             @param[in] cmd: a twistedActor command object
-            @param[in] callFunc: code to be called when this command is 
+            @param[in] callFunc: code to be called when this command is
               (eventually) ready to be run
         """
         if cmd.cmdVerb not in self.priorityDict:

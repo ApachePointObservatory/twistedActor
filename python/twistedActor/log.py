@@ -4,7 +4,7 @@ Logfiles are stored in the directory specified as an argument to startLogging()
 Logfiles are automatically named twistedActor.log
 Logfiles rollover at noon, and at rollover time the date of the *previous* day is appended to the logfile name.
     A new twistedActor.log is opened and logging continues.
-At the time logging is started, a check to the log directory is done. If there is an existing *active* 
+At the time logging is started, a check to the log directory is done. If there is an existing *active*
     logfile (one with no date appended), logging resumes to that file if the local time is before
     the rollover time for the current log. Else the log is manually rolled over (with the correct date
     appended), and a new twistedActor.log is opened for logging.
@@ -71,19 +71,19 @@ class LogLineParser(object):
             ppOut.second,
             ppOut.ms * 1000 # milliseconds to microseconds
             )
-        return datetimeStamp, ppOut.msg        
+        return datetimeStamp, ppOut.msg
 
 parseLogLine = LogLineParser()
 
 class NoonRotatingFileHandler(TimedRotatingFileHandler):
-    """Modified TimedRotatingFileHandler to rollover at noon.  Note that this is very similar to the 
+    """Modified TimedRotatingFileHandler to rollover at noon.  Note that this is very similar to the
     midnight rollover implementation of the base class.
     """
     def __init__(self, filename, rolloverTime = _NOON):
         self.rolloverTime = rolloverTime
         self._filename = filename
         TimedRotatingFileHandler.__init__(self, filename, when='midnight', interval=1, backupCount=0, encoding=None, delay=False, utc=False)
-        
+
 
     def computeRollover(self, currentTime):
             """
@@ -111,7 +111,7 @@ def manualRollover(filename, datetime=None, suffix=None):
     """ Rename filename to filename+date
 
         @param[in] filename: file to be renamed (full path)
-        @param[in] datetime: a datetime object from which to extract 
+        @param[in] datetime: a datetime object from which to extract
             the correct date to be appended
         @param[in] suffix: a string to be appended to the file name
 
@@ -180,11 +180,11 @@ def returnFileHandler(logPath, fName, rolloverTime = _NOON):
                 # date appended (because first entry was before noon)
                 manualRollover(filename, begLogTime - datetime.timedelta(days=1))
             else:
-                # current log should be rolled over, date suffix should match the 
+                # current log should be rolled over, date suffix should match the
                 # first entry of the logfile
                 manualRollover(filename, begLogTime)
     fh = NoonRotatingFileHandler(filename, rolloverTime = rolloverTime)
-    return fh 
+    return fh
 
 class LogStateObj(object):
     def __init__(self):
@@ -198,7 +198,7 @@ class LogStateObj(object):
 LogState = LogStateObj()
 
 def startLogging(logPath, fileName="twistedActor.log", showSTDIO=False, serverMode=True, rolloverTime = _NOON):
-    """ 
+    """
         Start logging to a file twistedActor.log.  This file is rotated at noon. After
         rotation a date suffix is added to the file.
 
@@ -269,7 +269,7 @@ def writeToLog(msgStr, logLevel=INFO):
 
     If StartedLogging is not set, log messages are printed to screen, except if SuppressSTDIO==True in which case nothing is seen.
     Call startLogging to set StartedLogging==True
-    
+
     """
     if not LogState.startedLogging:
         if LogState.showStdio:
@@ -277,7 +277,7 @@ def writeToLog(msgStr, logLevel=INFO):
     else:
         twistedLog.msg(msgStr, logLevel=logLevel)#, system = systemName)
         if LogState.showStdio and not LogState.serverMode:
-            print "Msg Logged: '%s'" % msgStr   
+            print "Msg Logged: '%s'" % msgStr
 
 ## below code is a logging module implementation of twisted's StdioOnnaStick
 ##
@@ -292,22 +292,22 @@ class StreamToLogger(object):
       self.logger = logger
       self.log_level = log_level
       self.linebuf = ''
- 
+
    def write(self, buf):
       for line in buf.rstrip().splitlines():
          self.logger.log(self.log_level, line.rstrip())
- 
+
 # logging.basicConfig(
 #    level=logging.DEBUG,
 #    format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
 #    filename="out.log",
 #    filemode='a'
 # )
- 
+
 # stdout_logger = logging.getLogger('STDOUT')
 # sl = StreamToLogger(stdout_logger, logging.INFO)
 # sys.stdout = sl
- 
+
 # stderr_logger = logging.getLogger('STDERR')
 # sl = StreamToLogger(stderr_logger, logging.ERROR)
 # sys.stderr = sl
