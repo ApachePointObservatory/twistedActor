@@ -257,7 +257,7 @@ class CommandQueue(object):
 #             )
 #             return
 
-        toQueue.cmd.addCallback(self.runQueue)
+        toQueue.cmd.addCallback(self.scheduleRunQueue)
 
         if toQueue.priority == CommandQueue.Immediate:
             # clear the cmdQueue
@@ -267,7 +267,7 @@ class CommandQueue(object):
                 sadCmd.setState(sadCmd.Cancelled)
             if not self.currExeCmd.cmd.isDone:
                 self.killFunc(self.currExeCmd.cmd)
-            self.runQueue()
+            self.scheduleRunQueue()
         else:
             for cmdOnStack in self.cmdQueue[:]: # looping through queue from highest to lowest priority
                 if cmdOnStack < toQueue:
@@ -304,7 +304,12 @@ class CommandQueue(object):
                     )
 
             insort_left(self.cmdQueue, toQueue) # inserts in sorted order
-            self.runQueue()
+            self.scheduleRunQueue()
+
+    def scheduleRunQueue(self, optCmd=None):
+        """Run the queue on a zero second timer
+        """
+        Timer(0., self.runQueue, optCmd)
 
     def runQueue(self, optCmd=None):
         """ Manage Executing commands
