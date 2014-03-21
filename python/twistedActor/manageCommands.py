@@ -2,6 +2,8 @@
 """
 from bisect import insort_left
 
+from RO.Comm.TwistedTimer import Timer
+
 from .command import UserCmd
 
 __all__ = ["LinkCommands", "CommandQueue"]
@@ -191,6 +193,7 @@ class CommandQueue(object):
         self.killFunc = killFunc
         self.priorityDict = priorityDict
         self.ruleDict = {}
+        self.queueTimer = Timer()
 
 
     def __getitem__(self, ind):
@@ -309,7 +312,7 @@ class CommandQueue(object):
     def scheduleRunQueue(self, optCmd=None):
         """Run the queue on a zero second timer
         """
-        Timer(0., self.runQueue, optCmd)
+        self.queueTimer.start(0., self.runQueue, optCmd)
 
     def runQueue(self, optCmd=None):
         """ Manage Executing commands
