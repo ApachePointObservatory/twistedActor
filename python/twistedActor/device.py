@@ -249,7 +249,6 @@ class ConnectDevice(object):
         self.dev = dev
         self._timeLim = timeLim
         self.userCmd = expandUserCmd(userCmd)
-        self.deferred = None
         self._connTimer = Timer()
         self._addedConnCallback = False
 
@@ -261,22 +260,23 @@ class ConnectDevice(object):
         self.dev.conn.addStateCallback(self.connCallback)
         self._addedConnCallback = True
         if self.dev.conn.mayConnect:
-            self.deferred = self.dev.conn.connect(timeLim=timeLim)
+            self.dev.conn.connect(timeLim=timeLim)
         else:
             if self._timeLim:
                 # start timer for the connection that is occurring now
                 self._connTimer.start(self._timeLim, self.finish)
-            self.deferred = self.dev.conn._sock.getReadyDeferred()
+            self.dev.conn._sock.getReadyDeferred()
 
     def initCallback(self, userCmd):
         """Callback for device initialization
         """
+        # print "%s.initCallback(userCmd=%r); _callbacks=%s" % (self, userCmd, userCmd._callbacks)
         if not userCmd.isDone:
             return 
         if userCmd.didFail:
             textMsg = "%s initialization failed: %s" % (self.dev.name, userCmd.textMsg)
             self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
-        self.finish()
+        Timer(0, self.finish)
 
     def connCallback(self, conn):
         """Callback for device connection state
@@ -294,12 +294,13 @@ class ConnectDevice(object):
         if not self.dev.conn.isConnected:
             if not self.userCmd.isDone:
                 self.userCmd.setState(self.userCmd.Failed, textMsg="%s failed to connect" % (self.dev,))
-            if self.deferred:
-                self.deferred.cancel()
             self.dev.conn.disconnect()
         else:
             if not self.userCmd.isDone:
                 self.userCmd.setState(self.userCmd.Done)
+
+    def __repr__(self):
+        return "%s(dev.name=%s)" % (type(self).__name__, self.dev.name)
 
 
 class DisconnectDevice(object):
@@ -318,7 +319,6 @@ class DisconnectDevice(object):
         """
         self.dev = dev
         self.userCmd = expandUserCmd(userCmd)
-        self.deferred = None
         self._timeLim = timeLim
         self._connTimer = Timer()
         self._addedConnCallback = False
@@ -342,7 +342,7 @@ class DisconnectDevice(object):
 
         if self.dev.conn.isDone and not self.dev.conn.isConnected:
             # fully disconnected; no more to be done
-            self.finish()
+            Timer(0, self.finish)
         else:
             if self._timeLim:
                 # start timer for disconnection
@@ -350,13 +350,13 @@ class DisconnectDevice(object):
 
             self.dev.conn.addStateCallback(self.connCallback)
             self._addedConnCallback = True
-            self.deferred = self.dev.conn.disconnect()
+            self.dev.conn.disconnect()
 
     def connCallback(self, conn):
         """Callback for device connection state
         """
         if self.dev.conn.isDone:
-            self.finish()
+            Timer(0, self.finish)
 
     def finish(self):
         """Call on success or failure to finish the command
@@ -370,6 +370,9 @@ class DisconnectDevice(object):
             else:
                 self.userCmd.setState(self.userCmd.Done)
         self.dev.cleanup()
+
+    def __repr__(self):
+        return "%s(dev.name=%s)" % (type(self).__name__, self.dev.name)
 
 
 class RunCmdList(object):
@@ -425,6 +428,11 @@ class RunCmdList(object):
             self.finish(devCmd)
             return
 
+        Timer(0, self._startCmd, cmdStr)
+
+    def _startCmd(self, cmdStr):
+        """Start a device command
+        """
         self.currDevCmd = self.dev.startCmd(cmdStr, callFunc=self.cmdCallback, timeLim=self._timeLim)
 
     def finish(self, devCmd):
@@ -499,6 +507,9 @@ class TCPDevice(Device):
         """
         # print "TCPDevice._readCallback(sock, replyStr=%r)" % (replyStr,)
         self.handleReply(replyStr)
+
+    def __str__(self):
+        return "%s(name=%s)" % (type(self).__name__, self.name)
 
     def __repr__(self):
         return "%s(name=%s, host=%s, port=%s)" % (type(self).__name__, self.name, self.conn.host, self.conn.port)

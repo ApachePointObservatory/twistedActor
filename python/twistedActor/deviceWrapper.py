@@ -54,7 +54,7 @@ class DeviceWrapper(BaseWrapper):
         self._isReady = False
         self.device = None # the wrapped device, once it's built
         self.connCmd = None # the connect device cmd
-        self.disConnCmd = None # the disconnect device command
+        self.disconnCmd = None # the disconnect device command
         self.controller = None
         self.server = None
         self.controllerWrapper = controllerWrapper
@@ -88,12 +88,18 @@ class DeviceWrapper(BaseWrapper):
     def isDone(self):
         """Return True if the device and controller are fully disconnected
         """
+        self.debugMsg("%s.isDone: self.server.state=%s; self.device=%s; self.disconnCmd=%r" % (
+            self,
+            self.server.state if self.server else "no server",
+            self.device.conn.state if self.device else "no device",
+            self.disconnCmd if self.disconnCmd else "no disconnCmd",
+        ))
         if self.server is None:
             return self.controllerWrapper.didFail # wrapper failed, so controller will not be built
         else:
             return self.server.isDone \
                 and self.device is not None and self.device.conn.isDisconnected \
-                and self.disConnCmd is not None and self.disConnCmd.isDone
+                and self.disconnCmd is not None and self.disconnCmd.isDone
     
     @property
     def isFailing(self):
@@ -109,8 +115,8 @@ class DeviceWrapper(BaseWrapper):
         """
         self._isReady = False
         if self.device is not None:
-            self.disConnCmd = self.device.disconnect().userCmd
-            self.disConnCmd.addCallback(self._stateChanged)
+            self.disconnCmd = self.device.disconnect().userCmd
+            self.disconnCmd.addCallback(self._stateChanged)
         if self.controllerWrapper is not None:
             self.controllerWrapper.close()
         if self.server is not None:
