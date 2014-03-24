@@ -312,6 +312,7 @@ class CommandQueue(object):
     def scheduleRunQueue(self, optCmd=None):
         """Run the queue on a zero second timer
         """
+        # self.runQueue(optCmd)
         self.queueTimer.start(0., self.runQueue, optCmd)
 
     def runQueue(self, optCmd=None):
