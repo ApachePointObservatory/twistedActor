@@ -2,11 +2,13 @@
 from __future__ import division, absolute_import
 
 from twisted.trial import unittest
-from twistedActor import CommandQueue, UserCmd
-from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 
-def nullCallback(cmd):
+from RO.Comm.TwistedTimer import Timer
+
+from twistedActor import CommandQueue, UserCmd
+
+def nullCallFunc(cmd):
     pass
 
 cmdPriorityDict = {
@@ -31,12 +33,32 @@ class CmdQueueTest(unittest.TestCase):
             killFunc=self.killFunc,
             priorityDict = cmdPriorityDict
         )
+        self.commandsLeft = False
 
     def tearDown(self):
         self.deferred = None
         self.doneOrder = []
         self.failOrder = []
         self.cmdQueue = None
+
+    def addCmdsToQueue(self, cmdStrList, timeStep=0.02):
+        # add commands to the queue every timeStep seconds
+        cmdStrListCopy = cmdStrList[:]
+        self.commandsLeft = True
+        def addInOrder():
+            if not cmdStrListCopy:
+                # all commands have been added to the queue
+                self.commandsLeft = False
+                return
+            else:
+                cmdStr = cmdStrListCopy.pop(0)
+                self.cmdQueue.addCmd(self.makeCmd(cmdStr), nullCallFunc)
+                Timer(timeStep, addInOrder)
+        addInOrder()
+
+    def addToQueue(self, cmdStr):
+        self.cmdQueue.addCmd(self.makeCmd(cmdStr), nullCallFunc)
+        # Timer(0., self.cmdQueue.addCmd, self.makeCmd(cmdStr), nullCallFunc)
 
     def cmdCallback(self, cmd):
         # allow commands to run for 0.15 seconds before killing
@@ -48,8 +70,8 @@ class CmdQueueTest(unittest.TestCase):
             else:
                 self.doneOrder.append(cmd.cmdVerb)
         elif cmd.isActive:
-            reactor.callLater(0.15, self.setDone, cmd)
-        if (not self.cmdQueue.cmdQueue) and (self.cmdQueue.currExeCmd.cmd.isDone): # must be last command and its done
+            Timer(0.15, self.setDone, cmd)
+        if (not self.cmdQueue.cmdQueue) and (self.cmdQueue.currExeCmd.cmd.isDone) and not self.commandsLeft: # must be last command and its done
             # the queue is empty and last command is done, end the test
             self.deferred.callback('go')
 
@@ -71,8 +93,9 @@ class CmdQueueTest(unittest.TestCase):
         def checkResults(cb):
             self.assertEqual(cmdsIn, self.doneOrder)
         self.deferred.addCallback(checkResults)
-        for cmd in cmdsIn:
-            self.cmdQueue.addCmd(self.makeCmd(cmd), nullCallback)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
         return self.deferred
 
     def testPrioritySort(self):
@@ -81,8 +104,9 @@ class CmdQueueTest(unittest.TestCase):
         def checkResults(cb):
             self.assertEqual(cmdsOut, self.doneOrder)
         self.deferred.addCallback(checkResults)
-        for cmd in cmdsIn:
-            self.cmdQueue.addCmd(self.makeCmd(cmd), nullCallback)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
         return self.deferred
 
     def testLowPriorityFirstIn(self):
@@ -90,8 +114,9 @@ class CmdQueueTest(unittest.TestCase):
         def checkResults(cb):
             self.assertEqual(cmdsIn, self.doneOrder)
         self.deferred.addCallback(checkResults)
-        for cmd in cmdsIn:
-            self.cmdQueue.addCmd(self.makeCmd(cmd), nullCallback)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
         return self.deferred
 
     def testImmediate(self):
@@ -100,8 +125,9 @@ class CmdQueueTest(unittest.TestCase):
         def checkResults(cb):
             self.assertEqual(cmdsOut, self.doneOrder)
         self.deferred.addCallback(checkResults)
-        for cmd in cmdsIn:
-            self.cmdQueue.addCmd(self.makeCmd(cmd), nullCallback)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
         return self.deferred
 
     def testDoubleImmediate(self):
@@ -110,8 +136,9 @@ class CmdQueueTest(unittest.TestCase):
         def checkResults(cb):
             self.assertEqual(cmdsOut, self.doneOrder)
         self.deferred.addCallback(checkResults)
-        for cmd in cmdsIn:
-            self.cmdQueue.addCmd(self.makeCmd(cmd), nullCallback)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
         return self.deferred
 
     def testKillRule(self):
@@ -125,8 +152,9 @@ class CmdQueueTest(unittest.TestCase):
         def checkResults(cb):
             self.assertEqual(cmdsOut, self.doneOrder)
         self.deferred.addCallback(checkResults)
-        for cmd in cmdsIn:
-            self.cmdQueue.addCmd(self.makeCmd(cmd), nullCallback)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
         return self.deferred
 
     def testSupersede(self):
@@ -135,8 +163,9 @@ class CmdQueueTest(unittest.TestCase):
         def checkResults(cb):
             self.assertEqual(cmdsOut, self.doneOrder)
         self.deferred.addCallback(checkResults)
-        for cmd in cmdsIn:
-            self.cmdQueue.addCmd(self.makeCmd(cmd), nullCallback)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
         return self.deferred
 
     def testCancelNewRule(self):
@@ -150,8 +179,9 @@ class CmdQueueTest(unittest.TestCase):
         def checkResults(cb):
             self.assertEqual(cmdsOut, self.doneOrder)
         self.deferred.addCallback(checkResults)
-        for cmd in cmdsIn:
-            self.cmdQueue.addCmd(self.makeCmd(cmd), nullCallback)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
         return self.deferred
 
     def testCancelQueuedRule(self):
@@ -165,8 +195,9 @@ class CmdQueueTest(unittest.TestCase):
         def checkResults(cb):
             self.assertEqual(cmdsOut, self.doneOrder)
         self.deferred.addCallback(checkResults)
-        for cmd in cmdsIn:
-            self.cmdQueue.addCmd(self.makeCmd(cmd), nullCallback)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
         return self.deferred
 
     def testBadRule(self):
@@ -195,7 +226,7 @@ class CmdQueueTest(unittest.TestCase):
 
     def testStartUnrecognizedCmd(self):
         try:
-            self.cmdQueue.addCmd(self.makeCmd('badCmd'), nullCallback)
+            self.addToQueue('badCmd')
         except RuntimeError:
             self.assertTrue(True)
         else:
