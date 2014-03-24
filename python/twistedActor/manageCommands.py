@@ -1,3 +1,4 @@
+from __future__ import division, absolute_import
 """Contains objects for managing multiple commands at once.
 """
 from bisect import insort_left

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-"""Fake Galil actor wrapper.
-"""
+from __future__ import division, absolute_import
+
 from .baseWrapper import BaseWrapper
 
 __all__ = ["ActorWrapper"]

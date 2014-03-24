@@ -1,7 +1,6 @@
-"""Command objects for the Tcl Actor
+from __future__ import division, absolute_import
+"""Command objects for the twisted actor
 """
-__all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd"]
-
 import re
 import sys
 
@@ -9,6 +8,8 @@ import RO.AddCallback
 import RO.Alg
 from RO.StringUtil import quoteStr
 from RO.Comm.TwistedTimer import Timer
+
+__all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd"]
 
 class CommandError(Exception):
     """Raise for a "normal" command failure

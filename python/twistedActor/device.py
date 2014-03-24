@@ -1,4 +1,5 @@
-"""Base classes for interface to devices controlled by the Tcl Actor
+from __future__ import division, absolute_import
+"""Base classes for interface to devices controlled by the twisted actor
 
 A Device is an interface/driver/model for one device controlled by an Actor.
 It is responsible for sending commands to the device and keeping track of the state of the device.
@@ -9,8 +10,6 @@ For each device an Actor commands you will typically have to make a Device for i
 of one of these classes. Much of the work of writing an Actor involves writing the appropriate
 Device classes.
 """
-__all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
-
 from collections import OrderedDict
 
 import RO.Comm.Generic
@@ -22,6 +21,8 @@ from RO.StringUtil import quoteStr, strFromException
 import opscore.actor
 
 from .command import DevCmd, DevCmdVar, UserCmd
+
+__all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 
 def expandUserCmd(userCmd):
     """If userCmd is None, make a new one; if userCmd is done, raise RuntimeError

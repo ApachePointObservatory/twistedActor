@@ -1,5 +1,6 @@
-from twisted.internet.defer import Deferred
+from __future__ import division, absolute_import
 
+from twisted.internet.defer import Deferred
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.Comm.TCPConnection import TCPConnection

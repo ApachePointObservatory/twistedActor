@@ -1,12 +1,16 @@
-"""Basic framework for a hub actor or ICC based on the Tcl event loop.
+from __future__ import division, absolute_import
+"""Basic framework for a hub actor or ICC based on the Twisted event loop.
 """
-__all__ = ["BaseActor"]
-
 import sys
+
 import RO.Comm.TwistedSocket
 from RO.StringUtil import quoteStr, strFromException
+
 from .command import UserCmd
 from .log import writeToLog
+
+__all__ = ["BaseActor"]
+
 
 class BaseActor(object):
     """Base class for a hub actor or instrument control computer with no assumption about command format
