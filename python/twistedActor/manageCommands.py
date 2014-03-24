@@ -267,19 +267,17 @@ class CommandQueue(object):
             ditchTheseCmds = [q.cmd for q in self.cmdQueue] # will be canceled
             insort_left(self.cmdQueue, toQueue)
             for sadCmd in ditchTheseCmds:
-                sadCmd.setState(sadCmd.Cancelled)
+                if not sadCmd.isDone:
+                    sadCmd.setState(sadCmd.Cancelled)
             if not self.currExeCmd.cmd.isDone:
                 self.killFunc(self.currExeCmd.cmd)
             self.scheduleRunQueue()
         else:
             for cmdOnStack in self.cmdQueue[:]: # looping through queue from highest to lowest priority
-                if cmdOnStack < toQueue:
-                    # all remaining queued commands
-                    # are of lower priority.
-                    # and will not effect the incoming command in any way
+                if cmdOnStack < toQueue or cmdOnStack.isDone:
+                    # command is lower priority or done; don't worry about it
                     break
-                # check for rule between incoming command and the existing commands
-                # ahead on the queue
+
                 action = self.getRule(toQueue.cmd.cmdVerb, cmdOnStack.cmd.cmdVerb)
                 if action:
                     if (action==self.CancelNew):
@@ -291,7 +289,7 @@ class CommandQueue(object):
                         )
                         return
                     else:
-                        # must be a cancel other command
+                        # cancel current command
                         assert action in (self.CancelQueued, self.KillRunning)
                         # cancel the queued command, only other action option
                         # note the command will automatically remove itself from the queue

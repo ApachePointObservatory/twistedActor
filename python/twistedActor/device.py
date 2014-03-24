@@ -402,7 +402,11 @@ class RunCmdList(object):
         if not cmdList:
             raise RuntimeError("No commands")
 
-        self.cmdCallback(None)
+        try:
+            cmdStr = self.cmdStrIter.next()
+        except Exception:
+            raise RuntimeError("No commands specified")
+        self._startCmd(cmdStr)
 
     def cmdCallback(self, devCmd):
         """Device command callback
@@ -411,14 +415,11 @@ class RunCmdList(object):
         If the command succeeded then execute the next command
         If there are no more command to execute, then conclude the userCmd (if any)
 
-        @param[in] devCmd: device command, or None to start the first command
+        @param[in] devCmd: device command
         """
-        if devCmd is None:
-            # start first command
-            pass 
-        elif not devCmd.isDone:
+        if not devCmd.isDone:
             return
-        elif devCmd.didFail:
+        if devCmd.didFail:
             self.finish(devCmd)
             return
 
@@ -427,7 +428,6 @@ class RunCmdList(object):
         except StopIteration:
             self.finish(devCmd)
             return
-
         Timer(0, self._startCmd, cmdStr)
 
     def _startCmd(self, cmdStr):
