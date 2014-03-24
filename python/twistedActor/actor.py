@@ -1,6 +1,6 @@
+from __future__ import division, absolute_import
 """Basic framework for a hub actor or ICC based on the Twisted event loop.
 """
-from __future__ import division, absolute_import
 import operator
 import sys
 import types
