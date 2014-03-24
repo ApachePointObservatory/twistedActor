@@ -32,6 +32,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
     Failing = "failing"
     ActiveStates = frozenset((Running, Cancelling, Failing))
     FailedStates = frozenset((Cancelled, Failed))
+    FailingStates = frozenset((Cancelling, Failing))
     DoneStates = frozenset((Done,)) | FailedStates
     AllStates = frozenset((Ready,)) | ActiveStates | DoneStates
     _MsgCodeDict = dict(
@@ -98,6 +99,12 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """Command is done (whether successfully or not)
         """
         return self._state in self.DoneStates
+
+    @property
+    def isFailing(self):
+        """Command is being cancelled or is failing
+        """
+        return self._state in self.FailingStates
     
     @property
     def msgCode(self):
