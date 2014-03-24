@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
+from __future__ import division, absolute_import
 """test logging functionality, stick test logs in _trial_temp
 
 to test:
@@ -7,17 +8,18 @@ reopening
 stderr
 runtimeError
 """
+import collections
+import datetime
+import glob
+import os
+import sys
+import time
+
 from twisted.trial.unittest import TestCase
 from twistedActor import writeToLog, stopLogging, startLogging, parseLogFile
 import twistedActor
-import glob
-import os
-import time
-import collections
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred
-import datetime
-import sys
 
 path2logs = os.path.join(os.path.abspath(os.path.dirname(__file__)), "logtest")
 

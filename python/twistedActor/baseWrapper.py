@@ -1,7 +1,9 @@
-#!/usr/bin/env python
+from __future__ import division, absolute_import
+
 import sys
 
 from twisted.internet.defer import Deferred
+
 import RO.AddCallback
 
 __all__ = ["BaseWrapper"]
