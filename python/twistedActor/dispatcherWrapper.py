@@ -3,6 +3,7 @@ from twisted.internet.defer import Deferred
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.Comm.TCPConnection import TCPConnection
+from RO.Comm.TwistedTimer import Timer
 from opscore.actor import ActorDispatcher, CmdVar
 
 from .baseWrapper import BaseWrapper
@@ -138,7 +139,7 @@ class DispatcherCmdQueue(object):
         """Add a cmdVar to the queue
 
         @param[in] cmdVar: an opscore cmdVar object
-        @return a deferred associaited with this command
+        @return a deferred associated with this command
         """
         # append an isRunning flag to the cmdVar
         cmdVar.isRunning = False
@@ -158,7 +159,7 @@ class DispatcherCmdQueue(object):
                     # cmd is not done not running, start it
                     # and exit loop
                     cmd.isRunning = True
-                    self.dispatcher.executeCmd(cmd)
+                    Timer(0, self.dispatcher.executeCmd, cmd)
                     return
 
         cmdVar.addCallback(runQueue)
