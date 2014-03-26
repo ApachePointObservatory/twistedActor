@@ -165,6 +165,9 @@ class QueuedCommand(object):
     def __ge__(self, other):
         return (self == other) or (self > other)
 
+    def __repr__(self):
+        return "%s(cmd=%r)" % (type(self).__name__, self.cmd)
+
 
 class CommandQueue(object):
     """A command queue.  Default behavior is to queue all commands and

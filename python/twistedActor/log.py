@@ -265,7 +265,7 @@ def captureStdOut(logger=None):
     sl = StreamToLogger(logger, logging.WARNING)
     sys.stdout = sl
 
-def writeToLog(msgStr, logLevel=INFO):
+def writeToLog(msgStr, logLevel=logging.INFO):
     """ Write to current log.
 
         @param[in] msgStr: string to be logged
