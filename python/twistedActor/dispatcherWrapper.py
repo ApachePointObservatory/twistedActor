@@ -169,7 +169,6 @@ class CmdWrapper(object):
         self.callCodes = set(callCodes)
         self._checkCmd = not bool(self.callCodes & set(FailedCodes)) # check command state if callFunc is not called on command failure
         callCodesPlusDoneCodes = str(self.callCodes | set(DoneCodes))
-        print "checkCmd=", self._checkCmd
 
         cmdVar.addCallback(self._callback, callCodes = callCodesPlusDoneCodes)
         self.didFail = False
@@ -189,7 +188,7 @@ class CmdWrapper(object):
         """Command callback
         """
         if self._checkCmd and self.cmdVar.didFail:
-            self._finish(RuntimeError("%s failed" % (cmdVar,)))
+            self._finish(RuntimeError("%s failed: %s" % (cmdVar, cmdVar.lastReply.string)))
             return
 
         try:
