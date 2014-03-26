@@ -1,11 +1,14 @@
 from __future__ import division, absolute_import
 
+import collections
+
 from twisted.internet.defer import Deferred
+from twisted.python import failure
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.Comm.TCPConnection import TCPConnection
 from RO.Comm.TwistedTimer import Timer
-from opscore.actor import ActorDispatcher, CmdVar
+from opscore.actor import ActorDispatcher, CmdVar, DoneCodes, FailedCodes
 
 from .baseWrapper import BaseWrapper
 
@@ -87,21 +90,41 @@ class DispatcherWrapper(BaseWrapper):
         """
         return self.actorWrapper.didFail or (self.dispatcher is not None and self.dispatcher.connection.didFail)
 
-    def queueCmd(self, cmdStr, callFunc=None):
+    def queueCmd(self, cmdStr, callFunc=None, callCodes=":"):
         """add command to queue, dispatch when ready
-        @param[in] cmdStr: a command string
-        @param[in] callFunc: receives one arguement the CmdVar, called when command completes
-        @return (deferred, cmdVar) deferred fires when the command is completed
 
-        Turn a command string into an opscore cmdVar, return a deferred that fires
-        when the command is completed. Once completed assert that the shouldFail == didFail.
+        @warning error handling is determined by callCodes; for details, see the documentation
+            for the returned deferred below
+
+        @param[in] cmdStr: a command string
+        @param[in] callFunc: receives one arguement the CmdVar
+        @param[in] callCodes: a string of message codes that will result in calling callFunc;
+            common values include ":"=success, "F"=failure and ">"=queued
+            see opscore.actor.keyvar for all call codes.
+
+        Common use cases:
+        - To call callFunc only when the command succeeds, use callCodes=":" (the default);
+            if the command fails callFunc is not called.
+        - To call callFunc every time the cmdVar calls back, while running successfully,
+            specify callCodes=""DIW:>". Again, if the command fails callFunc is not called.
+        - To test a command you expect to fail, specify callCodes=":F!"
+            and have callFunc assert cmdVar.didFail
+
+        @return two items:
+        - deferred: a Twisted Deferred:
+            - errorback is called if:
+                - the cmdVar fails (unless callCodes includes "F")
+                - callFunc raises an exception
+            - otherwise callback is called when the command is done and callFunc did not raise an exception
+        - cmdVar: the CmdVar for the command
         """
-        cmdVar = CmdVar (
-                actor = self._dictName,
-                cmdStr = cmdStr,
-                callFunc = callFunc
-            )
-        return self.cmdQueue.addCmd(cmdVar), cmdVar
+        cmdVar = CmdVar(
+            actor = self._dictName,
+            cmdStr = cmdStr,
+        )
+        cmdWrapper = CmdWrapper(cmdVar=cmdVar, callFunc=callFunc, callCodes=callCodes)
+        self.cmdQueue.addCmd(cmdWrapper)
+        return (cmdWrapper.deferred, cmdVar)
 
     def _actorWrapperStateChanged(self, dumArg=None):
         """Called when the device wrapper changes state
@@ -127,46 +150,105 @@ class DispatcherWrapper(BaseWrapper):
             self.dispatcher.disconnect()
         self.actorWrapper.close()
 
+
+class CmdWrapper(object):
+    def __init__(self, cmdVar, callFunc, callCodes):
+        """Start a command and call callFunc if it succeeds
+
+        @param[in] cmdVar: command variable (instance of opscore.actor.CmdVar)
+        @param[in] callFunc: callback function to call if the command succeeds;
+            it receives one argument: cmdVar
+        @param[in] callCodes: if True then only call callFunc if and when the command succeeds
+
+        Maintain a deferred that fails if the command fails or callFunc raises an exception
+        and completes successfully if both succeed.
+        """
+        self.deferred = Deferred()
+        self.cmdVar = cmdVar
+        self.callFunc = callFunc
+        self.callCodes = set(callCodes)
+        self._checkCmd = not bool(self.callCodes & set(FailedCodes)) # check command state if callFunc is not called on command failure
+        callCodesPlusDoneCodes = str(self.callCodes | set(DoneCodes))
+        print "checkCmd=", self._checkCmd
+
+        cmdVar.addCallback(self._callback, callCodes = callCodesPlusDoneCodes)
+        self.didFail = False
+
+    def startCmd(self, dispatcher):
+        """Start running the command
+        """
+        if self.cmdVar.isDone:
+            raise RuntimeError("Already done")
+        dispatcher.executeCmd(self.cmdVar)
+
+    @property
+    def isDone(self):
+        return self.deferred.called
+
+    def _callback(self, cmdVar=None):
+        """Command callback
+        """
+        if self._checkCmd and self.cmdVar.didFail:
+            self._finish(RuntimeError("%s failed" % (cmdVar,)))
+            return
+
+        try:
+            if self.callFunc is not None and self.cmdVar.lastCode in self.callCodes:
+                self.callFunc(self.cmdVar)
+            if self.cmdVar.isDone:
+                self._finish()
+        except Exception, e:
+            self._finish(e)
+
+    def _finish(self, exception=None):
+        """Succeed or fail; clear callback and call deferred
+        """
+        self.callFunc = None
+        if exception:
+            self.didFail = True
+            self.deferred.errback(failure.Failure(exception))
+        else:
+            self.deferred.callback("")
+
+
+    def __repr__(self):
+        return "%s(cmdVar=%r, callFunc=%r, callCodes=%s)" % \
+            (type(self).__name__, self.cmdVar, self.callFunc, self.callCodes)
+
+
 class DispatcherCmdQueue(object):
     def __init__(self, dispatcher):
-        """ A simple command queue that dispatches commands in the order received
+        """A simple command queue that dispatches commands in the order received
 
         @param[in] dispatcher: an opscore dispatcher
         """
         self.dispatcher = dispatcher
-        self.cmdQueue = []
+        self.currCmdWrapper = None
+        self.cmdQueue = collections.deque() # a list of CmdWrapper instances in FIFO order
 
-    def addCmd(self, cmdVar):
-        """Add a cmdVar to the queue
+    def addCmd(self, cmdWrapper):
+        """Add a cmdVar to the queue and call a callFunc if it succeeds
 
-        @param[in] cmdVar: an opscore cmdVar object
-        @return a deferred associated with this command
+        @param[in] cmdWrapper: command wrapper, an instance of CmdWrapper
         """
-        # append an isRunning flag to the cmdVar
-        cmdVar.isRunning = False
-        def runQueue(dummy=None):
-            """Run the queue, execute next command if previous has finished
-            @param[in] dummy: incase of callback
-            """
-            for cmd in self.cmdQueue:
-                if cmd.isDone:
-                    # onto the next one
-                    continue
-                elif cmd.isRunning:
-                    # cmd is not done and is running
-                    # do nothing
-                    return
-                else:
-                    # cmd is not done not running, start it
-                    # and exit loop
-                    cmd.isRunning = True
-                    Timer(0, self.dispatcher.executeCmd, cmd)
-                    return
+        self.cmdQueue.append(cmdWrapper)
+        self.runQueue()
 
-        cmdVar.addCallback(runQueue)
-        self.cmdQueue.append(cmdVar)
-        runQueue()
-        return deferredFromCmdVar(cmdVar)
+    def runQueue(self, cmdVar=None):
+        if self.currCmdWrapper:
+            if not self.currCmdWrapper.isDone:
+                return
+            if self.currCmdWrapper.didFail:
+                # stop the test
+                for cmdWrapper in self.cmdQueue:
+                    cmdWrapper.deferred.callback("cancel because %s failed" % (self.currCmdWrapper,))
+                return
+
+        if self.cmdQueue:
+            self.currCmdWrapper = self.cmdQueue.popleft()
+            self.currCmdWrapper.cmdVar.addCallback(self.runQueue)
+            Timer(0, self.currCmdWrapper.startCmd, self.dispatcher)
+
 
 def deferredFromCmdVar(cmdVar):
     """Return a deferred from a cmdVar.
@@ -179,7 +261,9 @@ def deferredFromCmdVar(cmdVar):
         """add this callback to the cmdVar
         @param[in] the cmdVar instance, passed via callback
         """
-        if cmdVar.isDone:
+        if cmdVar.didFail:
+            d.errback(failure.Failure("%s failed" % (cmdVar,)))
+        elif cmdVar.isDone:
             d.callback(cmdVar) # send this command var with the callback
     cmdVar.addCallback(addMe)
     return d
