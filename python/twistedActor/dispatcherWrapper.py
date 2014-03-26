@@ -207,8 +207,7 @@ class CmdWrapper(object):
             self.didFail = True
             self.deferred.errback(failure.Failure(exception))
         else:
-            self.deferred.callback("")
-
+            self.deferred.callback(self.cmdVar)
 
     def __repr__(self):
         return "%s(cmdVar=%r, callFunc=%r, callCodes=%s)" % \

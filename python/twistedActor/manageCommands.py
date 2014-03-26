@@ -294,11 +294,10 @@ class CommandQueue(object):
                         'Cancelled by a new command added to the queue %s' % (toQueue.cmd.cmdVerb)
                     )
 
-            # finially check if this incomming command should kill an executing command
+            # finially check if this incoming command should kill an executing command
             action = self.getRule(toQueue.cmd.cmdVerb, self.currExeCmd.cmd.cmdVerb)
             if action and action == self.KillRunning and not self.currExeCmd.cmd.isDone:
                 self.killFunc(self.currExeCmd.cmd)
-
         insort_left(self.cmdQueue, toQueue) # inserts in sorted order
         self.scheduleRunQueue()
 
