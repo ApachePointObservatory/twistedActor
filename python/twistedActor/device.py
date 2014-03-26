@@ -118,6 +118,7 @@ class Device(BaseMixin):
                 - callback(None) is called if the connection succeeds
                 - errback(reason) is called if the connection fails
         """
+        # print "%s.connect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim)
         return ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
 
     def disconnect(self, userCmd=None, timeLim=None):
@@ -131,6 +132,7 @@ class Device(BaseMixin):
                 - callback(None) is called if the connection succeeds
                 - errback(reason) is called if the connection fails
         """
+        # print "%s.disconnect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim)
         return DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
 
     def cleanup(self):
@@ -189,7 +191,8 @@ class Device(BaseMixin):
 
         @note: if callFunc and userCmd are both specified callFunc is called before userCmd is updated.
 
-        @warning: subclasses must supplement or override this method to set the devCmd done when finished
+        @warning: subclasses must supplement or override this method to set the devCmd done when finished.
+        Subclasses that use a command queue will usually replace this method.
         """
         devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, timeLim=timeLim, dev=self)
         if not self.conn.isConnected:
