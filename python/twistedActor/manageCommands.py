@@ -247,6 +247,7 @@ class CommandQueue(object):
         if cmd.cmdVerb not in self.priorityDict:
             raise RuntimeError('Cannot queue unrecognized command: %s' % (cmd.cmdVerb,))
 
+        # print "Queue. Incoming: %r, on queue: " %cmd, [q.cmd for q in self.cmdQueue]
         toQueue = QueuedCommand(
             cmd = cmd,
             priority = self.priorityDict[cmd.cmdVerb],
@@ -269,7 +270,7 @@ class CommandQueue(object):
             insort_left(self.cmdQueue, toQueue)
             for sadCmd in ditchTheseCmds:
                 if not sadCmd.isDone:
-                    sadCmd.setState(sadCmd.Cancelled)
+                    sadCmd.setState(sadCmd.Cancelled, "Cancelled on queue by immediate priority command: %r" %cmd)
             if not self.currExeCmd.cmd.isDone:
                 self.killFunc(self.currExeCmd.cmd)
             self.scheduleRunQueue()
