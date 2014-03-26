@@ -246,7 +246,7 @@ class CommandQueue(object):
         if cmd.cmdVerb not in self.priorityDict:
             raise RuntimeError('Cannot queue unrecognized command: %s' % (cmd.cmdVerb,))
 
-        print "Queue. Incoming: %r, on queue: " %cmd, [q.cmd for q in self.cmdQueue]
+        # print "Queue. Incoming: %r, on queue: " %cmd, [q.cmd for q in self.cmdQueue]
         toQueue = QueuedCommand(
             cmd = cmd,
             priority = self.priorityDict[cmd.cmdVerb],
