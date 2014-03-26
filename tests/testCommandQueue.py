@@ -160,6 +160,22 @@ class CmdQueueTest(unittest.TestCase):
     def testSupersede(self):
         cmdsIn = ['hia', 'hib', 'meda', 'medb', 'meda']
         cmdsOut = ['hia', 'hib', 'medb', 'meda']
+        self.cmdQueue.addRule(
+            action = CommandQueue.CancelQueued,
+            newCmds = ['meda'],
+            queuedCmds = ['meda'],
+        )
+        def checkResults(cb):
+            self.assertEqual(cmdsOut, self.doneOrder)
+        self.deferred.addCallback(checkResults)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
+        return self.deferred
+
+    def testQueueSame(self):
+        cmdsIn = ['hia', 'hia']
+        cmdsOut = ['hia', 'hia']
         def checkResults(cb):
             self.assertEqual(cmdsOut, self.doneOrder)
         self.deferred.addCallback(checkResults)
