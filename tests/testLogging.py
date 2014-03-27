@@ -14,6 +14,7 @@ import glob
 import os
 import sys
 import time
+import shutil
 
 from twisted.trial.unittest import TestCase
 from twistedActor import writeToLog, stopLogging, startLogging, parseLogFile
@@ -101,11 +102,12 @@ class LogTest(TestCase):
         return os.path.join(self.testLogPath, filename)
 
     def tearDown(self):
-        self.deleteLogs()
-        try:
-            os.rmdir(self.testLogPath)
-        except Exception as e:
-            print 'Exception!', e
+        shutil.rmtree(self.testLogPath)
+        # self.deleteLogs()
+        # try:
+        #     os.rmdir(self.testLogPath)
+        # except Exception as e:
+        #     print 'Exception!', e
         stopLogging()
 
     def getLogInfo(self, filename = "twistedActor.log"):
