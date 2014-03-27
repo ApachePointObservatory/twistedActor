@@ -103,12 +103,9 @@ class LogTest(TestCase):
         return os.path.join(self.testLogPath, filename)
 
     def tearDown(self):
-        shutil.rmtree(self.testLogPath)
-        # self.deleteLogs()
-        # try:
-        #     os.rmdir(self.testLogPath)
-        # except Exception as e:
-        #     print 'Exception!', e
+        # shutil.rmtree(self.testLogPath)
+        self.deleteLogs()
+        os.rmdir(self.testLogPath)
         stopLogging()
 
     def getLogInfo(self, filename = "twistedActor.log"):
