@@ -92,6 +92,11 @@ class LogTest(TestCase):
         for oldLog in oldLogs:
             os.remove(oldLog)
 
+    def emptyDir(self, dir):
+        itemsToDelete = glob.glob(os.path.join(self.testLogPath, "*"))
+        for deleteMe in itemsToDelete:
+            os.remove(deleteMe)
+
     def getSecsNow(self):
         t = time.localtime()
         return (t.tm_hour*60 + t.tm_min)*60 + t.tm_sec
@@ -104,11 +109,9 @@ class LogTest(TestCase):
 
     def tearDown(self):
         # shutil.rmtree(self.testLogPath)
-        self.deleteLogs()
-        try:
-            os.rmdir(self.testLogPath)
-        except:
-            print "found in directory:", glob.glob(os.path.join(self.testLogPath, "*"))
+        # self.deleteLogs()
+        self.emptyDir(self.testLogPath)
+        os.rmdir(self.testLogPath)
         stopLogging()
 
     def getLogInfo(self, filename = "twistedActor.log"):
