@@ -1,6 +1,8 @@
 from __future__ import division, absolute_import
 
 import collections
+import sys
+import traceback
 
 from twisted.internet.defer import Deferred
 from twisted.python import failure
@@ -197,6 +199,7 @@ class CmdWrapper(object):
             if self.cmdVar.isDone:
                 self._finish()
         except Exception, e:
+            traceback.print_exc(file=sys.stderr) # is this always needed?
             self._finish(e)
 
     def _finish(self, exception=None):

@@ -27,6 +27,14 @@ class DevCmdInfo(object):
         self.devCmd = devCmd
         self.userCmd = userCmd
 
+    def __str__(self):
+        return "%s(slot=%s, devCmd=%s)" % \
+            (type(self).__name__, self.slot, self.devCmd.cmdStr)
+
+    def __repr__(self):
+        return "%s(slot=%s, dev=%s, devCmd=%r, userCmd=%r)" % \
+            (type(self).__name__, self.slot, self.dev, self.devCmd, self.userCmd)
+
 class DeviceSet(object):
     """A collection of related devices (e.g. axes or mirrors), some of which may not exist
 
@@ -97,6 +105,7 @@ class DeviceSet(object):
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
+        # print "%s.connect(slotList=%s, userCmd=%r, timeLim=%r" % (self, slotList, userCmd, timeLim)
         return self._connectOrDisconnect(doConnect=True, slotList=slotList, userCmd=userCmd, timeLim=timeLim)
 
     def disconnect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
@@ -114,6 +123,7 @@ class DeviceSet(object):
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
+        # print "%s.disconnect(slotList=%s, userCmd=%r, timeLim=%r" % (self, slotList, userCmd, timeLim)
         return self._connectOrDisconnect(doConnect=False, slotList=slotList, userCmd=userCmd, timeLim=timeLim)
 
     def expandSlotList(self, slotList):
