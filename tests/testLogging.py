@@ -105,7 +105,10 @@ class LogTest(TestCase):
     def tearDown(self):
         # shutil.rmtree(self.testLogPath)
         self.deleteLogs()
-        os.rmdir(self.testLogPath)
+        try:
+            os.rmdir(self.testLogPath)
+        except:
+            print "found in directory:", glob.glob(os.path.join(self.testLogPath, "*"))
         stopLogging()
 
     def getLogInfo(self, filename = "twistedActor.log"):
