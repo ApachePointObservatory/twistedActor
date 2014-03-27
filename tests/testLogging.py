@@ -24,7 +24,7 @@ from twisted.internet.defer import Deferred
 path2logs = os.path.join(os.path.abspath(os.path.dirname(__file__)), "logtest")
 
 def secsNow():
-    # return the time now (0-24 hours) in seconds 
+    # return the time now (0-24 hours) in seconds
     lcTime = time.localtime()
     return (lcTime.tm_hour*60 + lcTime.tm_min)*60 + lcTime.tm_sec
 
@@ -83,7 +83,7 @@ class LogTest(TestCase):
         #twistedActor.log.setSTDIO()
         # twistedActor.log._NOON = 5
         # print twistedActor.log._NOON
-        startLogging(self.testLogPath, serverMode=False)        
+        startLogging(self.testLogPath, serverMode=False)
 
     def deleteLogs(self):
         oldLogs = self.getAllLogs()
@@ -101,8 +101,8 @@ class LogTest(TestCase):
         return os.path.join(self.testLogPath, filename)
 
     def tearDown(self):
-        self.deleteLogs()
-        os.rmdir(self.testLogPath)
+        # self.deleteLogs()
+        # os.rmdir(self.testLogPath)
         stopLogging()
 
     def getLogInfo(self, filename = "twistedActor.log"):
@@ -153,12 +153,12 @@ class LogTest(TestCase):
     def testManualRollover(self):
         d = Deferred()
         preRoll = "Before Rollover"
-        postRoll = "After Rollover"    
+        postRoll = "After Rollover"
         writeToLog(preRoll)
         self.preRoll, self.postRoll = preRoll, postRoll
         stopLogging()
         def waitasec():
-            startLogging(self.testLogPath, serverMode = False, rolloverTime=self.getSecsNow() - 1) 
+            startLogging(self.testLogPath, serverMode = False, rolloverTime=self.getSecsNow() - 1)
             # set rollover time to a second ago
             # the previous log should rollover
             writeToLog(postRoll)
@@ -166,7 +166,7 @@ class LogTest(TestCase):
         reactor.callLater(2, waitasec)
         d.addCallback(self.checkLogs)
         return d
-        
+
     def checkLogs(self, *args):
         logFiles = self.getAllLogs()
         self.assertTrue(len(logFiles)==2)
@@ -206,7 +206,7 @@ class LogTest(TestCase):
         print logMsg # should be redirected to log
         loggedInfo = self.getLogInfo()
         self.assertTrue(len(loggedInfo)==1) # only one line in log
-        self.assertTrue(loggedInfo[0][1]==logMsg)     
+        self.assertTrue(loggedInfo[0][1]==logMsg)
 
     def testNotServerMode(self):
         """print statements should not show up
@@ -218,12 +218,12 @@ class LogTest(TestCase):
 
     def testStdErr(self):
         """Verify that anything sent to std error is sent to log
-        """ 
+        """
         logMsg = "I was just logged"
         print >> sys.stderr, logMsg # should be redirected to log
         loggedInfo = self.getLogInfo()
         self.assertTrue(len(loggedInfo)==1) # only one line in log
-        self.assertTrue(loggedInfo[0][1]==logMsg)  
+        self.assertTrue(loggedInfo[0][1]==logMsg)
 
 if __name__ == '__main__':
     from unittest import main
