@@ -76,7 +76,7 @@ class QueuedCommand(object):
     def __init__(self, cmd, priority, callFunc):
         """The type of object queued in the CommandQueue.
 
-            @param[in] cmd: a twistedActor BaseCmd, but must have a cmdVerb attribute!!!!
+            @param[in] cmd: a twistedActor BaseCmd with a cmdVerb attribute
             @param[in] priority: an integer, or CommandQueue.Immediate
             @param[in] callFunc: function to call when cmd is exectued,
                 receives cmd as an argument
@@ -85,24 +85,27 @@ class QueuedCommand(object):
             raise RuntimeError('QueuedCommand must have a cmdVerb')
         if not callable(callFunc):
             raise RuntimeError('QueuedCommand must receive a callable function')
-        try:
-            priority = int(priority)
-        except:
-            if priority != CommandQueue.Immediate:
-                raise RuntimeError('QueuedCommand must receive a priority ' \
-                    'which is an integer or QueuedCommand.Immediate')
+
+        if priority != CommandQueue.Immediate:
+            try:
+                priority = int(priority)
+            except:
+                raise RuntimeError("priority=%r; must be an integer or QueuedCommand.Immediate" % (priority,))
         self.cmd = cmd
         self.priority = priority
         self.callFunc = callFunc
 
-    # access certain cmd attributes for convenience
     def setState(self, newState, textMsg="", hubMsg=""):
+        """Set state of command; see twistedActor.BaseCmd.setState for details
+        """
+        # print "%r.setState(newState=%r, textMsg=%r, hubMsg=%r)" % (self, newState, textMsg, hubMsg)
         return self.cmd.setState(newState, textMsg, hubMsg)
 
     def setRunning(self):
         """Set the command state to Running, and execute associated code
         """
         self.cmd.setState(self.cmd.Running)
+        # print "%s.setRunning(); self.cmd=%r" % (self, self.cmd)
         self.callFunc(self.cmd)
 
     @property
@@ -137,7 +140,6 @@ class QueuedCommand(object):
         """
         return self.cmd.state
 
-
     # overridden methods mainly for sorting purposes
     def __lt__(self, other):
         if (self.priority == CommandQueue.Immediate) and (other.priority != CommandQueue.Immediate):
@@ -165,6 +167,12 @@ class QueuedCommand(object):
     def __ge__(self, other):
         return (self == other) or (self > other)
 
+    def __str__(self):
+        return "%s(cmdVerb=%r)" % (type(self).__name__, self.cmdVerb)
+
+    def __repr__(self):
+        return "%s(cmd=%r)" % (type(self).__name__, self.cmd)
+
 
 class CommandQueue(object):
     """A command queue.  Default behavior is to queue all commands and
@@ -176,6 +184,7 @@ class CommandQueue(object):
     CancelNew = 'cancelnew'
     CancelQueued = 'cancelqueued'
     KillRunning = 'killrunning'
+    _AddActions = frozenset((CancelNew, CancelQueued, KillRunning))
     def __init__(self, killFunc, priorityDict):
         """ This is an object which keeps track of commands and smartly handles
             command collisions based on rules chosen by you.
@@ -190,12 +199,11 @@ class CommandQueue(object):
         dumCmd = UserCmd()
         dumCmd.setState(dumCmd.Done)
         dumCmd.cmdVerb = 'dummy'
-        self.currExeCmd = QueuedCommand(dumCmd, 0, lambda: '')
+        self.currExeCmd = QueuedCommand(dumCmd, 0, lambda cmdVar: None)
         self.killFunc = killFunc
         self.priorityDict = priorityDict
         self.ruleDict = {}
         self.queueTimer = Timer()
-
 
     def __getitem__(self, ind):
         return self.cmdQueue[ind]
@@ -212,25 +220,23 @@ class CommandQueue(object):
         """
         for cmdName in newCmds + queuedCmds:
             if cmdName not in self.priorityDict:
-                raise RuntimeError('Cannont add rule to unrecognized command: %s' % (cmdName,))
-        if action not in (self.CancelNew, self.CancelQueued, self.KillRunning):
-            raise RuntimeError(
-                'Rule action must be one of %s, %s, or %s. Received: %s' % \
-                (self.CancelNew, self.CancelQueued, self.KillRunning, action)
-            )
+                raise RuntimeError('Cannot add rule to unrecognized command: %s' % (cmdName,))
+        if action not in self._AddActions:
+            raise RuntimeError("Rule action=%r must be one of %s" % (action, sorted(self._AddActions)))
         for nc in newCmds:
             if not nc in self.ruleDict:
                 self.ruleDict[nc] = {}
             for qc in queuedCmds:
                 if qc in self.ruleDict[nc]:
                     raise RuntimeError(
-                        'Cannot set Rule: %s for new command %s vs queued' \
-                        ' command %s.  Already set to %s' % \
+                        'Cannot set rule=%r for new command=%s vs. queued command=%s: already set to %s' % \
                         (action, nc, qc, self.ruleDict[nc][qc])
                     )
                 self.ruleDict[nc][qc] = action
 
     def getRule(self, newCmd, queuedCmd):
+        """Get the rule for a specific new command vs. a specific queued command
+        """
         if (newCmd in self.ruleDict) and (queuedCmd in self.ruleDict[newCmd]):
             return self.ruleDict[newCmd][queuedCmd]
         else:

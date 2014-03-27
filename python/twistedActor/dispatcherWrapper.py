@@ -12,7 +12,7 @@ from opscore.actor import ActorDispatcher, CmdVar, DoneCodes, FailedCodes
 
 from .baseWrapper import BaseWrapper
 
-__all__ = ["DispatcherWrapper", "deferredFromCmdVar"]
+__all__ = ["DispatcherWrapper", "CmdWrapper"]
 
 class DispatcherWrapper(BaseWrapper):
     """A wrapper for an opscore.ActorDispatcher talking to an wrapped actor
@@ -248,20 +248,20 @@ class DispatcherCmdQueue(object):
             Timer(0, self.currCmdWrapper.startCmd, self.dispatcher)
 
 
-def deferredFromCmdVar(cmdVar):
-    """Return a deferred from a cmdVar.
-    The deferred is fired when the cmdVar state is Done
+# def deferredFromCmdVar(cmdVar):
+#     """Return a deferred from a cmdVar.
+#     The deferred is fired when the cmdVar state is Done
 
-    @param[in] cmdVar: an opscore cmdVar object
-    """
-    d = Deferred()
-    def addMe(cmdVar):
-        """add this callback to the cmdVar
-        @param[in] the cmdVar instance, passed via callback
-        """
-        if cmdVar.didFail:
-            d.errback(failure.Failure("%s failed" % (cmdVar,)))
-        elif cmdVar.isDone:
-            d.callback(cmdVar) # send this command var with the callback
-    cmdVar.addCallback(addMe)
-    return d
+#     @param[in] cmdVar: an opscore cmdVar object
+#     """
+#     d = Deferred()
+#     def addMe(cmdVar):
+#         """add this callback to the cmdVar
+#         @param[in] the cmdVar instance, passed via callback
+#         """
+#         if cmdVar.didFail:
+#             d.errback(failure.Failure("%s failed" % (cmdVar,)))
+#         elif cmdVar.isDone:
+#             d.callback(cmdVar) # send this command var with the callback
+#     cmdVar.addCallback(addMe)
+#     return d
