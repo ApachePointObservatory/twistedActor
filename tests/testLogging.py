@@ -111,7 +111,9 @@ class LogTest(TestCase):
         # shutil.rmtree(self.testLogPath)
         # self.deleteLogs()
         self.emptyDir(self.testLogPath)
-        os.rmdir(self.testLogPath)
+        rmCmd = "rm -r %s"%self.testLogPath
+        os.system(rmCmd)
+        # os.rmdir(self.testLogPath)
         stopLogging()
 
     def getLogInfo(self, filename = "twistedActor.log"):
