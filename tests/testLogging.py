@@ -73,6 +73,7 @@ class LogTest(TestCase):
                 raise RuntimeError("Runnaway Loop")
         self.testLogPath = testLogPath
         os.makedirs(self.testLogPath)
+        os.chmod(self.testLogPath, 0777)
 
         #self.deleteLogs()
         # manually set a rollover time that shouldn't interfere with these
