@@ -63,7 +63,7 @@ class BaseActor(object):
         """
         if not cmd.isDone:
             return
-        msgCode, msgStr = cmd.hubFormat()
+        msgCode, msgStr = cmd.getKeyValMsg()
         self.writeToUsers(msgCode, msgStr, cmd=cmd)
 
     @staticmethod

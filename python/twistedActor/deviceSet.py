@@ -10,7 +10,7 @@ from RO.StringUtil import quoteStr
 
 from .command import UserCmd
 from .device import expandUserCmd
-from .manageCommands import LinkCommands
+from .linkCommands import LinkCommands
 
 __all__ = ["DeviceSet"]
 

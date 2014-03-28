@@ -145,8 +145,24 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         else:
             RO.AddCallback.BaseMixin.addCallback(self, callFunc, callNow=callNow)
 
-    def hubFormat(self, textPrefix=""):
-        """Return (msgCode, msgStr) for output of status as a hub-formatted message
+    def getMsg(self):
+        """Get message data in the simplest form possible
+
+        @return msgStr, where msgStr is getKeyValMsg if both _textMsg and _hubMsg are available,
+            else whichever one is available, else ""
+        """
+        if self._hubMsg and self._textMsg:
+            return self.getKeyValMsg()[1]
+        else:
+            return self._textMsg or self._hubMsg
+
+    def getKeyValMsg(self, textPrefix=""):
+        """Get message data as (msgCode, msgStr), where msgStr is in keyword-value format
+
+        @param[in] textPrefix: a prefix added to self._textMsg
+        @return two values:
+        - msgCode: message code (e.g. "W")
+        - msgStr: message string: a combination of _textMsg and _hubMsg in keyword-value format
         """
         msgCode = self._MsgCodeDict[self._state]
         msgInfo = []
