@@ -266,11 +266,29 @@ class BaseCmd(RO.AddCallback.BaseMixin):
             self.setState(self.Failed, textMsg="Timed out")
     
     def __str__(self):
-        return "%s(%r)" % (self.__class__.__name__, self.cmdStr)
+        msgList = [
+            self.cmdStr,
+            "state=%s" % (self._state,),
+        ]
+        if self._textMsg:
+            msgList.append("textMsg=%r" % (self._textMsg,))
+        if self._hubMsg:
+            msgList.append("hubMsg=%r" % (self._hubMsg,))
+        return "%s(%s)" % (self.__class__.__name__, ", ".join(msgList))
     
     def __repr__(self):
-        return "%s(cmdStr=%r, userID=%r, cmdID=%r, timeLim=%r, state=%r)" % \
-            (self.__class__.__name__, self.cmdStr, self.userID, self.cmdID, self._timeLim, self._state)
+        msgList = [
+            "cmdStr=%r" % (self.cmdStr,),
+            "userID=%r" % (self.userID,),
+            "cmdID=%r" % (self.cmdID,),
+            "timeLim=%r" % (self._timeLim,),
+            "state=%s" % (self._state,),
+        ]
+        if self._textMsg:
+            msgList.append("textMsg=%r" % (self._textMsg,))
+        if self._hubMsg:
+            msgList.append("hubMsg=%r" % (self._hubMsg,))
+        return "%s(%s)" % (self.__class__.__name__, ", ".join(msgList))
 
 class DevCmd(BaseCmd):
     """Generic device command

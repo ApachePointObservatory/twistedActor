@@ -18,17 +18,17 @@ class QueuedCommand(object):
     Running = "running"
     Cancelling = "cancelling"
     Failing = "failing"
-    def __init__(self, cmd, priority, callFunc):
+    def __init__(self, cmd, priority, runFunc):
         """The type of object queued in the CommandQueue.
 
             @param[in] cmd: a twistedActor BaseCmd with a cmdVerb attribute
             @param[in] priority: an integer, or CommandQueue.Immediate
-            @param[in] callFunc: function to call when cmd is exectued,
-                receives cmd as an argument
+            @param[in] runFunc: function that runs the command; called once, when the command is ready to run,
+                just after cmd's state is set to cmd.Running; receives one argument: cmd
         """
         if not hasattr(cmd, 'cmdVerb'):
             raise RuntimeError('QueuedCommand must have a cmdVerb')
-        if not callable(callFunc):
+        if not callable(runFunc):
             raise RuntimeError('QueuedCommand must receive a callable function')
 
         if priority != CommandQueue.Immediate:
@@ -38,7 +38,7 @@ class QueuedCommand(object):
                 raise RuntimeError("priority=%r; must be an integer or QueuedCommand.Immediate" % (priority,))
         self.cmd = cmd
         self.priority = priority
-        self.callFunc = callFunc
+        self.runFunc = runFunc
 
     def setState(self, newState, textMsg="", hubMsg=""):
         """Set state of command; see twistedActor.BaseCmd.setState for details
@@ -51,7 +51,7 @@ class QueuedCommand(object):
         """
         self.cmd.setState(self.cmd.Running)
         # print "%s.setRunning(); self.cmd=%r" % (self, self.cmd)
-        self.callFunc(self.cmd)
+        self.runFunc(self.cmd)
 
     @property
     def cmdVerb(self):
@@ -187,12 +187,12 @@ class CommandQueue(object):
         else:
             return None
 
-    def addCmd(self, cmd, callFunc):
+    def addCmd(self, cmd, runFunc):
         """ Add a command to the queue.
 
             @param[in] cmd: a twistedActor command object
-            @param[in] callFunc: code to be called when this command is
-              (eventually) ready to be run
+            @param[in] runFunc: function that runs the command; called once, when the command is ready to run,
+                just after cmd's state is set to cmd.Running; receives one argument: cmd
         """
         if cmd.cmdVerb not in self.priorityDict:
             raise RuntimeError('Cannot queue unrecognized command: %s' % (cmd.cmdVerb,))
@@ -201,7 +201,7 @@ class CommandQueue(object):
         toQueue = QueuedCommand(
             cmd = cmd,
             priority = self.priorityDict[cmd.cmdVerb],
-            callFunc = callFunc
+            runFunc = runFunc,
         )
 
         toQueue.cmd.addCallback(self.scheduleRunQueue)
@@ -228,7 +228,7 @@ class CommandQueue(object):
                     # never reaches the queue
                     toQueue.cmd.setState(
                         toQueue.cmd.Cancelled,
-                        'Cancelled by a preceeding command in the queue %s' % (cmdOnStack.cmd.cmdVerb)
+                        'Cancelled by a preceeding command in the queue %s' % (cmdOnStack.cmd.cmdVerb),
                     )
                     return
                 elif action and action in (self.CancelQueued, self.KillRunning):
@@ -236,7 +236,7 @@ class CommandQueue(object):
                     # note the command will automatically remove itself from the queue
                     cmdOnStack.cmd.setState(
                         cmdOnStack.cmd.Cancelled,
-                        'Cancelled by a new command added to the queue %s' % (toQueue.cmd.cmdVerb)
+                        'Cancelled by a new command added to the queue %s' % (toQueue.cmd.cmdVerb),
                     )
 
             # finially check if this incoming command should kill an executing command

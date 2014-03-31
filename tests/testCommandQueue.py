@@ -6,7 +6,9 @@ from twisted.internet.defer import Deferred
 
 from RO.Comm.TwistedTimer import Timer
 
-from twistedActor import CommandQueue, UserCmd
+from twistedActor import CommandQueue, UserCmd, testUtils
+
+testUtils.init(__file__)
 
 def nullCallFunc(cmd):
     pass

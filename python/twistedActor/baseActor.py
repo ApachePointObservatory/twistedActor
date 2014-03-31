@@ -227,7 +227,7 @@ class BaseActor(object):
         userID, cmdID = self.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToUsers(%s)" % (fullMsgStr,)
-        writeToLog("To All Users(%s)" % (fullMsgStr,))
+        writeToLog("%s.writeToUsers(%r)" % (self, fullMsgStr))
         for sock in self.userDict.itervalues():
             sock.writeLine(fullMsgStr)
     
@@ -251,7 +251,7 @@ class BaseActor(object):
         sock = self.userDict[userID]
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToOneUser(%s)" % (fullMsgStr,)
-        writeToLog("To One User(%s)" % (fullMsgStr,))
+        writeToLog("%s.writeToOneUser(%r); userID=%s" % (self, fullMsgStr, userID))
         sock.writeLine(fullMsgStr)
 
     @classmethod

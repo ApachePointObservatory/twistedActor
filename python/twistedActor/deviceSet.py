@@ -29,7 +29,7 @@ class DevCmdInfo(object):
 
     def __str__(self):
         return "%s(slot=%s, devCmd=%s)" % \
-            (type(self).__name__, self.slot, self.devCmd.cmdStr)
+            (type(self).__name__, self.slot, self.devCmd)
 
     def __repr__(self):
         return "%s(slot=%s, dev=%s, devCmd=%r, userCmd=%r)" % \

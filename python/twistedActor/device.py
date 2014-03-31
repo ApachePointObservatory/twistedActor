@@ -21,6 +21,7 @@ from RO.StringUtil import quoteStr, strFromException
 import opscore.actor
 
 from .command import DevCmd, DevCmdVar, UserCmd
+from .log import writeToLog
 
 __all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 
@@ -194,6 +195,7 @@ class Device(BaseMixin):
         @warning: subclasses must supplement or override this method to set the devCmd done when finished.
         Subclasses that use a command queue will usually replace this method.
         """
+        writeToLog("%s.startCmd(cmdStr=%r, callFunc=%s, userCmd=%s, timeLim=%s)" % (self, cmdStr, callFunc, userCmd, timeLim))
         devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, timeLim=timeLim, dev=self)
         if not self.conn.isConnected:
             devCmd.setState(devCmd.Failed, textMsg="%s %s failed: not connected" % (self.name, cmdStr))
@@ -571,7 +573,7 @@ class ActorDevice(TCPDevice):
         abortCmdStr = None,
         keyVars = None,
     ):
-        """Start a new command.
+        """Queue or start a new command.
         
         @param[in] cmdStr: the command; no terminating \n wanted
         @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
