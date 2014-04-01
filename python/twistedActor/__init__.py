@@ -10,5 +10,5 @@ from .deviceWrapper import *
 from .dispatcherWrapper import *
 from .actorWrapper import *
 from .linkCommands import *
-from .testUtils import *
+from . import testUtils
 from .version import __version__

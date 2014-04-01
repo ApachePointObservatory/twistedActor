@@ -231,7 +231,7 @@ class Device(BaseMixin):
             safeCall(self.connCallFunc, self)
 
     def __repr__(self):
-        return "%s(name=%s)" % (type(self).__name__, self.name)
+        return "%s(%s)" % (type(self).__name__, self.name)
 
 
 class ConnectDevice(object):
@@ -515,10 +515,10 @@ class TCPDevice(Device):
         self.handleReply(replyStr)
 
     def __str__(self):
-        return "%s(name=%s)" % (type(self).__name__, self.name)
+        return "%s(%s)" % (type(self).__name__, self.name)
 
     def __repr__(self):
-        return "%s(name=%s, host=%s, port=%s)" % (type(self).__name__, self.name, self.conn.host, self.conn.port)
+        return "%s(%s, host=%s, port=%s)" % (type(self).__name__, self.name, self.conn.host, self.conn.port)
 
 
 class ActorDevice(TCPDevice):
