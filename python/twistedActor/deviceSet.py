@@ -215,6 +215,7 @@ class DeviceSet(object):
 
         if dev is None:
             oldDev = self._slotDevDict[slot]
+            self._slotDevDict[slot] = None
             if oldDev:
                 self._removeDevCallbacks(oldDev)
                 oldDev.init()
@@ -223,7 +224,7 @@ class DeviceSet(object):
 
         def initCallback(initCmd, slot=slot, dev=dev, userCmd=userCmd):
             if initCmd.didFail:
-                errMsg = "Failed to initialize new rotator %s: %s" % (dev.name, initCmd.textMsg)
+                errMsg = "Failed to initialize new %s device %s: %s" % (slot, dev.name, initCmd.getMsg())
                 self.actor.writeToUsers("w", "Text=%s" % (quoteStr(errMsg),))
 
             oldDev = self._slotDevDict[slot]

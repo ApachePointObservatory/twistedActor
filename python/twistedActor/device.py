@@ -169,11 +169,13 @@ class Device(BaseMixin):
         """
         raise NotImplementedError()
 
-    def init(self, userCmd=None, timeLim=None):
+    def init(self, userCmd=None, timeLim=None, getStatus=True):
         """Initialize the device and cancel all pending commands
 
         @param[in] userCmd: user command that tracks this command, if any
         @param[in] timeLim: maximum time before command expires, in sec; None for no limit
+        @param[in] getStatus: if true then get status after init
+        @return devCmd: the first device command that was started (and may already have failed)
 
         @warning: must be defined by the subclass
         """
