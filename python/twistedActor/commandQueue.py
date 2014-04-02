@@ -207,40 +207,52 @@ class CommandQueue(object):
         if toQueue.priority == CommandQueue.Immediate:
             # cancel each command in the cmdQueue;
             # iterate over a copy because the queue is updated for each cancelled command,
-            # and extract the cmd from the queuedCmd since we don't need the queued command
+            # and extract the cmd from the queuedCmd since we don't need the wrapped command
             cmdList = [queuedCmd.cmd for queuedCmd in self.cmdQueue]
             for sadCmd in cmdList:
                 if not sadCmd.isDone:
-                    sadCmd.setState(sadCmd.Cancelled, "Cancelled on queue by immediate priority command: %r" % cmd)
+                    sadCmd.setState(
+                        sadCmd.Cancelled,
+                        textMsg = "Cancelled on queue by immediate priority command %r" % (cmd.cmdStr,),
+                    )
             if not self.currExeCmd.cmd.isDone:
                 self.killFunc(self.currExeCmd.cmd)
         else:
-            for cmdOnStack in self.cmdQueue[:]: # looping through queue from highest to lowest priority
-                if cmdOnStack < toQueue or cmdOnStack.isDone:
-                    # command is lower priority or done; don't worry about it
+            # check new command against queued commands
+            # iterate over a copy because the queue is updated for each cancelled command,
+            # and extract the cmd from the queuedCmd since we don't need the wrapped command
+            cmdList = [queuedCmd.cmd for queuedCmd in self.cmdQueue]
+            for queuedCmd in cmdList:
+                if queuedCmd.isDone:
+                    # ignore completed commands (not that any on the stack will have been run yet,
+                    # but they can be cancelled elsewhere)
                     break
 
-                action = self.getRule(toQueue.cmd.cmdVerb, cmdOnStack.cmd.cmdVerb)
-                if action and action==self.CancelNew:
-                    # cancel the incoming command before ever running
-                    # never reaches the queue
+                action = self.getRule(toQueue.cmd.cmdVerb, queuedCmd.cmdVerb)
+                if action == self.CancelNew:
                     toQueue.cmd.setState(
                         toQueue.cmd.Cancelled,
-                        'Cancelled by a preceeding command in the queue %s' % (cmdOnStack.cmd.cmdVerb),
+                        "Cancelled before queueing by queued command %r" % (queuedCmd.cmdStr),
                     )
-                    return
-                elif action and action in (self.CancelQueued, self.KillRunning):
-                    # cancel this command
-                    # note the command will automatically remove itself from the queue
-                    cmdOnStack.cmd.setState(
-                        cmdOnStack.cmd.Cancelled,
-                        'Cancelled by a new command added to the queue %s' % (toQueue.cmd.cmdVerb),
+                    return # queue not altered; no need to do anything else
+                elif action in (self.CancelQueued, self.KillRunning):
+                    queuedCmd.setState(
+                        queuedCmd.Cancelled,
+                        "Cancelled while queued by new command %r" % (toQueue.cmd.cmdStr),
                     )
 
-            # finially check if this incoming command should kill an executing command
-            action = self.getRule(toQueue.cmd.cmdVerb, self.currExeCmd.cmd.cmdVerb)
-            if action and action == self.KillRunning and not self.currExeCmd.cmd.isDone:
-                self.killFunc(self.currExeCmd.cmd)
+            # should new command kill currently executing command?
+            if not self.currExeCmd.cmd.isDone:
+                action = self.getRule(toQueue.cmd.cmdVerb, self.currExeCmd.cmd.cmdVerb)
+                if action == self.CancelNew:
+                    toQueue.cmd.setState(
+                        toQueue.cmd.Cancelled,
+                        "Cancelled before queueing by running command %r" % (self.currExeCmd.cmd.cmdStr),
+                    )
+                    return # queue not altered; no need to do anything else
+                if action == self.KillRunning:
+                    self.killFunc(self.currExeCmd.cmd)
+
         insort_left(self.cmdQueue, toQueue) # inserts in sorted order
         self.scheduleRunQueue()
 
@@ -268,23 +280,3 @@ class CommandQueue(object):
             self.currExeCmd = self.cmdQueue.pop(-1)
             self.currExeCmd.setRunning()
             self.currExeCmd.cmd.addCallback(self.scheduleRunQueue)
-
-        elif self.currExeCmd.cmd.state == self.currExeCmd.cmd.Cancelling:
-            # leave it alone
-            pass
-        elif self.getRule(self.cmdQueue[0].cmd.cmdVerb, self.currExeCmd.cmd.cmdVerb):
-            action = self.getRule(self.cmdQueue[0].cmd.cmdVerb, self.currExeCmd.cmd.cmdVerb)
-            # a rule exists for this collision, check if it's a kill order
-            if action == self.KillRunning:
-                self.killFunc(self.currExeCmd.cmd)
-            elif action == self.CancelNew:
-                currCmdVerb = self.currExeCmd.cmd.cmdVerb
-                qCmdVerb = self.cmdQueue[0].cmd.cmdVerb
-                self.cmdQueue[0].cmd.setState(
-                    self.cmdQueue[0].cmd.Cancelled,
-                    '%s cancelled by currently executing command: %s' \
-                        % (qCmdVerb, currCmdVerb)
-                )
-        else:
-            # command is currently active and should remain that way
-            pass
