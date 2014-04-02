@@ -63,6 +63,7 @@ class BaseActor(object):
         """
         if not cmd.isDone:
             return
+        writeToLog("%s %s" % (self, cmd))
         msgCode, msgStr = cmd.getKeyValMsg()
         self.writeToUsers(msgCode, msgStr, cmd=cmd)
 
@@ -106,7 +107,7 @@ class BaseActor(object):
         - direct device access commands (device name)
         """
         cmdStr = sock.readLine()
-        writeToLog("UserCmd(%s)" % (cmdStr,))
+        writeToLog("%s.newCmd(%r)" % (self, cmdStr))
         #print "%s.newCmd; cmdStr=%r" % (self, cmdStr,)
         if not cmdStr:
             return
@@ -276,7 +277,7 @@ class BaseActor(object):
         print fullMsgStr
     
     def __str__(self):
-        return "%s(userPort=%r)" % (self.__class__.__name__, self.server.port)
+        return "%s(%s)" % (self.__class__.__name__, self.name)
 
 def getSocketUserID(sock):
     """Get a user ID from a socket

@@ -58,6 +58,7 @@ class Device(BaseMixin):
     
     When this device is added to an Actor then it gains the actor's writeToUsers method.
     """
+    DefaultTimeLim = 5 # default time limit, seconds; subclasses may override
     def __init__(self,
         name,
         conn,
@@ -106,7 +107,7 @@ class Device(BaseMixin):
         if callFunc:
             self.addCallback(callFunc, callNow=False)
 
-    def connect(self, userCmd=None, timeLim=None):
+    def connect(self, userCmd=None, timeLim=DefaultTimeLim):
         """Connect the device and start init (on success)
 
         If already connected then simply set userCmd's state to userCmd.Done.
@@ -122,7 +123,7 @@ class Device(BaseMixin):
         # print "%s.connect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim)
         return ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
 
-    def disconnect(self, userCmd=None, timeLim=None):
+    def disconnect(self, userCmd=None, timeLim=DefaultTimeLim):
         """Start init and disconnect the device
 
         If already disconnected then simply set userCmd's state to userCmd.Done.
@@ -169,7 +170,7 @@ class Device(BaseMixin):
         """
         raise NotImplementedError()
 
-    def init(self, userCmd=None, timeLim=None, getStatus=True):
+    def init(self, userCmd=None, timeLim=DefaultTimeLim, getStatus=True):
         """Initialize the device and cancel all pending commands
 
         @param[in] userCmd: user command that tracks this command, if any
@@ -181,7 +182,7 @@ class Device(BaseMixin):
         """
         raise NotImplementedError()
 
-    def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=None):
+    def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """Start a new command.
 
         @param[in] cmdStr: command string
@@ -210,7 +211,7 @@ class Device(BaseMixin):
         
         return devCmd
 
-    def startCmdList(self, cmdList, callFunc=None, userCmd=None, timeLim=None):
+    def startCmdList(self, cmdList, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """Start a sequence of commands; if a command fails then subsequent commands are ignored
 
         @param[in] cmdList: a sequence of command strings

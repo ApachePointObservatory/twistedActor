@@ -204,8 +204,6 @@ class CommandQueue(object):
             runFunc = runFunc,
         )
 
-        toQueue.cmd.addCallback(self.scheduleRunQueue)
-
         if toQueue.priority == CommandQueue.Immediate:
             # cancel each command in the cmdQueue;
             # iterate over a copy because the queue is updated for each cancelled command,
@@ -261,7 +259,7 @@ class CommandQueue(object):
             if not optCmd.isDone:
                 return
         # prune the queue, throw out done commands
-        self.cmdQueue = [qc for qc in self.cmdQueue[:] if (not qc.cmd.isDone)]
+        self.cmdQueue = [qc for qc in self.cmdQueue if not qc.cmd.isDone]
         if len(self.cmdQueue) == 0:
             # the command queue is empty, nothing to run
             pass
@@ -269,6 +267,8 @@ class CommandQueue(object):
             # begin the next command on the queue
             self.currExeCmd = self.cmdQueue.pop(-1)
             self.currExeCmd.setRunning()
+            self.currExeCmd.cmd.addCallback(self.scheduleRunQueue)
+
         elif self.currExeCmd.cmd.state == self.currExeCmd.cmd.Cancelling:
             # leave it alone
             pass

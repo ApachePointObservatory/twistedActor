@@ -117,11 +117,18 @@ class DeviceWrapper(BaseWrapper):
         self._isReady = False
         if self.device is not None:
             self.disconnCmd = self.device.disconnect().userCmd
-            self.disconnCmd.addCallback(self._stateChanged)
+            self.disconnCmd.addCallback(self._disconnCmdCallback)
+
+    def _disconnCmdCallback(self, disconnCmd):
+        """Device disconnect command callback
+        """
+        if not disconnCmd.isDone:
+            return
         if self.controllerWrapper is not None:
             self.controllerWrapper.close()
         if self.server is not None:
             self.server.close()
+        self._stateChanged()
 
     def _setController(self, controller):
         """Set self.controller and self.server and server state callbacks

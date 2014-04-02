@@ -14,8 +14,6 @@ from .linkCommands import LinkCommands
 
 __all__ = ["DeviceSet"]
 
-DefaultTimeLim = 5
-
 class DevCmdInfo(object):
     """Information about a device command
 
@@ -46,6 +44,7 @@ class DeviceSet(object):
     In that case the axis DeviceSet's slot names might be ("az", "alt", "rot"),
     while the rotator device in the set might be None or might have a slot such as "rot1" or "rot2".
     """
+    DefaultTimeLim = 5 # default time limit, in seconds; subclasses may override
     def __init__(self, actor, slotList, devList):
         """Construct a DeviceSet
 

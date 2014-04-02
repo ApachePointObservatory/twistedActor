@@ -79,13 +79,17 @@ class ActorWrapper(BaseWrapper):
         """
         for dw in self.deviceWrapperList:
             dw.close()
-        if self.actor:
-            self.actor.close()
     
     def _deviceWrapperStateChanged(self, dumArg=None):
         """Called when the device wrapper changes state
         """
-        if not self.actor and all(dw.isReady for dw in self.deviceWrapperList):
-            self._makeActor()
-            self.actor.server.addStateCallback(self._stateChanged)
+        if not self.actor:
+            # opening
+            if all(dw.isReady for dw in self.deviceWrapperList):
+                self._makeActor()
+                self.actor.server.addStateCallback(self._stateChanged)
+        elif self._closeDeferred:
+            # closing
+            self.actor.close()
+
         self._stateChanged()
