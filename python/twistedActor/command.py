@@ -9,6 +9,8 @@ import RO.Alg
 from RO.StringUtil import quoteStr
 from RO.Comm.TwistedTimer import Timer
 
+from .log import writeToLog
+
 __all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd"]
 
 class CommandError(Exception):
@@ -197,6 +199,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         self._state = newState
         self._textMsg = str(textMsg)
         self._hubMsg = str(hubMsg)
+        writeToLog(str(self))
         self._basicDoCallbacks(self)
         if self.isDone:
             self._timeoutTimer.cancel()
@@ -264,31 +267,34 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """
         if not self.isDone:
             self.setState(self.Failed, textMsg="Timed out")
+
+    def _getDescrList(self, doFull=False):
+        """Get list of descriptive strings for __str__ and __repr__
+        """
+        descrList = [
+            repr(self.cmdStr),
+            "state=%s" % (self._state,),
+        ]
+        if doFull:
+            descrList += [
+                "userID=%r" % (self.userID,),
+                "cmdID=%r" % (self.cmdID,),
+                "timeLim=%r" % (self._timeLim,),
+            ]
+        if self._textMsg:
+            descrList.append("textMsg=%r" % (self._textMsg,))
+        if self._hubMsg:
+            descrList.append("hubMsg=%r" % (self._hubMsg,))
+        if doFull and self._cmdToTrack:
+            descrList.append("cmdToTrack=%r" % (self._cmdToTrack,))
+        return descrList
     
     def __str__(self):
-        msgList = [
-            self.cmdStr,
-            "state=%s" % (self._state,),
-        ]
-        if self._textMsg:
-            msgList.append("textMsg=%r" % (self._textMsg,))
-        if self._hubMsg:
-            msgList.append("hubMsg=%r" % (self._hubMsg,))
-        return "%s(%s)" % (self.__class__.__name__, ", ".join(msgList))
+        return "%s(%s)" % (self.__class__.__name__, ", ".join(self._getDescrList(doFull=False)))
     
     def __repr__(self):
-        msgList = [
-            "cmdStr=%r" % (self.cmdStr,),
-            "userID=%r" % (self.userID,),
-            "cmdID=%r" % (self.cmdID,),
-            "timeLim=%r" % (self._timeLim,),
-            "state=%s" % (self._state,),
-        ]
-        if self._textMsg:
-            msgList.append("textMsg=%r" % (self._textMsg,))
-        if self._hubMsg:
-            msgList.append("hubMsg=%r" % (self._hubMsg,))
-        return "%s(%s)" % (self.__class__.__name__, ", ".join(msgList))
+        return "%s(%s)" % (self.__class__.__name__, ", ".join(self._getDescrList(doFull=True)))
+
 
 class DevCmd(BaseCmd):
     """Generic device command
@@ -346,6 +352,11 @@ class DevCmd(BaseCmd):
         """
         return "%s %s" % (self.locCmdID, self.cmdStr)
 
+    def _getDescrList(self, doFull=False):
+        descrList = BaseCmd._getDescrList(self)
+        descrList.insert(0, str(self.dev))
+        return descrList
+
 
 class DevCmdVar(BaseCmd):
     """Device command wrapper around opscore.actor.CmdVar
@@ -399,6 +410,11 @@ class DevCmdVar(BaseCmd):
             newState = self.Failed
             textMsg = self.cmdVar.lastReply.string
         self.setState(newState, textMsg=textMsg)
+
+    def _getDescrList(self, doFull=False):
+        descrList = BaseCmd._getDescrList(self)
+        descrList.insert(0, str(self.dev))
+        return descrList
 
 
 class UserCmd(BaseCmd):
