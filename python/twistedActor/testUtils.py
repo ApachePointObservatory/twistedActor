@@ -17,13 +17,7 @@ def startLogging(filePath):
     logDir = os.path.join(testDir,  ".tests")
     os.environ["TWISTED_LOG_DIR"] = logDir
     logFileName = "%s.log" % (os.path.splitext(testFile)[0],)
-    logFilePath = os.path.join(logDir, logFileName)
-    if os.path.isfile(logFilePath):
-        try:
-            os.remove(logFilePath)
-        except Exception, e:
-            print "Tried to delete exist log file %r but failed: %s" % (logFilePath, e)
-    log.startLogging(logDir, logFileName, serverMode=False)
+    log.startLogging(logDir, logFileName, serverMode=False, deleteOldLog=True)
 
 def init(filePath=None):
     """Prepare for a unit test to run that starts an actor

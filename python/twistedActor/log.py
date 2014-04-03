@@ -201,7 +201,7 @@ class LogStateObj(object):
 
 LogState = LogStateObj()
 
-def startLogging(logPath, fileName="twistedActor.log", showSTDIO=False, serverMode=True, rolloverTime = _NOON):
+def startLogging(logPath, fileName="twistedActor.log", showSTDIO=False, serverMode=True, rolloverTime=_NOON, deleteOldLog=False):
     """
         Start logging to a file twistedActor.log.  This file is rotated at noon. After
         rotation a date suffix is added to the file.
@@ -211,6 +211,8 @@ def startLogging(logPath, fileName="twistedActor.log", showSTDIO=False, serverMo
         @param[in] showSTDIO: bool. also print log messages to screen.
         @param[in] serverMode: bool. if True, anything sent to stdout will appear in log as an ERROR.
         @param[in] rolloverTime: time of day (in seconds) at which the log file should rollover
+        @param[in] deleteOldLog: if True then any existing log file is deleted; only appropriate for unit tests and fake actors;
+            if logging has already started then the existing log file is always retained
      """
     if LogState.startedLogging:
         # logging already started do nothing, add warning to current log
@@ -218,6 +220,10 @@ def startLogging(logPath, fileName="twistedActor.log", showSTDIO=False, serverMo
         return
     if not os.path.exists(logPath):
         os.makedirs(logPath)
+    elif deleteOldLog:
+        logFilePath = os.path.join(logPath, fileName)
+        if os.path.exists(logFilePath):
+            os.remove(logFilePath)
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     fh = returnFileHandler(logPath, fileName, rolloverTime)
