@@ -363,14 +363,14 @@ class RunCmdDict(object):
         self.userCmd = expandUserCmd(userCmd)
         
         self.devCmdDict = dict()
-        self.failSlotSet = set()
+        self.failSlotDict = dict() # dict of slot: devCmd
 
         for slot, cmdStrOrList in cmdDict.iteritems():
             dev = devSet[slot]
 
             def devCmdCallback(devCmd, slot=slot, dev=dev):
                 if devCmd.didFail:
-                    self.failSlotSet.add(slot)
+                    self.failSlotDict[slot] = devCmd
                 
                 self.devCmdDict[slot] = devCmd
 
@@ -388,7 +388,7 @@ class RunCmdDict(object):
                             newDevCmd.addCallback(newDevCmdCallback)
                             self.devCmdDict[slot] = newDevCmd
                     except Exception:
-                        self.failSlotSet.add(slot)
+                        self.failSlotDict[slot] = devCmd
                         textBody = "%s command %r failed" % (slot, devCmd.cmdStr)
                         msgStr = "Text=%s" % (quoteStr(textBody),)
                         devSet.actor.writeToUsers("f", msgStr=msgStr)
@@ -412,11 +412,19 @@ class RunCmdDict(object):
             if not devCmd.isDone:
                 return
             if devCmd.didFail:
-                self.failSlotSet.add(slot)
+                self.failSlotDict[slot] = devCmd
 
         if not self.userCmd.isDone:
-            if self.failSlotSet:
-                failedAxisStr = ", ".join(slot for slot in self.failSlotSet)
-                self.userCmd.setState(self.userCmd.Failed, textMsg="Command failed for %s" % (failedAxisStr,))
+            if self.failSlotDict:
+                slotList = [slot for slot in self.failSlotDict]
+                # cmdList = ["%s %s" % (slot, devCmd.cmdStr) \
+                #     for slot, devCmd in self.failSlotDict.iteritems()]
+                errList = [devCmd.getMsg() for devDmd in self.failSlotDict.itervalues()]
+                if all(errMsg == errList[0] for errMsg in errList):
+                    # all error messages are identical; just show one
+                    errList = [errList[0]]
+                errMsg = "%r failed for %s: %s" % (self.userCmd.cmdStr, ", ".join(slotList), "; ".join(errList))
+#                errMsg = "%s failed: %s" % ("; ".join(cmdList), "; ".join(errList))
+                self.userCmd.setState(self.userCmd.Failed, textMsg=errMsg)
             else:
                 self.userCmd.setState(self.userCmd.Done)

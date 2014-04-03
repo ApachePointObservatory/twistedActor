@@ -148,15 +148,11 @@ class BaseCmd(RO.AddCallback.BaseMixin):
             RO.AddCallback.BaseMixin.addCallback(self, callFunc, callNow=callNow)
 
     def getMsg(self):
-        """Get message data in the simplest form possible
+        """Get minimal message data in the simplest form possible
 
-        @return msgStr, where msgStr is getKeyValMsg if both _textMsg and _hubMsg are available,
-            else whichever one is available, else ""
+        @return _textMsg if non-empty, else _hubMsg (whether empty or not)
         """
-        if self._hubMsg and self._textMsg:
-            return self.getKeyValMsg()[1]
-        else:
-            return self._textMsg or self._hubMsg
+        return self._textMsg or self._hubMsg
 
     def getKeyValMsg(self, textPrefix=""):
         """Get message data as (msgCode, msgStr), where msgStr is in keyword-value format
@@ -175,14 +171,14 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         msgStr = "; ".join(msgInfo)
         return (msgCode, msgStr)
 
-    def setState(self, newState, textMsg="", hubMsg=""):
+    def setState(self, newState, textMsg=None, hubMsg=None):
         """Set the state of the command and call callbacks.
         
         If new state is done then remove all callbacks (after calling them).
         
         @param[in] newState: new state of command
-        @param[in] textMsg: a message to be printed using the Text keyword
-        @param[in] hubMsg: a message in keyword=value format (without a header)
+        @param[in] textMsg: a message to be printed using the Text keyword; if None then not changed
+        @param[in] hubMsg: a message in keyword=value format (without a header); if None then not changed
 
         If the new state is Failed then please supply a textMsg and/or hubMsg.
         
@@ -197,8 +193,10 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         if self._state == self.Ready and newState in self.ActiveStates and self._timeLim:
             self._timeoutTimer.start(self._timeLim, self._timeout)
         self._state = newState
-        self._textMsg = str(textMsg)
-        self._hubMsg = str(hubMsg)
+        if textMsg is not None:
+            self._textMsg = str(textMsg)
+        if hubMsg is not None:
+            self._hubMsg = str(hubMsg)
         writeToLog(str(self))
         self._basicDoCallbacks(self)
         if self.isDone:
