@@ -40,7 +40,7 @@ class QueuedCommand(object):
         self.priority = priority
         self.runFunc = runFunc
 
-    def setState(self, newState, textMsg="", hubMsg=""):
+    def setState(self, newState, textMsg=None, hubMsg=None):
         """Set state of command; see twistedActor.BaseCmd.setState for details
         """
         # print "%r.setState(newState=%r, textMsg=%r, hubMsg=%r)" % (self, newState, textMsg, hubMsg)

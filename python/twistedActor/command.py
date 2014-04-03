@@ -148,19 +148,20 @@ class BaseCmd(RO.AddCallback.BaseMixin):
             RO.AddCallback.BaseMixin.addCallback(self, callFunc, callNow=callNow)
 
     def getMsg(self):
-        """Get minimal message data in the simplest form possible
+        """Get minimal message in simple format, prefering _textMsg
 
-        @return _textMsg if non-empty, else _hubMsg (whether empty or not)
+        @return _textMsg (if available), else _hubMsg (which may be blank).
         """
         return self._textMsg or self._hubMsg
 
     def getKeyValMsg(self, textPrefix=""):
-        """Get message data as (msgCode, msgStr), where msgStr is in keyword-value format
+        """Get full message data as (msgCode, msgStr), where msgStr is in keyword-value format
 
         @param[in] textPrefix: a prefix added to self._textMsg
         @return two values:
         - msgCode: message code (e.g. "W")
-        - msgStr: message string: a combination of _textMsg and _hubMsg in keyword-value format
+        - msgStr: message string: a combination of _textMsg and _hubMsg in keyword-value format.
+            Warning: he "Text" keyword will be repeated if _textMsg is non-empty and _hubMsg contains "Text="
         """
         msgCode = self._MsgCodeDict[self._state]
         msgInfo = []
@@ -179,6 +180,9 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         @param[in] newState: new state of command
         @param[in] textMsg: a message to be printed using the Text keyword; if None then not changed
         @param[in] hubMsg: a message in keyword=value format (without a header); if None then not changed
+
+        You can set both textMsg and hubMsg, but typically only one or the other will be displayed
+        (depending on the situation).
 
         If the new state is Failed then please supply a textMsg and/or hubMsg.
         
