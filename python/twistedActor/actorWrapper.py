@@ -90,6 +90,7 @@ class ActorWrapper(BaseWrapper):
                 self.actor.server.addStateCallback(self._stateChanged)
         elif self._closeDeferred:
             # closing
-            self.actor.close()
+            if all(dw.isDone for dw in self.deviceWrapperList):
+                self.actor.close()
 
         self._stateChanged()

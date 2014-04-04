@@ -107,7 +107,7 @@ class Device(BaseMixin):
         self.conn = conn
         self.cmdClass = cmdClass
         self._state = self.Disconnected
-        self.__ignoreConnCallback = False # set during connection and disconnection
+        self._ignoreConnCallback = False # set during connection and disconnection
         self.conn.addStateCallback(self._connCallback)
         if callFunc:
             self.addCallback(callFunc, callNow=False)
@@ -199,6 +199,12 @@ class Device(BaseMixin):
         return self._state
 
     @property
+    def didFail(self):
+        """Return True if device is connected (and init succeeded)
+        """
+        return self._state == self.Failed
+
+    @property
     def isConnected(self):
         """Return True if device is connected (and init succeeded)
         """
@@ -264,8 +270,9 @@ class Device(BaseMixin):
     def _connCallback(self, conn=None):
         """Call when the connection state changes
         """
-        if self.__ignoreConnCallback:
-            return
+        # print "%s._connCallback(conn=%s); self.state=%s, self.conn.state=%s, self._ignoreConnCallback=%s" % (self, conn, self.state, self.conn.state, self._ignoreConnCallback)
+        if self._ignoreConnCallback:
+            return False
         if self.conn.state == self.conn.Disconnected:
             if self.state != self.Disconnected:
                 self.setState(self.Disconnected, "socket disconnected")
@@ -305,7 +312,7 @@ class ConnectDevice(object):
             self.finish()
             return
 
-        self.dev.__ignoreConnCallback = True
+        self.dev._ignoreConnCallback = True
         self.dev.setState(self.dev.Connecting)
         self.dev.conn.addStateCallback(self.connCallback)
         self._addedConnCallback = True
@@ -346,7 +353,7 @@ class ConnectDevice(object):
         @parma[in] reason: reason for failure (if non-empty then failure is assumed)
         """
         self._connTimer.cancel()
-        self.dev.__ignoreConnCallback = False
+        self.dev._ignoreConnCallback = False
         if self._addedConnCallback:
             self.dev.conn.removeStateCallback(self.connCallback)
         if reason or not self.dev.conn.isConnected:
@@ -386,30 +393,27 @@ class DisconnectDevice(object):
         if self.dev.conn.isDisconnected:
             if self.dev.state != self.dev.Disconnected:
                 self.dev.setState(self.dev.Disconnected, "socket disconnected")
+            if not self.userCmd.isDone:
+                self.userCmd.setState(self.userCmd.Done)
             return
 
-        self.dev.__ignoreConnCallback = True
+        self.dev._ignoreConnCallback = True
         if self.dev.state != self.dev.Disconnected:
             self.dev.setState(self.dev.Disconnecting)
 
-        if not self.dev.conn.isConnected:
+        if self.dev.conn.isConnected:
+            initUserCmd = UserCmd(callFunc=self.initCallback, timeLim=timeLim)
+            self.dev.init(userCmd=initUserCmd, timeLim=timeLim, getStatus=False)
+        else:
             # not fully connected, so cannot send init, but not fully disconnected yet, so finish disconnecting
             textMsg = "%s connection state=%s; cannot initialize before disconnecting" % (self.dev.name, self.dev.conn.state)
             self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
-            self.initCallback()
+            self.startDisconnect()
             return
 
-        initUserCmd = UserCmd(callFunc=self.initCallback, timeLim=timeLim)
-        self.dev.init(userCmd=initUserCmd, timeLim=timeLim, getStatus=False)
-
-    def initCallback(self, initUserCmd=None):
-        """Callback for device initialization
+    def startDisconnect(self):
+        """Start disconnecting the connection
         """
-        # print "%s.initCallback(initUserCmd=%r)" % (self, initUserCmd,)
-        if initUserCmd and initUserCmd.didFail:
-            textMsg = "%s initialization failed: %s" % (self.dev.name, initUserCmd.textMsg,)
-            self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
-
         if self.dev.conn.isDone and not self.dev.conn.isConnected:
             # fully disconnected; no more to be done
             Timer(0, self.finish)
@@ -421,6 +425,17 @@ class DisconnectDevice(object):
             self.dev.conn.addStateCallback(self.connCallback)
             self._addedConnCallback = True
             self.dev.conn.disconnect()
+
+    def initCallback(self, initUserCmd):
+        """Callback for device initialization
+        """
+        if not initUserCmd.isDone:
+            return
+
+        if initUserCmd.didFail:
+            textMsg = "%s initialization failed: %s" % (self.dev.name, initUserCmd.textMsg,)
+            self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
+        self.startDisconnect()
 
     def connCallback(self, conn):
         """Callback for device connection state
@@ -434,7 +449,7 @@ class DisconnectDevice(object):
         @parma[in] reason: reason for failure (if non-empty then failure is assumed)
         """
         self._connTimer.cancel()
-        self.dev.__ignoreConnCallback = False
+        self.dev._ignoreConnCallback = False
         if self._addedConnCallback:
             self.dev.conn.removeStateCallback(self.connCallback)
         if reason or not self.dev.conn.isDone or not self.dev.conn.isDisconnected:
@@ -688,6 +703,7 @@ class ActorDevice(TCPDevice):
     def __repr__(self):
         return "%s(name=%s, host=%s, port=%s, modelName=%s)" % \
             (type(self).__name__, self.name, self.conn.host, self.conn.port, self.dispatcher.name)
+
 
 class DeviceCollection(object):
     """A collection of devices that provides easy access to them

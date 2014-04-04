@@ -60,7 +60,6 @@ class DeviceWrapper(BaseWrapper):
         self.controller = None
         self.server = None
         self.controllerWrapper = controllerWrapper
-        self.disconnCmd = None
         if controllerWrapper is not None:
             self.controllerWrapper.addCallback(self._controllerWrapperStateChanged, callNow=True)
         else:
@@ -90,18 +89,16 @@ class DeviceWrapper(BaseWrapper):
     def isDone(self):
         """Return True if the device and controller are fully disconnected
         """
-        self.debugMsg("%s.isDone: self.server.state=%s; self.device=%s; self.disconnCmd=%r" % (
+        self.debugMsg("%s.isDone: self.server.state=%s; self.device.state=%s" % (
             self,
             self.server.state if self.server else "no server",
-            self.device.conn.state if self.device else "no device",
-            self.disconnCmd if self.disconnCmd else "no disconnCmd",
+            self.device.state if self.device else "no device",
         ))
         if self.server is None:
             return self.controllerWrapper.didFail # wrapper failed, so controller will not be built
         else:
             return self.server.isDone \
-                and self.device is not None and self.device.conn.isDisconnected \
-                and self.disconnCmd is not None and self.disconnCmd.isDone
+                and self.device is not None and self.device.isDisconnected
     
     @property
     def isFailing(self):
@@ -110,15 +107,15 @@ class DeviceWrapper(BaseWrapper):
         if self.server is None:
             return self.controllerWrapper.didFail
         else:
-            return self.server.didFail or (self.device is not None and self.device.conn.didFail)
+            return self.server.didFail or (self.device is not None and self.device.didFail)
     
     def _basicClose(self):
         """Close everything in order: device, controller, server
         """
         self._isReady = False
         if self.device is not None:
-            self.disconnCmd = self.device.disconnect()
-            self.disconnCmd.addCallback(self._disconnCmdCallback)
+            disconnCmd = self.device.disconnect()
+            disconnCmd.addCallback(self._disconnCmdCallback)
 
     def _disconnCmdCallback(self, disconnCmd):
         """Device disconnect command callback

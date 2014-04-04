@@ -99,7 +99,7 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
                     self.debugMsg("calling closeDeferred")
                     self._closeDeferred.callback(None)
                 else:
-                    sys.stderr.write("Device wrapper state changed after wrapper closed\n")
+                    sys.stderr.write("%s state changed after wrapper closed\n" % (self,))
         else: # opening or open
             if not self.readyDeferred.called:
                 if self.isReady:
