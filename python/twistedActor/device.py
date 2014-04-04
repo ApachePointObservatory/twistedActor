@@ -122,7 +122,7 @@ class Device(BaseMixin):
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
-        # print "%s.connect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim)
+        writeToLog("%s.connect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim))
         return ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim).userCmd
 
     def disconnect(self, userCmd=None, timeLim=DefaultTimeLim):
@@ -132,7 +132,7 @@ class Device(BaseMixin):
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
-        # print "%s.disconnect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim)
+        writeToLog("%s.disconnect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim))
         return DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim).userCmd
 
     def cleanup(self):
@@ -264,7 +264,7 @@ class Device(BaseMixin):
 
 
 class ConnectDevice(object):
-    """Connect a device and send dev.init
+    """Connect a device and execute dev.init
 
     If the device is already connected then generate a new userCmd, if needed,
     and sets userCmd's state to userCmd.Done.
@@ -321,7 +321,7 @@ class ConnectDevice(object):
         if self.dev.conn.isConnected:
             self._connTimer.cancel()
             initUserCmd = UserCmd(cmdStr="connect %s" % (self.dev.name,), callFunc=self.initCallback)
-            self.dev.init(userCmd=initUserCmd, timeLim=self._timeLim)
+            self.dev.init(userCmd=initUserCmd, timeLim=self._timeLim, getStatus=True)
         elif self.dev.conn.didFail:
             self._connTimer.cancel()
             self.finish("connection failed")
@@ -351,7 +351,7 @@ class ConnectDevice(object):
 
 
 class DisconnectDevice(object):
-    """Send dev.init (if the device is fully connected) and disconnect a device
+    """Execute dev.init (if the device is fully connected) and disconnect a device
 
     If the device is already disconnected then generate a new userCmd, if needed,
     and sets userCmd's state to userCmd.Done.
@@ -386,7 +386,7 @@ class DisconnectDevice(object):
             return
 
         initUserCmd = UserCmd(callFunc=self.initCallback, timeLim=timeLim)
-        self.dev.init(userCmd=initUserCmd, timeLim=timeLim)
+        self.dev.init(userCmd=initUserCmd, timeLim=timeLim, getStatus=False)
 
     def initCallback(self, initUserCmd=None):
         """Callback for device initialization

@@ -274,25 +274,23 @@ class CommandQueue(object):
         finally:
             self._enabled = True
 
-    def scheduleRunQueue(self, optCmd=None):
+    def scheduleRunQueue(self, cmd=None):
         """Run the queue on a zero second timer
 
-        @param[in] optCmd: optional command; if provided and not Done then the queue is not run (a BaseCmd)
+        @param[in] cmd: command; if provided and not Done then the queue is not run (a BaseCmd);
+            this allows use of scheduleRunQueue as a command callback
         """
         if not self._enabled:
             return
-        self.queueTimer.start(0., self.runQueue, optCmd)
+        if cmd and not cmd.isDone:
+            return
+        self.queueTimer.start(0., self.runQueue)
 
-    def runQueue(self, optCmd=None):
+    def runQueue(self):
         """ Manage Executing commands
-
-        @param[in] optCmd: optional command; if provided and not Done then the queue is not run (a BaseCmd)
         """
         if not self._enabled:
             return
-        if optCmd != None:
-            if not optCmd.isDone:
-                return
         # prune the queue, throw out done commands
         self.cmdQueue = [qc for qc in self.cmdQueue if not qc.cmd.isDone]
         if len(self.cmdQueue) == 0:
