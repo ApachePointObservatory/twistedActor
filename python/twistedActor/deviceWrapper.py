@@ -34,6 +34,9 @@ class DeviceWrapper(BaseWrapper):
     ):
         """Construct a DeviceWrapper
 
+        This wraps a controller (typically a fake) and a device that talks to it.
+        It also has attribute server, which is the controller's server.
+
         You must specify either controller or controllerWrapper but not both
 
         @param[in] name: name of device
@@ -54,11 +57,10 @@ class DeviceWrapper(BaseWrapper):
             raise RuntimeError("You must specify exactly one of controller or controllerWrapper")
         self._isReady = False
         self.device = None # the wrapped device, once it's built
-        self.connCmd = None # the connect device cmd
-        self.disconnCmd = None # the disconnect device command
         self.controller = None
         self.server = None
         self.controllerWrapper = controllerWrapper
+        self.disconnCmd = None
         if controllerWrapper is not None:
             self.controllerWrapper.addCallback(self._controllerWrapperStateChanged, callNow=True)
         else:
@@ -81,8 +83,7 @@ class DeviceWrapper(BaseWrapper):
         """
         self._isReady = self._isReady or \
             (self.server is not None and self.server.isReady \
-             and self.device is not None and self.device.conn.isConnected \
-             and self.connCmd is not None and self.connCmd.isDone)
+             and self.device is not None and self.device.isConnected)
         return self._isReady
     
     @property
@@ -112,7 +113,7 @@ class DeviceWrapper(BaseWrapper):
             return self.server.didFail or (self.device is not None and self.device.conn.didFail)
     
     def _basicClose(self):
-        """Close everything
+        """Close everything in order: device, controller, server
         """
         self._isReady = False
         if self.device is not None:
@@ -126,7 +127,7 @@ class DeviceWrapper(BaseWrapper):
             return
         if self.controllerWrapper is not None:
             self.controllerWrapper.close()
-        if self.server is not None:
+        elif self.server is not None:
             self.server.close()
         self._stateChanged()
 
@@ -142,7 +143,7 @@ class DeviceWrapper(BaseWrapper):
             self.server = controller
         self.server.addStateCallback(self.serverStateChanged)
         self.serverStateChanged()
-    
+
     def serverStateChanged(self, dumArg=None):
         """Called when the controller's server socket changes state
         """
@@ -150,9 +151,8 @@ class DeviceWrapper(BaseWrapper):
         if self.server.isReady and not self.device:
             # print "%s._makeDevice()" % (self,)
             self._makeDevice()
-            self.device.conn.addStateCallback(self._stateChanged)
-            self.connCmd = self.device.connect().userCmd
-            self.connCmd.addCallback(self._stateChanged)
+            self.device.addCallback(self._stateChanged)
+            self.device.connect()
         self._stateChanged()
 
     def _controllerWrapperStateChanged(self, dumArg=None):
