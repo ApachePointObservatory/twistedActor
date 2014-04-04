@@ -200,7 +200,21 @@ class Device(BaseMixin):
 
     @property
     def isConnected(self):
+        """Return True if device is connected (and init succeeded)
+        """
         return self._state == self.Connected
+
+    @property
+    def isDisconnected(self):
+        """Return True if device is disconnected or disconnection failed
+        """
+        return self._state in (self.Disconnected, self.Failed)
+
+    @property
+    def isDisconnecting(self):
+        """Return True if device is disconnecting or disconnected
+        """
+        return self._state in (self.Disconnected, self.Failed, self.Disconnecting)
 
     def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """Start a new command.

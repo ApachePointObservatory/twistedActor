@@ -11,6 +11,7 @@ from RO.StringUtil import quoteStr, strFromException
 from .baseActor import BaseActor
 from .command import CommandError
 from .device import DeviceCollection
+from .log import writeToLog
 
 __all__ = ["Actor"]
 
@@ -99,8 +100,10 @@ class Actor(BaseActor):
     def close(self):
         """Close the connection and cancel any timers
         """
+        writeToLog("%s.close()" % (self,))
         for dev in self.dev:
-            dev.disconnect()
+            if not dev.isDisconnecting:
+                dev.disconnect()
         BaseActor.close(self)
 
     def initialConn(self):
