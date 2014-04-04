@@ -65,7 +65,7 @@ class Device(BaseMixin):
     Disconnected = "Disconnected"
     Disconnecting = "Disconnecting"
     Failed = "Failed"
-    AllStates = frozenset((Connected, Connecting, Disconnected, Disconnecting, Failed))
+    _AllStates = frozenset((Connected, Connecting, Disconnected, Disconnecting, Failed))
 
     def __init__(self,
         name,
@@ -107,6 +107,7 @@ class Device(BaseMixin):
         self.conn = conn
         self.cmdClass = cmdClass
         self._state = self.Disconnected
+        self.__ignoreConnCallback = False # set during connection and disconnection
         self.conn.addStateCallback(self._connCallback)
         if callFunc:
             self.addCallback(callFunc, callNow=False)
@@ -114,32 +115,25 @@ class Device(BaseMixin):
     def connect(self, userCmd=None, timeLim=DefaultTimeLim):
         """Connect the device and start init (on success)
 
-        If already connected then simply set userCmd's state to userCmd.Done.
+        If already connected then simply set returned userCmd's state to userCmd.Done.
 
         @param[in] userCmd: user command (or None); if None a new one is generated
             to allow tracking the progress of this command
-        @return ConnectDevice: an object that monitors the state of the connection; useful attributes include:
-            - userCmd: supplied userCmd if not None, else a new twistedActor.UserCmd
-            - deferred: a twisted Deferred, or None if nothing to defer.
-                - callback(None) is called if the connection succeeds
-                - errback(reason) is called if the connection fails
+
+        @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
         # print "%s.connect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim)
-        return ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
+        return ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim).userCmd
 
     def disconnect(self, userCmd=None, timeLim=DefaultTimeLim):
         """Start init and disconnect the device
 
-        If already disconnected then simply set userCmd's state to userCmd.Done.
+        If already disconnected then simply set returned userCmd's state to userCmd.Done.
 
-        @return ConnectDevice: an object that monitors the state of the connection; useful attributes include:
-            - userCmd: supplied userCmd if not None, else a new twistedActor.UserCmd
-            - deferred: a twisted Deferred, or None if nothing to defer.
-                - callback(None) is called if the connection succeeds
-                - errback(reason) is called if the connection fails
+        @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
         # print "%s.disconnect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim)
-        return DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim)
+        return DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim).userCmd
 
     def cleanup(self):
         """Release resources and halt pending processes
@@ -152,7 +146,7 @@ class Device(BaseMixin):
         """Set connection state
         """
         # print "%s.setState(state=%s, reason=%r)" % (self, state, reason)
-        if state not in self.AllStates:
+        if state not in self._AllStates:
             raise RuntimeError("Unknown state=%r" % (state,))
         if self._state == state:
             return # ignore null state changes
@@ -256,16 +250,14 @@ class Device(BaseMixin):
     def _connCallback(self, conn=None):
         """Call when the connection state changes
         """
+        if self.__ignoreConnCallback:
+            return
         if self.conn.state == self.conn.Disconnected:
-            if self.state == self.Disconnecting:
-                # this is the normal way the final Disconnection is set
-                # (since the Device gets the news before the DisconnectDevice object)
-                self.setState(self.Disconnected)
-            else:
-                self.setState(self.Disconnected, "conn state changed unexpectedly")
+            if self.state != self.Disconnected:
+                self.setState(self.Disconnected, "socket disconnected")
         elif self.conn.state == self.conn.Disconnecting:
             if self.state != self.Disconnecting:
-                self.setState(self.Disconnecting, "conn state changed unexpectedly")
+                self.setState(self.Disconnecting, "socket disconnecting")
 
     def __repr__(self):
         return "%s(%s)" % (type(self).__name__, self.name)
@@ -280,7 +272,6 @@ class ConnectDevice(object):
     Public attributes:
     - dev: the provided device
     - userCmd: the provided userCmd, or a new one if none provided
-    - deferred: a connection Deferred, or None if not waiting for connection
     """
     def __init__(self, dev, userCmd, timeLim):
         """Start connecting a device
@@ -300,6 +291,7 @@ class ConnectDevice(object):
             self.finish()
             return
 
+        self.dev.__ignoreConnCallback = True
         self.dev.setState(self.dev.Connecting)
         self.dev.conn.addStateCallback(self.connCallback)
         self._addedConnCallback = True
@@ -309,7 +301,6 @@ class ConnectDevice(object):
             if self._timeLim:
                 # start timer for the connection that is occurring now
                 self._connTimer.start(self._timeLim, self.finish, "timed out waiting for connection")
-            self.dev.conn._sock.getReadyDeferred()
 
     def initCallback(self, userCmd):
         """Callback for device initialization
@@ -341,6 +332,7 @@ class ConnectDevice(object):
         @parma[in] reason: reason for failure (if non-empty then failure is assumed)
         """
         self._connTimer.cancel()
+        self.dev.__ignoreConnCallback = False
         if self._addedConnCallback:
             self.dev.conn.removeStateCallback(self.connCallback)
         if reason or not self.dev.conn.isConnected:
@@ -367,7 +359,6 @@ class DisconnectDevice(object):
     Public attributes:
     - dev: the provided device
     - userCmd: the provided userCmd, or a new one if none provided
-    - deferred: a connection Deferred, or None if not waiting for disconnection
     """
     def __init__(self, dev, userCmd, timeLim):
         """Start disconnecting a device
@@ -378,11 +369,17 @@ class DisconnectDevice(object):
         self._connTimer = Timer()
         self._addedConnCallback = False
 
+        if self.dev.conn.isDisconnected:
+            if self.dev.state != self.dev.Disconnected:
+                self.dev.setState(self.dev.Disconnected, "socket disconnected")
+            return
+
+        self.dev.__ignoreConnCallback = True
         if self.dev.state != self.dev.Disconnected:
             self.dev.setState(self.dev.Disconnecting)
 
         if not self.dev.conn.isConnected:
-            # cannot send init but maybe can still disconnect
+            # not fully connected, so cannot send init, but not fully disconnected yet, so finish disconnecting
             textMsg = "%s connection state=%s; cannot initialize before disconnecting" % (self.dev.name, self.dev.conn.state)
             self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
             self.initCallback()
@@ -423,16 +420,16 @@ class DisconnectDevice(object):
         @parma[in] reason: reason for failure (if non-empty then failure is assumed)
         """
         self._connTimer.cancel()
+        self.dev.__ignoreConnCallback = False
         if self._addedConnCallback:
             self.dev.conn.removeStateCallback(self.connCallback)
-        if reason or not self.dev.conn.isDone or self.dev.conn.isConnected:
+        if reason or not self.dev.conn.isDone or not self.dev.conn.isDisconnected:
             reason = reason or "unknown reasons"
             self.dev.setState(self.dev.Failed, reason)
             if not self.userCmd.isDone:
                 self.userCmd.setState(self.userCmd.Failed, textMsg="%s failed to disconnect: %s" % (self.dev, reason))
         else:
             if self.dev.state != self.dev.Disconnected:
-                # normally this won't run because the connection callback handles it
                 self.dev.setState(self.dev.Disconnected)
             if not self.userCmd.isDone:
                 self.userCmd.setState(self.userCmd.Done)

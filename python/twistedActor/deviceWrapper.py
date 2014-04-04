@@ -117,7 +117,7 @@ class DeviceWrapper(BaseWrapper):
         """
         self._isReady = False
         if self.device is not None:
-            self.disconnCmd = self.device.disconnect().userCmd
+            self.disconnCmd = self.device.disconnect()
             self.disconnCmd.addCallback(self._disconnCmdCallback)
 
     def _disconnCmdCallback(self, disconnCmd):

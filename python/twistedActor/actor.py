@@ -281,13 +281,13 @@ class Actor(BaseActor):
         runInBackground = False
         for devName in devNameList:
             dev = self.dev.nameDict[devName]
-            if dev.conn.isConnected:
+            if dev.isConnected:
                 self.showOneDevConnStatus(dev, cmd=cmd)
             else:
                 runInBackground = True
                 dev.connReq = (True, cmd)
                 try:
-                    dev.conn.connect()
+                    dev.connect()
                 except Exception, e:
                     self.writeToUsers("w", "Text=could not connect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground
@@ -305,13 +305,13 @@ class Actor(BaseActor):
         runInBackground = False
         for devName in devNameList:
             dev = self.dev.nameDict[devName]
-            if dev.conn.isDone and not dev.conn.isConnected:
+            if dev.isConnected:
                 self.showOneDevConnStatus(dev, cmd=cmd)
             else:
                 runInBackground = True
                 dev.connReq = (False, cmd)
                 try:
-                    dev.conn.disconnect()
+                    dev.disconnect()
                 except Exception, e:
                     self.writeToUsers("w", "Text=could disconnect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground

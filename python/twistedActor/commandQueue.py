@@ -149,6 +149,7 @@ class CommandQueue(object):
         self.priorityDict = priorityDict
         self.ruleDict = {}
         self.queueTimer = Timer()
+        self._enabled = True
 
     def __getitem__(self, ind):
         return self.cmdQueue[ind]
@@ -256,17 +257,39 @@ class CommandQueue(object):
         insort_left(self.cmdQueue, toQueue) # inserts in sorted order
         self.scheduleRunQueue()
 
+    def killAll(self):
+        """Kill all commands without trying to execute any
+
+        Use when there is no hope of sending commands, e.g. at shutdown
+        """
+        self._enabled = False
+        try:
+            cmdList = [queuedCmd.cmd for queuedCmd in self.cmdQueue]
+            for cmd in cmdList:
+                if not cmd.isDone:
+                    cmd.setState(cmd.Failed, textMsg="disconnected")
+            self.cmdQueue = []
+            if not self.currExeCmd.isDone:
+                self.currExeCmd.setState(self.currExeCmd.Failed, textMsg="disconnected")
+        finally:
+            self._enabled = True
+
     def scheduleRunQueue(self, optCmd=None):
         """Run the queue on a zero second timer
+
+        @param[in] optCmd: optional command; if provided and not Done then the queue is not run (a BaseCmd)
         """
-        # self.runQueue(optCmd)
+        if not self._enabled:
+            return
         self.queueTimer.start(0., self.runQueue, optCmd)
 
     def runQueue(self, optCmd=None):
         """ Manage Executing commands
 
-        @param[in] optCmd: a BaseCommand, to be used incase of callback
+        @param[in] optCmd: optional command; if provided and not Done then the queue is not run (a BaseCmd)
         """
+        if not self._enabled:
+            return
         if optCmd != None:
             if not optCmd.isDone:
                 return
