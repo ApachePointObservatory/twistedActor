@@ -41,9 +41,13 @@ class BaseActor(object):
 
         # entries are: userID, socket
         self.userDict = dict()
+
+        def logSockState(sock):
+            writeToLog("%s.server.state=%s" % (self, self.server.state))
         
         self.server = RO.Comm.TwistedSocket.TCPServer(
             connCallback = self.newUser,
+            stateCallback = logSockState,
             port = userPort,
         )
 

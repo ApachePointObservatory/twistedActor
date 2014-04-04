@@ -44,6 +44,8 @@ class ActorWrapper(BaseWrapper):
         self._deviceWrapperStateChanged()
         
     def _makeActor(self):
+        """Make self.actor; subclasses must override
+        """
         raise NotImplementedError()
     
     @property
@@ -79,10 +81,20 @@ class ActorWrapper(BaseWrapper):
         """
         for dw in self.deviceWrapperList:
             dw.close()
-    
+
+    def printState(self):
+        """Print state of components; useful for debugging
+        """
+        stateList = ["%s.device.state=%s" % (dw, dw.device.state if dw.device else "?") for dw in self.deviceWrapperList]
+        stateList.append(
+            "self.actor.server.state=%s" % (self.actor.server.state if self.actor else "?")
+        )
+        print "%s state: %s" % (self, ", ".join(stateList))
+
     def _deviceWrapperStateChanged(self, dumArg=None):
         """Called when the device wrapper changes state
         """
+        # print "%s._deviceWrapperStateChanged()" % (self,)
         if not self.actor:
             # opening
             if all(dw.isReady for dw in self.deviceWrapperList):
