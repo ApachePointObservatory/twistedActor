@@ -218,7 +218,8 @@ class DeviceSet(object):
             if oldDev:
                 self._removeDevCallbacks(oldDev)
                 oldDev.init()
-            userCmd.setState(userCmd.Done)
+            if not userCmd.isDone:
+                userCmd.setState(userCmd.Done)
             return userCmd
 
         def initCallback(initCmd, slot=slot, dev=dev, userCmd=userCmd):
