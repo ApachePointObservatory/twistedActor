@@ -61,7 +61,7 @@ class DeviceSet(object):
         if len(slotList) != len(devList):
             raise RuntimeError("devList=%s and slotList=%s are not the same length" % \
                 (devList, slotList))
-        
+
         self.actor = actor
         # dict of slot name: index
         self._slotIndexDict = dict((slot, i) for i, slot in enumerate(slotList))
@@ -161,10 +161,10 @@ class DeviceSet(object):
         """Return the list of names of filled slots
         """
         return [slot for slot, dev in self._slotDevDict.iteritems() if dev]
-    
+
     def slotListFromBoolList(self, boolList):
         """Return a list of slot names given a list of bools
-        
+
         @param[in] boolList: a list of bool values of length len(self);
 
         @return a list of slot names corresponding to True values in boolList
@@ -174,7 +174,7 @@ class DeviceSet(object):
         if len(boolList) != len(self):
             raise RuntimeError("Expected %s bools but got %s" % (len(self), boolList))
         slotList = self._slotDevDict.keys()
-        return [slotList[ind] for ind, boolVal in enumerate(boolList) if boolVal] 
+        return [slotList[ind] for ind, boolVal in enumerate(boolList) if boolVal]
 
     def getIndex(self, slot):
         """Get the index of the slot
@@ -300,7 +300,7 @@ class DeviceSet(object):
         Called when removing a device
         """
         pass
-    
+
     def _connectOrDisconnect(self, doConnect, slotList, userCmd, timeLim):
         """Connect or disconnect a set of devices
 
@@ -310,7 +310,7 @@ class DeviceSet(object):
             if supplied, its state is set to Done or Failed when the command is done
         @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
 
-        @return userCmd: the specified userCmd or if that was None, then a new empty one        
+        @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
         userCmd = expandUserCmd(userCmd)
 
@@ -361,7 +361,7 @@ class RunCmdDict(object):
         """
         devSet.checkSlotList(cmdDict.keys())
         self.userCmd = expandUserCmd(userCmd)
-        
+
         self.devCmdDict = dict()
         self.failSlotDict = dict() # dict of slot: devCmd
 
@@ -371,7 +371,7 @@ class RunCmdDict(object):
             def devCmdCallback(devCmd, slot=slot, dev=dev):
                 if devCmd.didFail:
                     self.failSlotDict[slot] = devCmd
-                
+
                 self.devCmdDict[slot] = devCmd
 
                 if callFunc:
@@ -389,7 +389,7 @@ class RunCmdDict(object):
                             self.devCmdDict[slot] = newDevCmd
                     except Exception:
                         self.failSlotDict[slot] = devCmd
-                        textBody = "%s command %r failed" % (slot, devCmd.cmdStr)
+                        textBody = "%s command %r failed: %s" % (slot, devCmd.cmdStr, devCmd.getMsg())
                         msgStr = "Text=%s" % (quoteStr(textBody),)
                         devSet.actor.writeToUsers("f", msgStr=msgStr)
                         traceback.print_exc(file=sys.stderr)
