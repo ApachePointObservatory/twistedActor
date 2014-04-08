@@ -32,6 +32,7 @@ class DispatcherWrapper(BaseWrapper):
     def __init__(self,
         actorWrapper,
         dictName,
+        name = "",
         readCallback = None,
         stateCallback = None,
         debug = False,
@@ -40,12 +41,18 @@ class DispatcherWrapper(BaseWrapper):
 
         @param[in] actorWrapper: actor wrapper (twistedActor.ActorWrapper); must be starting up or ready
         @param[in] dictName: name of actor keyword dictionary
+        @param[in] name: a name to use for messages
         @param[in] readCallback: function to call when the actor dispatcher has data to read
         @param[in] stateCallback: function to call when connection state of of any socket changes;
             receives one argument: this actor wrapper
         @param[in] debug: print debug messages to stdout?
         """
-        BaseWrapper.__init__(self, stateCallback=stateCallback, callNow=False, debug=debug)
+        BaseWrapper.__init__(self,
+            name = name,
+            stateCallback = stateCallback,
+            callNow = False,
+            debug = debug,
+        )
         self.actorWrapper = actorWrapper
         self._dictName = dictName
         self._readCallback = readCallback

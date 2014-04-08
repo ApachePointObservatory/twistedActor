@@ -51,8 +51,12 @@ class DeviceWrapper(BaseWrapper):
         
         Subclasses must override _makeDevice
         """
-        self.name = name
-        BaseWrapper.__init__(self, stateCallback=stateCallback, callNow=False, debug=debug)
+        BaseWrapper.__init__(self,
+            name = name,
+            stateCallback = stateCallback,
+            callNow = False,
+            debug = debug,
+        )
         if (controller is None) == (controllerWrapper is None):
             raise RuntimeError("You must specify exactly one of controller or controllerWrapper")
         self._isReady = False
