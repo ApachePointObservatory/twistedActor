@@ -250,7 +250,7 @@ class DeviceSet(object):
         @param[in] cmdStrOrList: command to send
         @param[in] slotList: collection of slot names, or None for all filled slots
         @param[in] callFunc: callback function to call when each device command succeeds or fails, or None.
-            See the description in startCmdList for details.
+            See the description in startCmdDict for details.
         @param[in] userCmd: user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
         @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
