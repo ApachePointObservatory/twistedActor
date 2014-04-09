@@ -260,6 +260,8 @@ def writeToLog(msgStr, logLevel=logging.INFO):
     """
     if LogState.startedLogging:
         LogState.logger.log(logLevel, msgStr)
+    elif logLevel >= WARNING:
+        print msgStr
 
 
 ## below code is a logging module implementation of twisted's StdioOnnaStick
