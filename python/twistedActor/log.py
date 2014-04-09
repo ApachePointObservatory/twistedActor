@@ -2,17 +2,12 @@ from __future__ import division, absolute_import
 """For creating twisted log files for use with actors and devices
 
 Logfiles are stored in the directory specified as an argument to startLogging()
-Logfiles are automatically named twistedActor.log
 Logfiles rollover at noon, and at rollover time the date of the *previous* day is appended to the logfile name.
-    A new twistedActor.log is opened and logging continues.
+    A new log is opened and logging continues.
 At the time logging is started, a check to the log directory is done. If there is an existing *active*
-    logfile (one with no date appended), logging resumes to that file if the local time is before
+    logfile (one with no date appended to the file name), logging resumes to that file if the local time is before
     the rollover time for the current log. Else the log is manually rolled over (with the correct date
     appended), and a new twistedActor.log is opened for logging.
-
-refs :
-https://twistedmatrix.com/documents/12.2.0/core/howto/logging.html
-http://hg.python.org/cpython/file/2.7/Lib/logging/handlers.py
 """
 import datetime
 import logging
@@ -20,20 +15,14 @@ import os
 import sys
 import time
 from logging.handlers import TimedRotatingFileHandler
-
-from twisted.python import log as twistedLog
 import pyparsing as pp
 
 __all__ = ["parseLogFile", "startLogging", "stopLogging", "writeToLog"]
 
-# LogObserver = None
-# StartedLogging = False
-# ShowSTDIO = False
 
 _NOON = 12*60*60 # in secs
 secPerHour = 60*60
 noonHour = float(_NOON)/float(secPerHour)
-#_NOON = (11*60 + 21)*60
 
 
 # expose valid logging levels
@@ -193,11 +182,9 @@ def returnFileHandler(logPath, fName, rolloverTime = _NOON):
 class LogStateObj(object):
     def __init__(self):
         self.logger = None # python logging logger
-        self.logObserver = None # twisted log observer
+        # self.logObserver = None # twisted log observer
         self.startedLogging = False
-        # self.showStdio = False
         self.fh = None
-        self.serverMode = True # server mode will log anything sent to stdout as an ERROR, else stdout is not logged
 
 LogState = LogStateObj()
 
@@ -229,7 +216,7 @@ def startLogging(logPath, fileName="twistedActor.log", rolloverTime=_NOON, delet
     fh.setLevel(logging.DEBUG)
 
     console = logging.StreamHandler(sys.stdout) # writes to sys.stderr
-    console.setLevel(logging.ERROR)
+    console.setLevel(logging.WARNING)
 
     logFormatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
     fh.setFormatter(logFormatter)
@@ -238,10 +225,10 @@ def startLogging(logPath, fileName="twistedActor.log", rolloverTime=_NOON, delet
 
     logger.addHandler(fh)
     logger.addHandler(console)
-    logObserver = twistedLog.PythonLoggingObserver()
-    logObserver.start()
-    captureStdErrPythonLog(logger)
-    LogState.logObserver = logObserver
+    # logObserver = twistedLog.PythonLoggingObserver()
+    # logObserver.start()
+    captureStdErr(logger)
+    # LogState.logObserver = logObserver
     LogState.logger = logger
     LogState.fh = fh
     LogState.console = console
@@ -250,9 +237,9 @@ def startLogging(logPath, fileName="twistedActor.log", rolloverTime=_NOON, delet
 def stopLogging():
     if not LogState.startedLogging:
         return # not currently logging, do nothing
-    LogState.logObserver.stop()
+    # LogState.logObserver.stop()
     LogState.startedLogging = False
-    LogState.logObserver = None
+    # LogState.logObserver = None
     LogState.logger.removeHandler(LogState.fh)
     LogState.logger.removeHandler(LogState.console)
     LogState.logger = None
@@ -260,13 +247,7 @@ def stopLogging():
     LogState.console = None
 
 
-def captureStdErrTwistedLog():
-    """For sending stderr writes to the log
-       This is the way twisted does it.
-    """
-    sys.stderr = twistedLog.StdioOnnaStick(1, getattr(sys.stderr, "encoding", None))
-
-def captureStdErrPythonLog(logger):
+def captureStdErr(logger):
     """Redirect writes to stderr to log, with level ERROR
     """
     sys.stderr = StreamToLogger(logger, log_level=logging.ERROR)
@@ -277,12 +258,13 @@ def writeToLog(msgStr, logLevel=logging.INFO):
         @param[in] msgStr: string to be logged
         @param[in] logLevel: a log level available from pythons logging framework
 
-    If StartedLogging is not set, log messages are printed to screen, except if SuppressSTDIO==True in which case nothing is seen.
+    If StartedLogging is not set, nothing happens
     Call startLogging to set StartedLogging==True
 
     """
     if LogState.startedLogging:
-        twistedLog.msg(msgStr, logLevel=logLevel)
+        LogState.logger.log(logLevel, msgStr)
+
 
 ## below code is a logging module implementation of twisted's StdioOnnaStick
 ##
