@@ -47,11 +47,11 @@ class LogLineParser(object):
         ms = pp.Word(pp.nums, exact=3).setResultsName("ms").setParseAction(lambda t: int(t[0]))
         dash = pp.Literal("-").suppress()
         colon = pp.Literal(":").suppress()
-        comma = pp.Literal(",").suppress()
+        period = pp.Literal(".").suppress()
         severity = pp.oneOf("DEBUG INFO WARNING ERROR CRITICAL").suppress()
         msg = pp.restOfLine.setResultsName("msg").setParseAction(lambda t: t[0].strip())
         # alltogether
-        self.grammar = year + dash + month + dash + day + hour + colon + minute + colon + second + comma + ms + severity + colon + msg
+        self.grammar = year + dash + month + dash + day + hour + colon + minute + colon + second + period + ms + severity + colon + msg
 
     def __call__(self, line):
         ppOut = self.grammar.parseString(line, parseAll=True)
@@ -218,15 +218,13 @@ def startLogging(logPath, fileName="twistedActor.log", rolloverTime=_NOON, delet
     console = logging.StreamHandler(sys.stdout) # writes to sys.stderr
     console.setLevel(logging.WARNING)
 
-    logFormatter = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
+    logFormatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d %(levelname)s:  %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     fh.setFormatter(logFormatter)
     consoleFormatter = logging.Formatter("%(levelname)s: %(message)s")
     console.setFormatter(consoleFormatter) # can use a different formatter to not receive time stamp
 
     logger.addHandler(fh)
     logger.addHandler(console)
-    # logObserver = twistedLog.PythonLoggingObserver()
-    # logObserver.start()
     captureStdErr(logger)
     # LogState.logObserver = logObserver
     LogState.logger = logger
@@ -237,9 +235,7 @@ def startLogging(logPath, fileName="twistedActor.log", rolloverTime=_NOON, delet
 def stopLogging():
     if not LogState.startedLogging:
         return # not currently logging, do nothing
-    # LogState.logObserver.stop()
     LogState.startedLogging = False
-    # LogState.logObserver = None
     LogState.logger.removeHandler(LogState.fh)
     LogState.logger.removeHandler(LogState.console)
     LogState.logger = None
