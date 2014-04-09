@@ -241,17 +241,15 @@ def startLogging(logPath, fileName="twistedActor.log", rolloverTime=_NOON, delet
     logObserver = twistedLog.PythonLoggingObserver()
     logObserver.start()
     captureStdErr()
-    # if serverMode:
-    #     captureStdOut(logger)
-    # update LogState
     LogState.logObserver = logObserver
     LogState.logger = logger
     LogState.fh = fh
     LogState.console = console
     LogState.startedLogging = True
-    # LogState.serverMode = serverMode
 
 def stopLogging():
+    if not LogState.startedLogging:
+        return # not currently logging, do nothing
     LogState.logObserver.stop()
     LogState.startedLogging = False
     LogState.logObserver = None
@@ -260,11 +258,7 @@ def stopLogging():
     LogState.logger = None
     LogState.fh = None
     LogState.console = None
-    # LogState.serverMode = True
 
-# def setSTDIO(stdio=True):
-#     # begin sending log messages to stdout
-#     LogState.showStdio = stdio
 
 def captureStdErr():
     """For sending stderr writes to the log
@@ -272,14 +266,6 @@ def captureStdErr():
     """
     sys.stderr = twistedLog.StdioOnnaStick(1, getattr(sys.stderr, "encoding", None))
 
-# def captureStdOut(logger=None):
-#     """For sending stdout writed to the log, the way twisted does it.
-#     @param[in] logger: the logger instance
-#     """
-#     # twisted way, logs as info
-#     # sys.stdout = twistedLog.StdioOnnaStick(0, getattr(sys.stdout, "encoding", None))
-#     sl = StreamToLogger(logger, logging.INFO)
-#     sys.stdout = sl
 
 def writeToLog(msgStr, logLevel=logging.INFO):
     """ Write to current log.
@@ -291,7 +277,8 @@ def writeToLog(msgStr, logLevel=logging.INFO):
     Call startLogging to set StartedLogging==True
 
     """
-    twistedLog.msg(msgStr, logLevel=logLevel)
+    if LogState.startedLogging:
+        twistedLog.msg(msgStr, logLevel=logLevel)
     # if not LogState.startedLogging:
     #     if LogState.showStdio:
     #         print "Log Msg: '%s', use startLogging() to begin logging to file" % msgStr

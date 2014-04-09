@@ -74,17 +74,13 @@ class LogTest(TestCase):
         os.makedirs(self.testLogPath)
         os.chmod(self.testLogPath, 0777)
 
-        #self.deleteLogs()
         # manually set a rollover time that shouldn't interfere with these
         # test
         manRollover = secsNow() - 60*60 # set the rollover time to an hour ago.
         if manRollover < 0: # however unlikely...that were testing around midnight
             manRollover += 24*60*60 # add a day.
         twistedActor.log._NOON = manRollover
-        #twistedActor.log.setSTDIO()
-        # twistedActor.log._NOON = 5
-        # print twistedActor.log._NOON
-        startLogging(self.testLogPath)#, serverMode=False)
+        startLogging(self.testLogPath)
 
     def deleteLogs(self):
         oldLogs = self.getAllLogs()
@@ -130,7 +126,7 @@ class LogTest(TestCase):
         writeToLog(logMsgs[0])
         stopLogging()
         writeToLog(logMsgs[1])
-        startLogging(self.testLogPath)#, serverMode=False)
+        startLogging(self.testLogPath)
         writeToLog(logMsgs[2])
         loggedInfo = self.getLogInfo()
         self.assertTrue(len(loggedInfo)==2)
@@ -142,8 +138,6 @@ class LogTest(TestCase):
         # manually set the log to rollover in 1 seconds
         # use time module (thats what the logging module uses)
 
-        # twistedActor.log.__NOON = tSecs + 1
-        # print "diff", twistedActor.log._NOON - tSecs
         startLogging(self.testLogPath, rolloverTime = self.getSecsNow() + 1) # now let r rip
         d = Deferred()
         preRoll = "Before Rollover"
@@ -204,24 +198,6 @@ class LogTest(TestCase):
         self.assertTrue(os.path.join(self.testLogPath, "twistedActor.log") in presentLogs)
         self.assertTrue(os.path.join(self.testLogPath,"twistedActor.log"+suffix) in presentLogs)
 
-    # def testServerMode(self):
-    #     """Put logger in serverMode, print statements should show up
-    #     """
-    #     stopLogging()
-    #     startLogging(self.testLogPath, serverMode=True)
-    #     logMsg = "I was just logged"
-    #     print logMsg # should be redirected to log
-    #     loggedInfo = self.getLogInfo()
-    #     self.assertTrue(len(loggedInfo)==1) # only one line in log
-    #     self.assertTrue(loggedInfo[0][1]==logMsg)
-
-    # def testNotServerMode(self):
-    #     """print statements should not show up
-    #     """
-    #     logMsg = "I was just logged"
-    #     print logMsg # should be redirected to log
-    #     loggedInfo = self.getLogInfo()
-    #     self.assertTrue(len(loggedInfo)==0) # nothing in log
 
     def testStdErr(self):
         """Verify that anything sent to std error is sent to log
