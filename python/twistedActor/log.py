@@ -240,7 +240,7 @@ def startLogging(logPath, fileName="twistedActor.log", rolloverTime=_NOON, delet
     logger.addHandler(console)
     logObserver = twistedLog.PythonLoggingObserver()
     logObserver.start()
-    captureStdErr()
+    captureStdErrPythonLog(logger)
     LogState.logObserver = logObserver
     LogState.logger = logger
     LogState.fh = fh
@@ -260,12 +260,16 @@ def stopLogging():
     LogState.console = None
 
 
-def captureStdErr():
+def captureStdErrTwistedLog():
     """For sending stderr writes to the log
        This is the way twisted does it.
     """
     sys.stderr = twistedLog.StdioOnnaStick(1, getattr(sys.stderr, "encoding", None))
 
+def captureStdErrPythonLog(logger):
+    """Redirect writes to stderr to log, with level ERROR
+    """
+    sys.stderr = StreamToLogger(logger, log_level=logging.ERROR)
 
 def writeToLog(msgStr, logLevel=logging.INFO):
     """ Write to current log.
@@ -279,13 +283,6 @@ def writeToLog(msgStr, logLevel=logging.INFO):
     """
     if LogState.startedLogging:
         twistedLog.msg(msgStr, logLevel=logLevel)
-    # if not LogState.startedLogging:
-    #     if LogState.showStdio:
-    #         print "Log Msg: '%s', use startLogging() to begin logging to file" % msgStr
-    # else:
-    #     twistedLog.msg(msgStr, logLevel=logLevel)#, system = systemName)
-    #     if LogState.showStdio and not LogState.serverMode:
-    #         print "Msg Logged: '%s'" % msgStr
 
 ## below code is a logging module implementation of twisted's StdioOnnaStick
 ##
@@ -305,17 +302,3 @@ class StreamToLogger(object):
       for line in buf.rstrip().splitlines():
          self.logger.log(self.log_level, line.rstrip())
 
-# logging.basicConfig(
-#    level=logging.DEBUG,
-#    format='%(asctime)s:%(levelname)s:%(name)s:%(message)s',
-#    filename="out.log",
-#    filemode='a'
-# )
-
-# stdout_logger = logging.getLogger('STDOUT')
-# sl = StreamToLogger(stdout_logger, logging.INFO)
-# sys.stdout = sl
-
-# stderr_logger = logging.getLogger('STDERR')
-# sl = StreamToLogger(stderr_logger, logging.ERROR)
-# sys.stderr = sl
