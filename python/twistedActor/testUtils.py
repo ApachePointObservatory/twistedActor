@@ -17,7 +17,7 @@ def startLogging(filePath):
     logDir = os.path.join(testDir,  ".tests")
     os.environ["TWISTED_LOG_DIR"] = logDir
     logFileName = "%s.log" % (os.path.splitext(testFile)[0],)
-    log.startLogging(logDir, logFileName, serverMode=False, deleteOldLog=True)
+    log.startLogging(logDir, logFileName, deleteOldLog=True)
 
 def init(filePath=None):
     """Prepare for a unit test to run that starts an actor
