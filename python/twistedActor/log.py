@@ -182,9 +182,9 @@ def returnFileHandler(logPath, fName, rolloverTime = _NOON):
 class LogStateObj(object):
     def __init__(self):
         self.logger = None # python logging logger
-        # self.logObserver = None # twisted log observer
         self.startedLogging = False
         self.fh = None
+        self.console = None
 
 LogState = LogStateObj()
 
