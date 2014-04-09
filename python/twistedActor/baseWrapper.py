@@ -30,18 +30,21 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
     and must call _stateChanged as appropriate; see, e.g. DeviceWrapper
     """
     def __init__(self,
+        name="",
         stateCallback=None,
         callNow=False,
         debug=False,
     ):
         """Construct a DispatcherWrapper that manages everything
 
+        @param[in] name: a name to use for messages
         @param[in] stateCallback: function to call when connection state of of any socket changes;
             receives one argument: this actor wrapper
         @param[in] callNow: call stateCallback now? (Defaults to false because typically
             subclasses have some additional setup to do before calling callback functions).
         @param[in] debug: print debug messages to stdout?
         """
+        self.name = name
         RO.AddCallback.BaseMixin.__init__(self, defCallNow=True)
         self.debug = bool(debug)
         self.readyDeferred = Deferred()
@@ -131,8 +134,8 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         return self._closeDeferred        
     
     def __str__(self):
-        return "%s" % (type(self).__name__,)
+        return "%s(%s)" % (type(self).__name__, self.name)
     
     def __repr__(self):
-        return "%s; isReady=%s, isDone=%s, didFail=%s, isFailing=%s" % \
-            (type(self).__name__, self.isReady, self.isDone, self.didFail, self.isFailing)
+        return "%s(%s); isReady=%s, isDone=%s, didFail=%s, isFailing=%s" % \
+            (type(self).__name__, self.name, self.isReady, self.isDone, self.didFail, self.isFailing)

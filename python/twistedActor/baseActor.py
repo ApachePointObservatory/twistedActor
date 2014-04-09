@@ -11,7 +11,6 @@ from .log import writeToLog
 
 __all__ = ["BaseActor"]
 
-
 class BaseActor(object):
     """Base class for a hub actor or instrument control computer with no assumption about command format
     other than commands may start with 0, 1 or 2 integers
@@ -42,12 +41,9 @@ class BaseActor(object):
         # entries are: userID, socket
         self.userDict = dict()
 
-        def logSockState(sock):
-            writeToLog("%s.server.state=%s" % (self, self.server.state))
-        
         self.server = RO.Comm.TwistedSocket.TCPServer(
             connCallback = self.newUser,
-            stateCallback = logSockState,
+            stateCallback = self.serverStateCallback,
             port = userPort,
         )
 
@@ -163,6 +159,13 @@ class BaseActor(object):
         """Dispatch a user command
         """
         raise NotImplementedError()
+
+    def serverStateCallback(self, sock):
+        """Server socket state callback
+        """
+        if self.server.isReady:
+            print "%s listening on port %s" % (self, self.server.port)
+        writeToLog("%s.server.state=%s" % (self, self.server.state))
 
     def showUserInfo(self, cmd):
         """Show user information including your userID.

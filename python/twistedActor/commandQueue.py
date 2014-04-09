@@ -113,7 +113,7 @@ class QueuedCommand(object):
         return (self == other) or (self > other)
 
     def __str__(self):
-        return "%s(cmdVerb=%r)" % (type(self).__name__, self.cmdVerb)
+        return "%s(cmd=%s)" % (type(self).__name__, self.cmd)
 
     def __repr__(self):
         return "%s(cmd=%r)" % (type(self).__name__, self.cmd)
@@ -269,7 +269,7 @@ class CommandQueue(object):
                 if not cmd.isDone:
                     cmd.setState(cmd.Failed, textMsg="disconnected")
             self.cmdQueue = []
-            if not self.currExeCmd.isDone:
+            if not self.currExeCmd.cmd.isDone:
                 self.currExeCmd.setState(self.currExeCmd.Failed, textMsg="disconnected")
         finally:
             self._enabled = True

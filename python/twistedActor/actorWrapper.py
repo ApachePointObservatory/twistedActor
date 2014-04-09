@@ -22,12 +22,14 @@ class ActorWrapper(BaseWrapper):
     """
     def __init__(self,
         deviceWrapperList,
+        name = "",
         userPort = 0,
         stateCallback = None,
         debug = False,
     ):
         """Construct a ActorWrapper that manages its devices and controllers
 
+        @param[in] name: a name to use for messages
         @param[in] deviceWrapperList: a list of device wrappers (twistedActor.DeviceWrapper);
             each must be starting up or ready
         @param[in] userPort: port for mirror controller connections; 0 to auto-select
@@ -35,7 +37,12 @@ class ActorWrapper(BaseWrapper):
             receives one argument: this actor wrapper
         @param[in] debug: print debug messages to stdout?
         """
-        BaseWrapper.__init__(self, stateCallback=stateCallback, callNow=False, debug=debug)
+        BaseWrapper.__init__(self,
+            name = name,
+            stateCallback = stateCallback,
+            callNow = False,
+            debug = debug,
+        )
         self.deviceWrapperList = deviceWrapperList
         self._userPort = userPort
         self.actor = None # the actor, once it is built; None until then
