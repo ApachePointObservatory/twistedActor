@@ -67,6 +67,7 @@ class DeviceSet(object):
 
         self.actor = actor
         self._connStateKeyword = connStateKeyword
+        self._lastDevStateList = None # last reported device connection state
 
         # dict of slot name: index
         self._slotIndexDict = dict((slot, i) for i, slot in enumerate(slotList))
@@ -182,14 +183,21 @@ class DeviceSet(object):
         """Show connection state in slot order
 
         @param[in] userCmd: user command to use for reporting, or None; its state is not set
+            if userCmd is None state is reported only if has changed since last time it was reported,
+            or if not all existing devices are connected
         """
         devStateList = [dev.state if dev else "NotAvailable" for dev in self._slotDevDict.itervalues()]
         if not all(dev.isConnected for dev in self._slotDevDict.itervalues() if dev):
             msgCode = "w"
+            doReport = True
         else:
             msgCode = "i"
-        msgStr = "%s=%s" % (self._connStateKeyword, ", ".join(devStateList))
-        self.actor.writeToUsers(msgCode=msgCode, msgStr=msgStr, cmd=userCmd)
+            doReport = userCmd is not None or devStateList != self._lastDevStateList
+        self._lastDevStateList = devStateList
+
+        if doReport:
+            msgStr = "%s=%s" % (self._connStateKeyword, ", ".join(devStateList))
+            self.actor.writeToUsers(msgCode=msgCode, msgStr=msgStr, cmd=userCmd)
 
     def slotListFromBoolList(self, boolList):
         """Return a list of slot names given a list of bools
