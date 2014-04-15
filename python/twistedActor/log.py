@@ -74,54 +74,85 @@ class NoonRotatingFileHandler(TimedRotatingFileHandler):
     """
     def __init__(self, filename, rolloverTime = _NOON):
         self.rolloverTime = rolloverTime
-        self._filename = filename
-        TimedRotatingFileHandler.__init__(self, filename, when='midnight', interval=1, backupCount=0, encoding=None, delay=False, utc=False)
+        self._filename, self._extension = os.path.splitext(filename)
+        dateSuffix = self.getCurrDateSuffix()
+        filenameAndSuffix = self._filename + '.' + dateSuffix + self._extension
+        TimedRotatingFileHandler.__init__(self, filenameAndSuffix, when='midnight', interval=1, backupCount=0, encoding=None, delay=False, utc=False)
 
+    # def shouldRollover(self, record):
+    #     sr = TimedRotatingFileHandler.shouldRollover(self, record)
+    #     print 'should rollover?', sr, 'record: ', record
+    #     return sr
+
+    def getCurrDateSuffix(self):
+        """Based on what time it is right now, return the correct
+        suffix (a date) string, to be used in the log filename
+        """
+        currDatetime = datetime.datetime.now()
+        # if it is before noon, use yesterdays date suffix (rollover = noon)
+        r = self.rolloverTime - self.getCurrSeconds(int(time.time()))
+        if r >= 0:
+            # we have not yet rolled over today, use yesterdays date
+            currDatetime = currDatetime - datetime.timedelta(1)
+        suffix = "%02d-%02d-%02d" % (currDatetime.year, currDatetime.month, currDatetime.day)
+        return suffix
+
+    def getCurrSeconds(self, currentTime):
+        """Based on current time, return the current time in seconds
+        """
+        # if self.utc:
+        #     t = time.gmtime(currentTime)
+        # else:
+        t = time.localtime(currentTime)
+        currentHour = t[3]
+        currentMinute = t[4]
+        currentSecond = t[5]
+        # r is the number of seconds left between now and noon
+        return ((currentHour * 60 + currentMinute) * 60 +
+                currentSecond)
+
+    def setCurrentFile(self):
+        """set self.baseFilename to have the correct date appendend
+        """
+        # close the current file
+        self.close()
+        suffix = self.getCurrDateSuffix()
+        filename = self._filename
+        # set basefilename with new suffix, next log entry will open this
+        # print 'old baseFilename', self.baseFilename
+        self.baseFilename = filename + "." + suffix + self._extension
+        # print 'new baseFilename', self.baseFilename
+        self.stream = self._open()
 
     def computeRollover(self, currentTime):
-            """
-            Work out the rollover time based on the specified time.
+        """
+        Work out the rollover time based on the specified time.
 
-            Note: this virtually identical to the parent class method (replacing self.rolloverTime vs _MIDNIGHT)
-                irrelevant code from parent class method (for other types of rollover) were removed.
-            """
-            if self.utc:
-                t = time.gmtime(currentTime)
-            else:
-                t = time.localtime(currentTime)
-            currentHour = t[3]
-            currentMinute = t[4]
-            currentSecond = t[5]
-            # r is the number of seconds left between now and noon
-            r = self.rolloverTime - ((currentHour * 60 + currentMinute) * 60 +
-                    currentSecond)
-            if r < 0:
-                r += 24*60*60
-            result = currentTime + r
-            return result
+        Note: this virtually identical to the parent class method (replacing self.rolloverTime vs _MIDNIGHT)
+            irrelevant code from parent class method (for other types of rollover) was removed.
+        """
+        # r is the number of seconds left between now and noon
+        r = self.rolloverTime - self.getCurrSeconds(currentTime)
+        while r < 0:
+            r += 24*60*60
+        result = currentTime + r
+        return result
 
-def manualRollover(filename, datetime=None, suffix=None):
-    """ Rename filename to filename+date
+    def doRollover(self):
+        """
+        do a rollover, effectively just stop the current stream, rename self.baseFilename
+        to include the current date.
 
-        @param[in] filename: file to be renamed (full path)
-        @param[in] datetime: a datetime object from which to extract
-            the correct date to be appended
-        @param[in] suffix: a string to be appended to the file name
-
-    note: either datetime or suffix must be supplied, but not both
-    """
-    if datetime and suffix:
-        raise RuntimeError("Cannont specify both datetime and suffix")
-    if datetime:
-        suffix = ".%02d-%02d-%02d" % (datetime.year, datetime.month, datetime.day)
-    newfilename = filename + suffix
-    n = 1
-    while os.path.exists(newfilename): # incase there is already a log file of this name (paranoid?)
-        newfilename += ".%i" % n
-        n += 1
-        if n > 500: # something very wrong
-            raise RuntimeError('bug here, infinite loop while searching for available log files names?')
-    os.rename(filename, newfilename)
+        This is overridden from the base class.
+        """
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+        # get the time that this sequence started at and make it a TimeTuple
+        currentTime = int(time.time())
+        self.setCurrentFile()
+        newRolloverAt = self.computeRollover(currentTime)
+        self.rolloverAt = newRolloverAt
 
 def parseLogFile(logfile):
     # return a list of tuples containing: [(datetime, logMsg)]
@@ -137,45 +168,13 @@ def returnFileHandler(logPath, fName, rolloverTime = _NOON):
 
     @param[in] logPath: the path to the logging directory
 
-    This function will look in the logPath directory.  If no current log file is present, it will make one.
-    If the current log file is old (eg from yesterday), it will rotate it.
-    If the current file is todays log file, it will continue to write to that one.
+    @return a FileHander object that is configured to rollover at noon
+
+    This function will look in the logPath directory.
+    If no current log file is present, it will make one.
+
     """
-   # fName = 'twistedActor.log'
     filename=os.path.join(logPath, fName)
-    if os.path.exists(filename):
-        # look at the first line of the current file,
-        # decide if we will log to it
-        with open(filename, "r") as f:
-            firstLine = f.readline()
-        try:
-            # if firstLine is emtpy don't try and parse it
-            # just continue logging to this file
-            if not firstLine:
-                # file was empty, just log to it
-                return NoonRotatingFileHandler(filename, rolloverTime = rolloverTime)
-            begLogTime, foo = parseLogLine(firstLine)
-        except Exception:
-            # logfile in an unexpected format, force a rollover
-            manualRollover(filename, suffix="UNRECOGNIZED_BY_LOGGER")
-        else:
-            # should logging continue to the present log?
-            deltaTime = datetime.datetime.now() - begLogTime
-            secondsTillRollover = _NOON - ((begLogTime.hour*60 + begLogTime.minute)*60 + begLogTime.second)
-            if secondsTillRollover < 0:
-                # add 24 hours
-                secondsTillRollover += 24*60*60
-            if deltaTime.total_seconds() < secondsTillRollover:
-                # continue using current log, no rollover
-                pass
-            elif begLogTime.hour < noonHour:
-                # current log should be rolled over with the previous day's
-                # date appended (because first entry was before noon)
-                manualRollover(filename, begLogTime - datetime.timedelta(days=1))
-            else:
-                # current log should be rolled over, date suffix should match the
-                # first entry of the logfile
-                manualRollover(filename, begLogTime)
     fh = NoonRotatingFileHandler(filename, rolloverTime = rolloverTime)
     return fh
 
@@ -226,7 +225,7 @@ def startLogging(logPath, fileName="twistedActor.log", rolloverTime=_NOON, delet
     logger.addHandler(fh)
     logger.addHandler(console)
     captureStdErr(logger)
-    # LogState.logObserver = logObserver
+
     LogState.logger = logger
     LogState.fh = fh
     LogState.console = console

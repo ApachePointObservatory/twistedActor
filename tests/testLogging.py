@@ -82,11 +82,6 @@ class LogTest(TestCase):
         twistedActor.log._NOON = manRollover
         startLogging(self.testLogPath)
 
-    def deleteLogs(self):
-        oldLogs = self.getAllLogs()
-        for oldLog in oldLogs:
-            os.remove(oldLog)
-
     def emptyDir(self, dir):
         itemsToDelete = glob.glob(os.path.join(self.testLogPath, "*"))
         for deleteMe in itemsToDelete:
@@ -99,8 +94,13 @@ class LogTest(TestCase):
     def getAllLogs(self):
         return glob.glob(os.path.join(self.testLogPath, "twistedActor.*"))
 
-    def getLog(self, filename):
-        return os.path.join(self.testLogPath, filename)
+    def getCurrentLog(self):
+        logs = sorted(self.getAllLogs())
+        return logs[-1]
+
+    def getPreviousLog(self):
+        logs = sorted(self.getAllLogs())
+        return logs[-2]
 
     def tearDown(self):
         self.emptyDir(self.testLogPath)
@@ -108,13 +108,17 @@ class LogTest(TestCase):
         os.system(rmCmd)
         stopLogging()
 
-    def getLogInfo(self, filename = "twistedActor.log"):
-        return parseLogFile(self.getLog(filename))
+    def getLogInfo(self, filename):
+        return parseLogFile(filename)
+
+    def testDum(Self):
+        logMsg = "I was just logged"
+        writeToLog(logMsg)
 
     def testSimplestCase(self):
         logMsg = "I was just logged"
         writeToLog(logMsg)
-        loggedInfo = self.getLogInfo()
+        loggedInfo = self.getLogInfo(self.getCurrentLog())
         self.assertTrue(len(loggedInfo)==1) # only one line in log
         self.assertTrue(loggedInfo[0][1]==logMsg)
 
@@ -128,7 +132,7 @@ class LogTest(TestCase):
         writeToLog(logMsgs[1])
         startLogging(self.testLogPath)
         writeToLog(logMsgs[2])
-        loggedInfo = self.getLogInfo()
+        loggedInfo = self.getLogInfo(self.getCurrentLog())
         self.assertTrue(len(loggedInfo)==2)
         self.assertTrue(loggedInfo[0][1]==logMsgs[0])
         self.assertTrue(loggedInfo[1][1]==logMsgs[2])
@@ -148,63 +152,29 @@ class LogTest(TestCase):
             d.callback("done")
         d.addCallback(self.checkLogs)
         writeToLog(preRoll)
-        reactor.callLater(1.25, writeLater) # write again after rotation time
-        return d
-
-    def testManualRollover(self):
-        d = Deferred()
-        preRoll = "Before Rollover"
-        postRoll = "After Rollover"
-        writeToLog(preRoll)
-        self.preRoll, self.postRoll = preRoll, postRoll
-        stopLogging()
-        def waitasec():
-            startLogging(self.testLogPath, rolloverTime=self.getSecsNow() - 1)
-            # set rollover time to a second ago
-            # the previous log should rollover
-            writeToLog(postRoll)
-            d.callback("go")
-        reactor.callLater(2, waitasec)
-        d.addCallback(self.checkLogs)
+        reactor.callLater(2, writeLater) # write again after rotation time
         return d
 
     def checkLogs(self, *args):
         logFiles = self.getAllLogs()
         self.assertTrue(len(logFiles)==2)
         # check latest log
-        loggedInfo = self.getLogInfo()
+        loggedInfo = self.getLogInfo(self.getCurrentLog())
         self.assertTrue(len(loggedInfo)==1) # one line was written
         # print "Debug: ", loggedInfo[0][1]==self.postRoll, self.postRoll
         self.assertTrue(loggedInfo[0][1]==self.postRoll)
         # check the rotated log, first get it's suffix (which is yesterdays date)
-        datetimeYesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-        dateSuffix = ".%02d-%02d-%02d"%(datetimeYesterday.year, datetimeYesterday.month, datetimeYesterday.day)
-        filename = "twistedActor.log" + dateSuffix
-        loggedInfo = self.getLogInfo(filename)
+        loggedInfo = self.getLogInfo(self.getPreviousLog())
         # only one line should have been written
         self.assertTrue(len(loggedInfo)==1)
         self.assertTrue(loggedInfo[0][1]==self.preRoll)
-
-    def testUnrecognizedLog(self):
-        with open(os.path.join(self.testLogPath, "twistedActor.log"), "w") as f:
-            f.write("No date prepended, This is total garbage, and shouldnt be recognized as a log.\n")
-        stopLogging()
-        startLogging(self.testLogPath)
-        writeToLog("This isn't garbage!")
-        # with logging restarted the present log file should have this suffix appended to it
-        suffix = "UNRECOGNIZED_BY_LOGGER"
-        presentLogs = self.getAllLogs()
-        #print 'Present logs', presentLogs
-        self.assertTrue(os.path.join(self.testLogPath, "twistedActor.log") in presentLogs)
-        self.assertTrue(os.path.join(self.testLogPath,"twistedActor.log"+suffix) in presentLogs)
-
 
     def testStdErr(self):
         """Verify that anything sent to std error is sent to log
         """
         logMsg = "I was just logged"
         print >> sys.stderr, logMsg # should be redirected to log
-        loggedInfo = self.getLogInfo()
+        loggedInfo = self.getLogInfo(self.getCurrentLog())
         self.assertTrue(len(loggedInfo)==1) # only one line in log
         self.assertTrue(loggedInfo[0][1]==logMsg)
 
