@@ -45,7 +45,7 @@ class DeviceSet(object):
     while the rotator device in the set might be None or might have a slot such as "rot1" or "rot2".
     """
     DefaultTimeLim = 5 # default time limit, in seconds; subclasses may override
-    def __init__(self, actor, slotList, devList):
+    def __init__(self, actor, slotList, devList, connStateKeyword):
         """Construct a DeviceSet
 
         @param[in] actor: actor (instance of twistedActor.BaseActor);
@@ -53,6 +53,9 @@ class DeviceSet(object):
         @param[in] slotList: slot of each device slot (even if device does not exist)
         @param[in] devList: sequence of devices;
             each device is either an instances of twistedActor.Device or is None if the device is unavailable
+        @param[in] connStateKeyword: connection state keyword;
+            format is <connStateKeyword>=state0, state1...
+            where stateN is the state of the device in slot N, or None if no device
 
         @raise RuntimeError if:
         - len(devList) != len(slotList)
@@ -63,6 +66,9 @@ class DeviceSet(object):
                 (devList, slotList))
 
         self.actor = actor
+        self._connStateKeyword = connStateKeyword
+        self._lastDevStateList = None # last reported device connection state
+
         # dict of slot name: index
         self._slotIndexDict = dict((slot, i) for i, slot in enumerate(slotList))
         # ordered dict of slot name: device
@@ -125,15 +131,19 @@ class DeviceSet(object):
         # print "%s.disconnect(slotList=%s, userCmd=%r, timeLim=%r" % (self, slotList, userCmd, timeLim)
         return self._connectOrDisconnect(doConnect=False, slotList=slotList, userCmd=userCmd, timeLim=timeLim)
 
-    def expandSlotList(self, slotList):
+    def expandSlotList(self, slotList, connOnly=False):
         """Expand a collection of slot names, changing None to the correct list and checking the list
 
         @param[in] slotList: collection of slot names, or None for all filled slots
+        @param[in] connOnly: if True and slotList is None then only include connected devices
+            (typically used for status); ignored unless slotList is None
 
         @raise RuntimeError if slotList contains an unknown or empty slot name
         """
         if slotList is None:
             return self.filledSlotList
+            if connOnly:
+                slotList = [slot for slot in slotList if self._slotDevDict[slot].isConnected]
 
         self.checkSlotList(slotList)
         return slotList
@@ -162,6 +172,33 @@ class DeviceSet(object):
         """
         return [slot for slot, dev in self._slotDevDict.iteritems() if dev]
 
+    def getIndex(self, slot):
+        """Get the index of the slot
+
+        @raise KeyError if slot does not exist
+        """
+        return self._slotIndexDict[slot]
+
+    def showConnState(self, userCmd=None):
+        """Show connection state in slot order
+
+        @param[in] userCmd: user command to use for reporting, or None; its state is not set
+            if userCmd is None state is reported only if has changed since last time it was reported,
+            or if not all existing devices are connected
+        """
+        devStateList = [dev.state if dev else "NotAvailable" for dev in self._slotDevDict.itervalues()]
+        if not all(dev.isConnected for dev in self._slotDevDict.itervalues() if dev):
+            msgCode = "w"
+            doReport = True
+        else:
+            msgCode = "i"
+            doReport = userCmd is not None or devStateList != self._lastDevStateList
+        self._lastDevStateList = devStateList
+
+        if doReport:
+            msgStr = "%s=%s" % (self._connStateKeyword, ", ".join(devStateList))
+            self.actor.writeToUsers(msgCode=msgCode, msgStr=msgStr, cmd=userCmd)
+
     def slotListFromBoolList(self, boolList):
         """Return a list of slot names given a list of bools
 
@@ -175,13 +212,6 @@ class DeviceSet(object):
             raise RuntimeError("Expected %s bools but got %s" % (len(self), boolList))
         slotList = self._slotDevDict.keys()
         return [slotList[ind] for ind, boolVal in enumerate(boolList) if boolVal]
-
-    def getIndex(self, slot):
-        """Get the index of the slot
-
-        @raise KeyError if slot does not exist
-        """
-        return self._slotIndexDict[slot]
 
     def slotFromDevName(self, devName):
         """Get the slot name from the device name
@@ -293,14 +323,14 @@ class DeviceSet(object):
 
         Called when adding a device
         """
-        pass
+        dev.addCallback(self._devStateCallback)
 
     def _removeDevCallbacks(self, dev):
         """Remove device-specific callbacks
 
         Called when removing a device
         """
-        pass
+        dev.removeCallback(self._devStateCallback)
 
     def _connectOrDisconnect(self, doConnect, slotList, userCmd, timeLim):
         """Connect or disconnect a set of devices
@@ -328,6 +358,9 @@ class DeviceSet(object):
                     userCmdList.append(disconnUserCmd)
         LinkCommands(userCmd, userCmdList)
         return userCmd
+
+    def _devStateCallback(self, dev):
+        self.showConnState()
 
     def __getitem__(self, slot):
         """Return the device in the specified slot

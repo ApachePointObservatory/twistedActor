@@ -128,8 +128,11 @@ class DeviceWrapper(BaseWrapper):
             return
         if self.controllerWrapper is not None:
             self.controllerWrapper.close()
-        elif self.server is not None:
-            self.server.close()
+        else:
+            if self.controller is not None:
+                self.controller.close()
+            if self.server is not None:
+                self.server.close()
         self._stateChanged()
 
     def _setController(self, controller):

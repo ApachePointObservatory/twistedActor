@@ -697,6 +697,7 @@ class ActorDevice(TCPDevice):
             callFunc = callFunc,
             dev = self,
         )
+        writeToLog("%s writing %r" % (self, cmdVar.cmdStr))
         self.dispatcher.executeCmd(cmdVar)
         return devCmdVar
 
