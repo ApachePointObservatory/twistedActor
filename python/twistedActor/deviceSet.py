@@ -50,7 +50,7 @@ class DeviceSet(object):
 
         @param[in] actor: actor (instance of twistedActor.BaseActor);
             used for writeToUsers in this class, and subclasses may make additonal use of it
-        @param[in] slotList: slot of each device slot (even if device does not exist)
+        @param[in] slotList: name of each device slot (even if that slot has no device)
         @param[in] devList: sequence of devices;
             each device is either an instances of twistedActor.Device or is None if the device is unavailable
         @param[in] connStateKeyword: connection state keyword;
@@ -73,7 +73,7 @@ class DeviceSet(object):
         self._slotIndexDict = dict((slot, i) for i, slot in enumerate(slotList))
         # ordered dict of slot name: device
         self._slotDevDict = collections.OrderedDict((slot, dev) for slot, dev in itertools.izip(slotList, devList))
-        # dict of dev.name: slot name
+        # dict of dev.name: slot name for current devices
         self._devNameSlotDict = dict((dev.name, slot) for (slot, dev) in self._slotDevDict.iteritems() if dev)
 
         if len(self._slotDevDict) < len(slotList):
@@ -214,9 +214,9 @@ class DeviceSet(object):
         return [slotList[ind] for ind, boolVal in enumerate(boolList) if boolVal]
 
     def slotFromDevName(self, devName):
-        """Get the slot name from the device name
+        """Get the slot name from the device name, or None if this device is not current
         """
-        return self._devNameSlotDict[devName]
+        return self._devNameSlotDict.get(devName)
 
     def slotFromIndex(self, index):
         """Get the slot name from the index
@@ -262,7 +262,8 @@ class DeviceSet(object):
                 self._removeDevCallbacks(oldDev)
                 oldDev.init()
             self._slotDevDict[slot] = dev
-            self._devNameSlotDict[dev.name] = slot
+            # rebuild _devNameSlotDict to purge old device
+            self._devNameSlotDict = dict((dev.name, slot) for slot, dev in self._slotDevDict.iteritems())
             self._addDevCallbacks(dev)
             if not userCmd.isDone:
                 userCmd.setState(userCmd.Done)
