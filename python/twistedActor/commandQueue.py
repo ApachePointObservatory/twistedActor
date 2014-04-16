@@ -157,51 +157,126 @@ class CommandQueue(object):
     def __len__(self):
         return len(self.cmdQueue)
 
-    def addRule(self, action, newCmds, queuedCmds):
+    def addRule(self, action, newCmds="all", queuedCmds="all"):
         """Add special case rules for collisions.
 
         @param[in] action: one of CancelNew, CancelQueued, KillRunning
-        @param[in] newCmds: a list of incoming commands to which this rule applies
-        @param[in] queuedCmds: a list of the commands (queued or running) to which this rule applies
+        @param[in] newCmds: a list of incoming commands to which this rule applies or "all"
+        @param[in] queuedCmds: a list of the commands (queued or running) to which this rule applies or "all"
+
+        See documentation for the addCommand method to learn exactly how rules are evaluated
         """
-        for cmdName in newCmds + queuedCmds:
+        checkCmds = []
+        if newCmds != "all":
+            checkCmds = checkCmds + newCmds
+        else:
+            newCmds = ["all"]
+        if queuedCmds != "all":
+            checkCmds = checkCmds + queuedCmds
+        else:
+            queuedCmds = ["all"]
+        for cmdName in checkCmds:
             if cmdName not in self.priorityDict:
                 raise RuntimeError('Cannot add rule to unrecognized command: %s' % (cmdName,))
         if action not in self._AddActions:
             raise RuntimeError("Rule action=%r must be one of %s" % (action, sorted(self._AddActions)))
         for nc in newCmds:
             if not nc in self.ruleDict:
+                if nc == 'all':
+                    # ensure any rules defined in self.ruleDict[:]["all"]
+                    # are the same action:
+                    for existingDict in self.ruleDict.itervalues():
+                        if "all" in existingDict and action != existingDict["all"]:
+                            raise RuntimeError("May not specifiy conflicting rules pertaining to all queued commands and all new commands")
                 self.ruleDict[nc] = {}
             for qc in queuedCmds:
-                if qc in self.ruleDict[nc]:
+                if qc in self.ruleDict[nc] and self.ruleDict[nc][qc] != action:
                     raise RuntimeError(
                         'Cannot set rule=%r for new command=%s vs. queued command=%s: already set to %s' % \
                         (action, nc, qc, self.ruleDict[nc][qc])
                     )
+                if qc == "all":
+                    if "all" in self.ruleDict:
+                        for value in self.ruleDict["all"].itervalues():
+                            if value != action:
+                                raise RuntimeError("May not specifiy conflicting rules pertaining to all queued commands and all new commands")
                 self.ruleDict[nc][qc] = action
 
     def getRule(self, newCmd, queuedCmd):
-        """Get the rule for a specific new command vs. a specific queued command
+        """Get the rule for a specific new command vs. a specific queued command.
+
+        @param[in] newCmd: the incoming command
+        @param[in] queuedCmd: a command currently on the queue
+        @return a rule, one of self._AddActions
+
+        Note: there is some logic to determine which rule is grabbed:
+
+        If a specific rule exists between the newCmd and queuedCmd, that is returned. This trumps
+        the situation in which there may be a rule defined involving newCmd or queuedCmd pertaining to
+        all new commands or all queued commands.
+
+        If no specific rule exists between newCmd and queuedCmd, check if a rule is defined between both:
+            1. newCmd and all queued commands
+            2. all new commands and queuedCmd
+        If a different rule is present for both 1 and 2, raise a RuntimeError, we have over defined things.
+        Else if a rule is defined for either 1 or 2 (or the same rule is present for 1 and 2), use it.
         """
         if (newCmd in self.ruleDict) and (queuedCmd in self.ruleDict[newCmd]):
+            # a command was specifically defined for these two
+            # this trumps any rules that may apply to "all"
             return self.ruleDict[newCmd][queuedCmd]
+        if ("all" in self.ruleDict) and (queuedCmd in self.ruleDict["all"]):
+            # a command was defined for all incoming commands when
+            # encountering this specific command on the queue
+            rule = self.ruleDict["all"][queuedCmd]
+            # now for paranoia, make sure a different rule was not
+            # defined for the reverse set
+            if (newCmd in self.ruleDict) and ("all" in self.ruleDict[newCmd]):
+                if self.ruleDict[newCmd]["all"] != rule:
+                    raise RuntimeError("Conflict when trying to apply a rule 'all' commands on queue. This should have been caught in CommandQueue.addRule")
+            return rule
+        elif (newCmd in self.ruleDict) and ("all" in self.ruleDict[newCmd]):
+            # newCmd has rule defined for all queued commands
+            return self.ruleDict[newCmd]["all"]
+        elif ("all" in self.ruleDict) and ("all" in self.ruleDict["all"]):
+            # the rule always applies!!!
+            return self.ruleDict["all"]["all"]
         else:
             return None
 
     def addCmd(self, cmd, runFunc):
-        """ Add a command to the queue.
+        """ Add a command to the queue, taking rules and priority into account.
 
             @param[in] cmd: a twistedActor command object
             @param[in] runFunc: function that runs the command; called once, when the command is ready to run,
                 just after cmd's state is set to cmd.Running; receives one argument: cmd
+
+            Here's the logic:
+            If cmd has an unrecognized priority (not defined in self.priorityDict), assign it a priority of 0
+            If cmd as a priority of Immediate:
+                - Completely clear the queue, and kill the currently executing command (if it is still active)
+                - Add the command to the now empty queue
+            Else:
+                Look for rules.  You may want to read the documentation for getRule, as there is some logic in the
+                way rules are selected.  First, run through all commands currently on the queue.  If any queued
+                command has a rule CancelNew pertaining to this command, then cancel the incoming command and return
+                (it never reaches the queue). If the command wasn't canceled, run through the queue again to determine
+                if this command should cancel any commands on the queue.
+
+                Then check to see if this cmd should kill any currently executing command.
+
+                Lastly insert the command in the queue in order based on it's priority.
         """
         if cmd.cmdVerb not in self.priorityDict:
-            raise RuntimeError('Cannot queue unrecognized command: %s' % (cmd.cmdVerb,))
+            # no priority pre-defined.  Assign lowest priority
+            priority = 0
+        else:
+            priority = self.priorityDict[cmd.cmdVerb]
 
         # print "Queue. Incoming: %r, on queue: " %cmd, [q.cmd for q in self.cmdQueue]
         toQueue = QueuedCommand(
             cmd = cmd,
-            priority = self.priorityDict[cmd.cmdVerb],
+            priority = priority,
             runFunc = runFunc,
         )
 
@@ -224,10 +299,12 @@ class CommandQueue(object):
             # and extract the cmd from the queuedCmd since we don't need the wrapped command
             cmdList = [queuedCmd.cmd for queuedCmd in self.cmdQueue]
             for queuedCmd in cmdList:
+                # first check if toQueue should be cancelled by any existing
+                # command on the queue
                 if queuedCmd.isDone:
                     # ignore completed commands (not that any on the stack will have been run yet,
                     # but they can be cancelled elsewhere)
-                    break
+                    continue
 
                 action = self.getRule(toQueue.cmd.cmdVerb, queuedCmd.cmdVerb)
                 if action == self.CancelNew:
@@ -236,7 +313,14 @@ class CommandQueue(object):
                         "Cancelled before queueing by queued command %r" % (queuedCmd.cmdStr),
                     )
                     return # queue not altered; no need to do anything else
-                elif action in (self.CancelQueued, self.KillRunning):
+            for queuedCmd in cmdList:
+                # next check if toQueue should cancel any commands existing on the
+                # queue
+                if queuedCmd.isDone:
+                    # ignore completed commands
+                    continue
+                action = self.getRule(toQueue.cmd.cmdVerb, queuedCmd.cmdVerb)
+                if action in (self.CancelQueued, self.KillRunning):
                     queuedCmd.setState(
                         queuedCmd.Cancelled,
                         "Cancelled while queued by new command %r" % (toQueue.cmd.cmdStr),

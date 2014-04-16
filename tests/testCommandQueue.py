@@ -2,7 +2,7 @@
 from __future__ import division, absolute_import
 
 from twisted.trial import unittest
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, gatherResults
 
 from RO.Comm.TwistedTimer import Timer
 
@@ -55,6 +55,8 @@ class CmdQueueTest(unittest.TestCase):
             else:
                 cmdStr = cmdStrListCopy.pop(0)
                 self.cmdQueue.addCmd(self.makeCmd(cmdStr), nullCallFunc)
+                print 'adding', cmdStr
+                print 'command queue!', [x.cmdVerb for x in self.cmdQueue.cmdQueue]
                 Timer(timeStep, addInOrder)
         addInOrder()
 
@@ -67,6 +69,7 @@ class CmdQueueTest(unittest.TestCase):
        # print cmd.cmdVerb, cmd.state
        # print 'q: ', [x.cmd.cmdVerb for x in self.cmdQueue.cmdQueue]
         if cmd.isDone:
+            print 'cmd %s finished with state %s and txtMsg=%s'%(cmd.cmdVerb, cmd.state, cmd.textMsg)
             if cmd.didFail:
                 self.failOrder.append(cmd.cmdVerb)
             else:
@@ -234,7 +237,7 @@ class CmdQueueTest(unittest.TestCase):
         try:
             self.cmdQueue.addRule(
                 action = CommandQueue.CancelNew,
-                newCmds = ['badCmd'],
+                newCmds = ['randomCmd'],
                 queuedCmds = ['meda'],
             )
         except RuntimeError:
@@ -243,12 +246,143 @@ class CmdQueueTest(unittest.TestCase):
             self.assertTrue(False)
 
     def testStartUnrecognizedCmd(self):
+        self.addToQueue('randomCmd')
+        def checkResults(cb):
+            self.assertEqual(['randomCmd'], self.doneOrder)
+        self.deferred.addCallback(checkResults)
+        return self.deferred
+
+    def testUnrecognizedCmdSort(self):
+        cmdsIn = ['hia', 'randomCmd', 'meda', 'lowa', 'lowb', 'medb', 'hib']
+        cmdsOut = ['hia', 'hib', 'meda', 'medb', 'lowa', 'lowb', 'randomCmd']
+        def checkResults(cb):
+            self.assertEqual(cmdsOut, self.doneOrder)
+        self.deferred.addCallback(checkResults)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
+        return self.deferred
+
+    def testCancelAllQueuedRule(self):
+        cmdsIn = ['meda', 'hib', 'meda', 'medb']
+        cmdsOut = ['meda', 'medb']
+        self.cmdQueue.addRule(
+            action = CommandQueue.CancelQueued,
+            newCmds = ['medb'],
+            queuedCmds = 'all',
+        )
+        def checkResults(cb):
+            self.assertEqual(cmdsOut, self.doneOrder)
+        self.deferred.addCallback(checkResults)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
+        return self.deferred
+
+    def testCancelNewRuleRunning(self):
+        cmdsIn = ['meda', 'medb']
+        cmdsOut = ['meda']
+        self.cmdQueue.addRule(
+            action = CommandQueue.CancelNew,
+            newCmds = ['medb'],
+            queuedCmds = ['meda'],
+        )
+        def checkResults(cb):
+            self.assertEqual(cmdsOut, self.doneOrder)
+        self.deferred.addCallback(checkResults)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
+        return self.deferred
+
+    def testCancelAllNewRule(self):
+        cmdsIn = ['meda', 'medb', 'randomCmd', 'hib', 'meda', 'medb']
+        cmdsOut = ['meda']
+        self.cmdQueue.addRule(
+            action = CommandQueue.CancelNew,
+            newCmds = 'all',
+            queuedCmds = ['meda'],
+        )
+        def checkResults(cb):
+            self.assertEqual(cmdsOut, self.doneOrder)
+        self.deferred.addCallback(checkResults)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
+        return self.deferred
+
+    def testCancelAllQueuedRule(self):
+        cmdsIn = ['meda', 'medb', 'randomCmd', 'hib', 'meda', 'medb']
+        cmdsOut = ['meda', 'medb']
+        self.cmdQueue.addRule(
+            action = CommandQueue.CancelQueued,
+            newCmds = ['medb'],
+            queuedCmds = 'all',
+        )
+        def checkResults(cb):
+            self.assertEqual(cmdsOut, self.doneOrder)
+        self.deferred.addCallback(checkResults)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
+        return self.deferred
+
+    def testCancelAllQueuedAndCancelNewRule(self):
+        cmdsIn = ['hia', 'medb', 'randomCmd', 'hib', 'meda', 'medb']
+        cmdsOut = ['hia', 'hib', 'medb', 'meda', 'randomCmd']
+        self.cmdQueue.addRule(
+            action = CommandQueue.CancelQueued,
+            newCmds = ['medb'],
+            queuedCmds = 'all',
+        )
+        self.cmdQueue.addRule(
+            action = CommandQueue.CancelNew,
+            newCmds = ['medb'],
+            queuedCmds = ['meda'],
+        )
+        def checkResults(cb):
+            self.assertEqual(cmdsOut, self.doneOrder)
+        self.deferred.addCallback(checkResults)
+        self.addCmdsToQueue(cmdsIn)
+        # for cmd in cmdsIn:
+        #     self.addToQueue(cmd)
+        return self.deferred
+
+    def testOverDefinition(self):
+        self.cmdQueue.addRule(
+            action = CommandQueue.CancelNew,
+            newCmds = ['medb'],
+            queuedCmds = 'all',
+        )
         try:
-            self.addToQueue('badCmd')
-        except RuntimeError:
+            self.cmdQueue.addRule(
+                action = CommandQueue.KillRunning,
+                newCmds = 'all',
+                queuedCmds = ['medb'],
+            )
+        except RuntimeError as e:
+            print e
             self.assertTrue(True)
         else:
             self.assertTrue(False)
+
+    def testAllowedDoubleAllDefinition(self):
+        self.cmdQueue.addRule(
+            action = CommandQueue.CancelNew,
+            newCmds = ['medb'],
+            queuedCmds = 'all',
+        )
+        try:
+            self.cmdQueue.addRule(
+                action = CommandQueue.CancelNew,
+                newCmds = 'all',
+                queuedCmds = ['medb'],
+            )
+        except RuntimeError as e:
+            print e
+            self.assertTrue(False)
+        else:
+            self.assertTrue(True)
 
 
 if __name__ == '__main__':
