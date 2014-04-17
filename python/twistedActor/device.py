@@ -36,26 +36,26 @@ def expandUserCmd(userCmd):
         userCmd = UserCmd()
     elif userCmd.isDone:
         raise RuntimeError("userCmd=%s already finished" % (userCmd,))
-    return userCmd    
+    return userCmd
 
 class Device(BaseMixin):
     """Device interface.
-    
+
     Data includes information necessary to connect to this device
     and a list of commands handled directly by this device.
-    
+
     Tasks include:
     - Send commands to the device
     - Parse all replies and use that information to:
       - Output appropriate data to the users
       - Upate a device model, if one exists
       - Call callbacks associated with the command, if any
-        
+
     Attributes include:
     connReq: a tuple of:
     - is connection wanted?
     - the user command that triggered this request, or None if none
-    
+
     When this device is added to an Actor then it gains the actor's writeToUsers method.
     """
     DefaultTimeLim = 5 # default time limit, seconds; subclasses may override
@@ -158,26 +158,27 @@ class Device(BaseMixin):
 
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
-        
+
         This is overridden by Actor when the device is added to the actor
         """
-        print "msgCode=%r; msgStr=%r" % (msgCode, msgStr)
-    
+        writeToLog("Device does not yet have access to writeToUsers: msgCode=%r; msgStr=%r" % (msgCode, msgStr))
+        # print "msgCode=%r; msgStr=%r" % (msgCode, msgStr)
+
     def handleReply(self, replyStr):
         """Handle a line of output from the device. Called whenever the device outputs a new line of data.
 
         @param[in] replyStr  the reply, minus any terminating \n
-        
+
         This is the heart of the device interface and an important part of what makes
         each device unique. As such, it must be specified by the subclass.
-        
+
         Tasks include:
         - Parse the reply
         - Manage pending commands
         - Update the device model representing the state of the device
         - Output state data to users (if state has changed)
         - Call the command callback
-        
+
         @warning: must be defined by the subclass
         """
         raise NotImplementedError()
@@ -248,7 +249,7 @@ class Device(BaseMixin):
                 self.conn.writeLine(fullCmdStr)
             except Exception, e:
                 devCmd.setState(devCmd.Failed, textMsg="%s %s failed: %s" % (self.name, cmdStr, strFromException(e)))
-        
+
         return devCmd
 
     def startCmdList(self, cmdList, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
@@ -289,14 +290,14 @@ class ConnectDevice(object):
 
     If the device is already connected then generate a new userCmd, if needed,
     and sets userCmd's state to userCmd.Done.
-    
+
     Public attributes:
     - dev: the provided device
     - userCmd: the provided userCmd, or a new one if none provided
     """
     def __init__(self, dev, userCmd, timeLim):
         """Start connecting a device
-        
+
         @param[in] dev: device
         @param[in] userCmd: user command associated with the connection, or None
         @param[in] timeLim: time limit (sec) to make this connection
@@ -328,7 +329,7 @@ class ConnectDevice(object):
         """
         # print "%s.initCallback(userCmd=%r); _callbacks=%s" % (self, userCmd, userCmd._callbacks)
         if not userCmd.isDone:
-            return 
+            return
 
         if userCmd.didFail:
             reason = userCmd.getMsg() or "init command failed for unknown reasons"
@@ -565,7 +566,7 @@ class TCPDevice(Device):
         cmdClass = DevCmd,
     ):
         """Construct a TCPDevice
-        
+
         @param[in] name      a short name to identify the device
         @param[in] host      IP address
         @param[in] port      port
@@ -591,12 +592,12 @@ class TCPDevice(Device):
             callFunc = callFunc,
             cmdClass = cmdClass,
         )
-    
+
     def _readCallback(self, sock, replyStr):
         """Called whenever the device has returned a reply.
 
         @param[in] sock  the socket (ignored)
-        @param[in] line  the reply, missing the final \n     
+        @param[in] line  the reply, missing the final \n
         """
         # print "TCPDevice._readCallback(sock, replyStr=%r)" % (replyStr,)
         self.handleReply(replyStr)
@@ -621,7 +622,7 @@ class ActorDevice(TCPDevice):
         cmdClass = DevCmdVar,
     ):
         """Construct an ActorDevice
-        
+
         @param[in] name      a short name to identify the device
         @param[in] host      IP address
         @param[in] port      port
@@ -649,7 +650,7 @@ class ActorDevice(TCPDevice):
             name = modelName,
             connection = self.conn,
         )
-    
+
     def startCmd(self,
         cmdStr,
         callFunc = None,
@@ -661,7 +662,7 @@ class ActorDevice(TCPDevice):
         keyVars = None,
     ):
         """Queue or start a new command.
-        
+
         @param[in] cmdStr: the command; no terminating \n wanted
         @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
             if specified it receives one argument: an opscore.actor.CmdVar object
@@ -708,19 +709,19 @@ class ActorDevice(TCPDevice):
 
 class DeviceCollection(object):
     """A collection of devices that provides easy access to them
-    
+
     Access is as follows:
     - .<name> for the device named <name>, e.g. .foo for the device "foo"
     - .nameDict contains a collections.OrderedDict of devices in alphabetical order by device name
     """
     def __init__(self, devList):
         """Construct a DeviceCollection
-        
+
         @param[in] devList: a collection of devices (instances of device.Device).
             Required attributes are:
             - name: name of device
             - connection: connection used by device
-        
+
         Raise RuntimeError if any device name starts with _
         Raise RuntimeError if any two devices have the same name
         Raise RuntimeError if any device name matches a DeviceCollection attribute (e.g. nameDict or getFromConnection)
@@ -743,10 +744,10 @@ class DeviceCollection(object):
             tempNameDict[dev.name] = dev
         for name in sorted(tempNameDict.keys()):
             self.nameDict[name] = tempNameDict[name]
-    
+
     def getFromConnection(self, conn):
         """Return the device that has this connection
-        
+
         Raise KeyError if not found
         """
         return self._connDict[id(conn)]
