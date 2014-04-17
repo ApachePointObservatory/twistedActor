@@ -205,8 +205,8 @@ class CommandQueue(object):
     def getRule(self, newCmd, queuedCmd):
         """Get the rule for a specific new command vs. a specific queued command.
 
-        @param[in] newCmd: the incoming command
-        @param[in] queuedCmd: a command currently on the queue
+        @param[in] newCmd: the incoming command verb
+        @param[in] queuedCmd: a command verb currently on the queue
         @return a rule, one of self._AddActions
 
         Note: there is some logic to determine which rule is grabbed:
@@ -214,6 +214,9 @@ class CommandQueue(object):
         If a specific rule exists between the newCmd and queuedCmd, that is returned. This trumps
         the situation in which there may be a rule defined involving newCmd or queuedCmd pertaining to
         all new commands or all queued commands.
+
+        If newCmd and queuedCmd are the same command and are not present in the ruleDict nor priorityDict
+        return the default rule of CancelQueued (effectively the new cmd will replace the one on queue)
 
         If no specific rule exists between newCmd and queuedCmd, check if a rule is defined between both:
             1. newCmd and all queued commands
@@ -225,6 +228,8 @@ class CommandQueue(object):
             # a command was specifically defined for these two
             # this trumps any rules that may apply to "all"
             return self.ruleDict[newCmd][queuedCmd]
+        if (newCmd == queuedCmd) and (newCmd not in self.priorityDict) and (newCmd not in self.ruleDict):
+            return self.CancelQueued
         if ("all" in self.ruleDict) and (queuedCmd in self.ruleDict["all"]):
             # a command was defined for all incoming commands when
             # encountering this specific command on the queue
