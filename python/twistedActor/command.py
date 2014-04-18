@@ -143,7 +143,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         @param[in] callNow: if True, call callFunc immediately
         """
         if self.isDone:
-            RO.AddCallback.safeCall(callFunc, self)
+            RO.AddCallback.safeCall2("%s.addCallback callFunc =" % (self,), callFunc, self)
         else:
             RO.AddCallback.BaseMixin.addCallback(self, callFunc, callNow=callNow)
 

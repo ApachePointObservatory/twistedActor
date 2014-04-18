@@ -14,7 +14,7 @@ from collections import OrderedDict
 
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
-from RO.AddCallback import safeCall, BaseMixin
+from RO.AddCallback import safeCall2, BaseMixin
 from RO.Comm.TwistedTimer import Timer
 from RO.Comm.TCPConnection import TCPConnection
 from RO.StringUtil import quoteStr, strFromException
@@ -540,7 +540,7 @@ class RunCmdList(object):
             raise RuntimeError("finish should only be called when devCmd is done")
 
         if self.callFunc:
-            safeCall(self.callFunc, devCmd)
+            safeCall2("RunCmdList(dev=%s).finish" % (self.dev,), self.callFunc, devCmd)
 
         if self.userCmd:
             if devCmd.didFail:
