@@ -55,8 +55,8 @@ class CmdQueueTest(unittest.TestCase):
             else:
                 cmdStr = cmdStrListCopy.pop(0)
                 self.cmdQueue.addCmd(self.makeCmd(cmdStr), nullCallFunc)
-                print 'adding', cmdStr
-                print 'command queue!', [x.cmdVerb for x in self.cmdQueue.cmdQueue]
+                # print 'adding', cmdStr
+                # print 'command queue!', [x.cmdVerb for x in self.cmdQueue.cmdQueue]
                 Timer(timeStep, addInOrder)
         addInOrder()
 
@@ -69,7 +69,7 @@ class CmdQueueTest(unittest.TestCase):
        # print cmd.cmdVerb, cmd.state
        # print 'q: ', [x.cmd.cmdVerb for x in self.cmdQueue.cmdQueue]
         if cmd.isDone:
-            print 'cmd %s finished with state %s and txtMsg=%s'%(cmd.cmdVerb, cmd.state, cmd.textMsg)
+            # print 'cmd %s finished with state %s and txtMsg=%s'%(cmd.cmdVerb, cmd.state, cmd.textMsg)
             if cmd.didFail:
                 self.failOrder.append(cmd.cmdVerb)
             else:
@@ -384,6 +384,14 @@ class CmdQueueTest(unittest.TestCase):
         else:
             self.assertTrue(True)
 
+    def testCancelAllNewRule(self):
+        cmdsIn = ['meda', 'randx', 'randx']
+        cmdsOut = ['meda', 'randx']
+        def checkResults(cb):
+            self.assertEqual(cmdsOut, self.doneOrder)
+        self.deferred.addCallback(checkResults)
+        self.addCmdsToQueue(cmdsIn)
+        return self.deferred
 
 if __name__ == '__main__':
     from unittest import main
