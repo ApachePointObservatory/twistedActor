@@ -9,7 +9,6 @@ stderr
 runtimeError
 """
 import collections
-import datetime
 import glob
 import os
 import sys
@@ -103,10 +102,11 @@ class LogTest(TestCase):
         return logs[-2]
 
     def tearDown(self):
+        stopLogging()
         self.emptyDir(self.testLogPath)
         rmCmd = "rm -r %s"%self.testLogPath
         os.system(rmCmd)
-        stopLogging()
+
 
     def getLogInfo(self, filename):
         return parseLogFile(filename)
