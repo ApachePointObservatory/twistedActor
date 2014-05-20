@@ -135,8 +135,8 @@ class CommandQueue(object):
             command collisions based on rules chosen by you.
 
             @ param[in] killFunc: a function to call when a running command needs to be
-                killed.  Accepts 1 parameter, the command to be canceled.  This function
-                must eventually ensure that the running command is canceled safely
+                killed.  Accepts 2 parameters, the command to be canceled, and the command doing the killing.
+                This function must eventually ensure that the running command is canceled safely
                 allowing for the next queued command to go.
             @ a dictionary keyed by cmdVerb, with integer values or Immediate
         """
@@ -284,7 +284,6 @@ class CommandQueue(object):
             priority = priority,
             runFunc = runFunc,
         )
-
         if toQueue.priority == CommandQueue.Immediate:
             # cancel each command in the cmdQueue;
             # iterate over a copy because the queue is updated for each cancelled command,
@@ -297,7 +296,7 @@ class CommandQueue(object):
                         textMsg = "Cancelled on queue by immediate priority command %r" % (cmd.cmdStr,),
                     )
             if not self.currExeCmd.cmd.isDone:
-                self.killFunc(self.currExeCmd.cmd)
+                self.currExeCmd.cmd.setState(self.currExeCmd.cmd.Cancelled, "Immediate priority command: %r on queue"%toQueue.cmd)
         else:
             # check new command against queued commands
             # iterate over a copy because the queue is updated for each cancelled command,
@@ -341,7 +340,7 @@ class CommandQueue(object):
                     )
                     return # queue not altered; no need to do anything else
                 if action == self.KillRunning:
-                    self.killFunc(self.currExeCmd.cmd)
+                    self.killFunc(self.currExeCmd.cmd, toQueue.cmd)
 
         insort_left(self.cmdQueue, toQueue) # inserts in sorted order
         self.scheduleRunQueue()
