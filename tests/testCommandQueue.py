@@ -80,7 +80,7 @@ class CmdQueueTest(unittest.TestCase):
             # the queue is empty and last command is done, end the test
             self.deferred.callback('go')
 
-    def killFunc(self, killMe):
+    def killFunc(self, killMe, killedBy):
         killMe.setState(killMe.Cancelled)
 
     def setDone(self, cmd):
