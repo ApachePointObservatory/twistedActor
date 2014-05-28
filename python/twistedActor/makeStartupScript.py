@@ -2,20 +2,19 @@ from __future__ import absolute_import, division
 """Make a startup script for a given actor
 """
 
-def makeStartupScript(actorName, pkgDirVar, binScript, logDirVar="TWISTED_LOG_DIR"):
+def makeStartupScript(actorName, pkgName, binScript, logDirVar="TWISTED_LOG_DIR"):
     """Return a startup bash script as a long string
 
     @param[in]
     - actorName: name of actor. Used only for messages.
-    - pkgDirVar: name of eups-set environment variable for actor's package directory (e.g. "TCC_DIR");
-        if the environment variable is not set set then the generated script complains that the package has not been setup
+    - pkgName: eups package name of actor.
     - binScript: script that starts the actor, e.g. "tcc35m.py";
         if it is not on $PATH, then it must be specified relative to its package directory.
     - logDirVar: name of environment variable for the directory into which to write logs
     """
     argDict = dict(
         actorName = actorName,
-        pkgDirVar = pkgDirVar,
+        pkgDirVar = "%s_DIR" % (pkgName,),
         binScript = binScript,
         logDirVar = logDirVar,
     )
@@ -70,7 +69,7 @@ do_start() {
     
     echo "Starting new %(actorName)s...\c"
 
-    now=`now`.log 
+    now=`date -u +"%%Y-%%m-%%dT%%H:%%M:%%SZ"`
     (cd $%(logDirVar)s; rm -f current.log; ln -s $now current.log)
     %(binScript)s >$%(logDirVar)s/%(actorName)s_stdout_$now 2>&1 &        
     
