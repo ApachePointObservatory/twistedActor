@@ -17,10 +17,10 @@ __all__ = ["Actor"]
 
 class Actor(BaseActor):
     """Base class for a hub actor or instrument control computer with a unix-like command syntax
-    
+
     Subclass this and add cmd_ methods to add commands, (or add commands by adding items to self.locCmdDict
     but be careful with command names -- see comment below)
-    
+
     Commands are defined in three ways:
     - Local commands: all Actor methods whose name starts with "cmd_";
         the rest of the name is the command verb.
@@ -33,7 +33,7 @@ class Actor(BaseActor):
     - Direct device access commands (for debugging and engineering): the command verb is the device name
         and the subsequent text is sent directly to the device.
         The device must finish the command (unless dev.newCmd raises an exception).
-    
+
     Error conditions:
     - Raise RuntimeError if any command verb is defined more than once.
     """
@@ -47,7 +47,7 @@ class Actor(BaseActor):
         doConnect = True,
     ):
         """Construct an Actor
-    
+
         @param[in] userPort: port on which to listen for users
         @param[in] devs: a collection of Device objects that this ICC controls
         @param[in] maxUsers: the maximum allowed # of users; if 0 then there is no limit
@@ -66,7 +66,7 @@ class Actor(BaseActor):
                 self.locCmdDict[cmdVerb] = getattr(self, attrName)
         cmdVerbSet = set(self.locCmdDict.keys())
         cmdCollisionSet = set()
-        
+
         self.dev = DeviceCollection(devs) # using a short name allows easy access, e.g. self.dev.dev1Name
         self.devCmdDict = {} # dev command verb: (dev, cmdHelp)
         for dev in devs:
@@ -78,13 +78,13 @@ class Actor(BaseActor):
             newCmdSet = set(self.devCmdDict.keys())
             cmdCollisionSet.update(cmdVerbSet & newCmdSet)
             cmdVerbSet.update(newCmdSet)
-        
+
         newCmdSet = set(self.dev.nameDict.keys())
         cmdCollisionSet.update(cmdVerbSet & newCmdSet)
         cmdVerbSet.update(newCmdSet)
         if cmdCollisionSet:
             raise RuntimeError("Multiply defined commands: %s" %  ", ".join(cmdCollisionSet))
-        
+
         BaseActor.__init__(self,
             userPort = userPort,
             maxUsers = maxUsers,
@@ -108,21 +108,21 @@ class Actor(BaseActor):
 
     def initialConn(self):
         """Perform initial connections.
-        
+
         Normally this just calls cmd_connDev, but you can override this command
         if you need a special startup sequence, such as waiting until devices boot up.
         """
         self.cmd_connDev()
-    
+
     def checkNoArgs(self, newCmd):
         """Raise CommandError if newCmd has arguments
         """
         if newCmd and newCmd.cmdArgs:
             raise CommandError("%s takes no arguments" % (newCmd.cmdVerb,))
-    
+
     def checkLocalCmd(self, newCmd):
         """Check if the new local command can run given what else is going on
-        
+
         @param[in] newCmd: new local user command (twistedActor.UserCmd);
             "local" means this command will trigger a cmd_<verb> method of this actor
 
@@ -132,15 +132,15 @@ class Actor(BaseActor):
 
         Subclasses will typically want to override this method, as the default implementation does nothing
         (thus accepting all new local commands).
-        
+
         Note that each cmd_foo method can perform additional checks and cancellation;
         this method allows a preliminary check, potentially simplifying cmd_<verb> methods.
         """
         pass
-    
+
     def devConnStateCallback(self, conn):
         """Called when a device's connection state changes
-        
+
         @param[in] conn: device connection whose state has changed
         """
         dev = self.dev.getFromConnection(conn)
@@ -152,12 +152,12 @@ class Actor(BaseActor):
             cmdState = "done" if succeeded else "failed"
             cmd.setState(cmdState, textMsg=reason)
             dev.connReq = (wantConn, None)
-    
+
     def parseAndDispatchCmd(self, cmd):
         """Parse and dispatch a command
-        
+
         @param[in] cmd: user command (twistedActor.UserCmd)
-        
+
         Duplicate command names are resolved such that the first match in this list is used:
         - local commands (cmd_<foo> methods of this actor)
         - commands handled by devices
@@ -176,9 +176,9 @@ class Actor(BaseActor):
                 cmd.cmdVerb, cmd.cmdArgs = res
             else:
                 cmd.cmdVerb = res[0]
-        
+
         # see if command is a local command
-        cmdFunc = self.locCmdDict.get(cmd.cmdVerb)
+        cmdFunc = self.locCmdDict.get(cmd.cmdVerb.lower())
         if cmdFunc is not None:
             # execute local command
             try:
@@ -198,7 +198,7 @@ class Actor(BaseActor):
                 if not retVal and not cmd.isDone:
                     cmd.setState("done")
             return
-        
+
         # see if command is a device command
         dev = None
         devCmdStr = ""
@@ -213,6 +213,7 @@ class Actor(BaseActor):
                 # command verb is the name of a device;
                 # the command arguments are the string to send to the device
                 devCmdStr = cmd.cmdArgs
+                print 'Break through command', devCmdStr
         if dev and devCmdStr:
             try:
                 dev.startCmd(devCmdStr, userCmd=cmd, timeLim=2)
@@ -229,28 +230,28 @@ class Actor(BaseActor):
             return
 
         self.writeToOneUser("f", "UnknownCommand=%s" % (cmd.cmdVerb,), cmd=cmd)
-    
+
     def showNewUserInfo(self, sock):
         """Show information for new users; called automatically when a new user connects
-        
+
         @param[in] sock: socket connection to new user
         """
-        fakeCmd = BaseActor.showNewUserInfo(self, sock) 
+        fakeCmd = BaseActor.showNewUserInfo(self, sock)
         self.showDevConnStatus(cmd=fakeCmd, onlyOneUser=True, onlyIfNotConn=True)
-    
+
     def showDevConnStatus(self, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
         """Show connection status for all devices
-        
+
         @param[in] cmd: user command (twistedActor.UserCmd)
         @param[in] onlyOneUser: if True only display the information to the commanding user
         @param[in] onlyIfNotConn: only show information for devices that are disconnected
         """
         for dev in self.dev.nameDict.itervalues():
             self.showOneDevConnStatus(dev, onlyOneUser=onlyOneUser, onlyIfNotConn=onlyIfNotConn, cmd=cmd)
-    
+
     def showOneDevConnStatus(self, dev, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
         """Show connection status for one device
-        
+
         @param[in] cmd: user command (twistedActor.UserCmd)
         @param[in] onlyOneUser: if True only display the information to the commanding user
         @param[in] onlyIfNotConn: only show information for devices that are disconnected
@@ -262,7 +263,7 @@ class Actor(BaseActor):
         quotedReason = quoteStr(reason)
         #msgCode = "i" if dev.conn.isConnected else "w"
         if dev.conn.isConnected:
-            msgCode = "i" 
+            msgCode = "i"
         else:
             msgCode = "w"
         msgStr = "%sConnState = %r, %s" % (dev.name, state, quotedReason)
@@ -270,7 +271,7 @@ class Actor(BaseActor):
             self.writeToOneUser(msgCode, msgStr, cmd=cmd)
         else:
             self.writeToUsers(msgCode, msgStr, cmd=cmd)
-    
+
     def cmd_connDev(self, cmd=None):
         """[dev1 [dev2 [...]]]: connect one or more devices (all devices if none specified).
         Already-connected devices are ignored (except to output status).
@@ -280,7 +281,7 @@ class Actor(BaseActor):
             devNameList = cmd.cmdArgs.split()
         else:
             devNameList = self.dev.nameDict.keys()
-        
+
         runInBackground = False
         for devName in devNameList:
             dev = self.dev.nameDict[devName]
@@ -294,7 +295,7 @@ class Actor(BaseActor):
                 except Exception, e:
                     self.writeToUsers("w", "Text=could not connect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground
-    
+
     def cmd_disconnDev(self, cmd=None):
         """[dev1 [dev2 [...]]]: disconnect one or more devices (all if none specified).
         Already-disconnected devices are ignored (except to output status).
@@ -304,7 +305,7 @@ class Actor(BaseActor):
             devNameList = cmd.cmdArgs.split()
         else:
             devNameList = self.dev.nameDict.keys()
-        
+
         runInBackground = False
         for devName in devNameList:
             dev = self.dev.nameDict[devName]
@@ -318,17 +319,17 @@ class Actor(BaseActor):
                 except Exception, e:
                     self.writeToUsers("w", "Text=could disconnect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground
-    
+
     def cmd_exit(self, cmd=None):
         """disconnect yourself"""
         sock = self.userDict[cmd.userID]
         sock.close()
-    
+
     def cmd_help(self, cmd=None):
         """print this help"""
         helpList = []
         debugHelpList = []
-        
+
         # commands handled by this actor
         for cmdVerb, cmdFunc in self.locCmdDict.iteritems():
             helpStr = cmdFunc.__doc__.split("\n")[0]
@@ -340,7 +341,7 @@ class Actor(BaseActor):
                 debugHelpList.append(joinStr.join((cmdVerb, helpStr)))
             else:
                 helpList.append(joinStr.join((cmdVerb, helpStr)))
-        
+
         # commands handled by a device
         for cmdVerb, cmdInfo in self.devCmdDict.iteritems():
             helpStr = cmdInfo[2]
@@ -354,19 +355,19 @@ class Actor(BaseActor):
         helpList += ["", "Debug commands:"]
         debugHelpList.sort()
         helpList += debugHelpList
-        
+
         # direct device access commands (these go at the end)
         helpList += ["", "Direct device access commands:"]
         for devName in self.dev.nameDict:
             helpList.append("%s <text>: send <text> to device %s" % (devName, devName))
-        
+
         for helpStr in helpList:
             self.writeToUsers("i", "Text=%r" % (helpStr,), cmd=cmd)
-    
+
     def cmd_ping(self, cmd):
         """verify that actor is alive"""
         cmd.setState("done", textMsg="alive")
-    
+
     def cmd_status(self, cmd):
         """show status
 
@@ -374,7 +375,7 @@ class Actor(BaseActor):
         """
         self.showUserInfo(cmd=cmd)
         self.showDevConnStatus(cmd=cmd)
-    
+
     def cmd_debugMsgs(self, cmd):
         """on/off: turn debugging messages on or off"""
         arg = cmd.cmdArgs.lower()
@@ -401,7 +402,7 @@ class Actor(BaseActor):
 
         for c, n in pairs[:100]:
             self.writeToOneUser("i", "RefCount=%5d, %s" % (n, c.__name__), cmd=cmd)
-    
+
     def cmd_debugWing(self, cmd=None):
         """load wingdbstub so you can debug this code using WingIDE"""
         import wingdbstub
