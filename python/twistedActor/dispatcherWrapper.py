@@ -187,6 +187,7 @@ class CmdWrapper(object):
         """
         if self.cmdVar.isDone:
             raise RuntimeError("Already done")
+#        print "Starting command %s" % (self.cmdVar,)
         dispatcher.executeCmd(self.cmdVar)
 
     @property
