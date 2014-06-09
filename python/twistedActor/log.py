@@ -5,15 +5,15 @@ Logfiles are stored in the directory specified as an argument to startLogging()
 Logfiles rollover at noon, and at rollover time the date of the *previous* day is appended to the logfile name.
     A new log is opened and logging continues.
 At the time logging is started, a check to the log directory is done. If there is an existing *active*
-    logfile (one with no date appended to the file name), logging resumes to that file if the local time is before
-    the rollover time for the current log. Else the log is manually rolled over (with the correct date
-    appended), and a new twistedActor.log is opened for logging.
+    logfile, logging resumes to that file if the local time is before
+    the rollover time for the current log. Else a new log (with a new date) is begun.
 """
 import datetime
 import logging
+import time
+logging.Formatter.converter = time.gmtime
 import os
 import sys
-import time
 from logging.handlers import TimedRotatingFileHandler
 import pyparsing as pp
 
