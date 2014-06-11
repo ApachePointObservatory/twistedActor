@@ -45,6 +45,7 @@ class Actor(BaseActor):
         version = "?",
         name = "Actor",
         doConnect = True,
+        doDevCmd = True,
     ):
         """Construct an Actor
 
@@ -55,6 +56,7 @@ class Actor(BaseActor):
         @param[in] version: actor version str
         @param[in] name: actor name, used for logging
         @param[in] doConnect: if True then connect devices on construction
+        @param[in] doDevCmd: if True, support direct device commands
         """
         # local command dictionary containing cmd verb: method
         # all methods whose name starts with cmd_ are added
@@ -72,12 +74,13 @@ class Actor(BaseActor):
         for dev in devs:
             dev.writeToUsers = self.writeToUsers
             dev.conn.addStateCallback(self.devConnStateCallback)
-            for cmdVerb, devCmdVerb, cmdHelp in dev.cmdInfo:
-                devCmdVerb = devCmdVerb or cmdVerb
-                self.devCmdDict[cmdVerb] = (dev, devCmdVerb, cmdHelp)
-            newCmdSet = set(self.devCmdDict.keys())
-            cmdCollisionSet.update(cmdVerbSet & newCmdSet)
-            cmdVerbSet.update(newCmdSet)
+            if doDevCmd:
+                for cmdVerb, devCmdVerb, cmdHelp in dev.cmdInfo:
+                    devCmdVerb = devCmdVerb or cmdVerb
+                    self.devCmdDict[cmdVerb] = (dev, devCmdVerb, cmdHelp)
+                newCmdSet = set(self.devCmdDict.keys())
+                cmdCollisionSet.update(cmdVerbSet & newCmdSet)
+                cmdVerbSet.update(newCmdSet)
 
         newCmdSet = set(self.dev.nameDict.keys())
         cmdCollisionSet.update(cmdVerbSet & newCmdSet)
