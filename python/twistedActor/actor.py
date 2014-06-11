@@ -67,7 +67,6 @@ class Actor(BaseActor):
                 cmdVerb = attrName[4:].lower()
                 self.locCmdDict[cmdVerb] = getattr(self, attrName)
         cmdVerbSet = set(self.locCmdDict.keys())
-        cmdCollisionSet = set()
 
         self.dev = DeviceCollection(devs) # using a short name allows easy access, e.g. self.dev.dev1Name
         self.devCmdDict = {} # dev command verb: (dev, cmdHelp)
@@ -78,15 +77,13 @@ class Actor(BaseActor):
                 for cmdVerb, devCmdVerb, cmdHelp in dev.cmdInfo:
                     devCmdVerb = devCmdVerb or cmdVerb
                     self.devCmdDict[cmdVerb] = (dev, devCmdVerb, cmdHelp)
-                newCmdSet = set(self.devCmdDict.keys())
-                cmdCollisionSet.update(cmdVerbSet & newCmdSet)
-                cmdVerbSet.update(newCmdSet)
 
-        newCmdSet = set(self.dev.nameDict.keys())
-        cmdCollisionSet.update(cmdVerbSet & newCmdSet)
-        cmdVerbSet.update(newCmdSet)
-        if cmdCollisionSet:
-            raise RuntimeError("Multiply defined commands: %s" %  ", ".join(cmdCollisionSet))
+        if doDevCmd:
+            devCmdSet = set(self.dev.nameDict.keys())
+            cmdCollisionSet = set(cmdVerbSet & devCmdSet)
+            if cmdCollisionSet:
+                raise RuntimeError("Multiply defined commands: %s" %  ", ".join(cmdCollisionSet))
+            cmdVerbSet.update(devCmdSet)
 
         BaseActor.__init__(self,
             userPort = userPort,
