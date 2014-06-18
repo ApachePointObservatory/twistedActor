@@ -45,7 +45,7 @@ class Actor(BaseActor):
         version = "?",
         name = "Actor",
         doConnect = True,
-        doDevCmd = True,
+        doDevNameCmds = True,
     ):
         """Construct an Actor
 
@@ -56,7 +56,7 @@ class Actor(BaseActor):
         @param[in] version: actor version str
         @param[in] name: actor name, used for logging
         @param[in] doConnect: if True then connect devices on construction
-        @param[in] doDevCmd: if True, support direct device commands
+        @param[in] doDevNameCmds: if True, support device name commands to send arbitrary commands to each device
         """
         # local command dictionary containing cmd verb: method
         # all methods whose name starts with cmd_ are added
@@ -68,22 +68,35 @@ class Actor(BaseActor):
                 self.locCmdDict[cmdVerb] = getattr(self, attrName)
         cmdVerbSet = set(self.locCmdDict.keys())
 
-        self.dev = DeviceCollection(devs) # using a short name allows easy access, e.g. self.dev.dev1Name
-        self.devCmdDict = {} # dev command verb: (dev, cmdHelp)
+        self.dev = DeviceCollection(devs) # the short name "dev" allows easy access, e.g. self.dev.dev1Name
+
+        # add device-specific commands
+        self.devCmdDict = dict() # dict of cmdVerb: (dev, devCmdVerb, cmdHelp)
         for dev in devs:
             dev.writeToUsers = self.writeToUsers
             dev.conn.addStateCallback(self.devConnStateCallback)
-            if doDevCmd:
-                for cmdVerb, devCmdVerb, cmdHelp in dev.cmdInfo:
-                    devCmdVerb = devCmdVerb or cmdVerb
-                    self.devCmdDict[cmdVerb] = (dev, devCmdVerb, cmdHelp)
+            for cmdVerb, devCmdVerb, cmdHelp in dev.cmdInfo:
+                devCmdVerb = devCmdVerb or cmdVerb
+                lowCmdVerb = (devCmdVerb or cmdVerb).lower()
+                if lowCmdVerb in self.devCmdDict:
+                    raise RuntimeError("Duplicate device-specific command %s for devices %s and %s" % \
+                        (cmdVerb, dev, self.devCmdDict[lowCmdVerb][0]))
+                self.devCmdDict[lowCmdVerb] = (dev, devCmdVerb, cmdHelp)
 
-        if doDevCmd:
-            devCmdSet = set([key.lower() for key in self.dev.nameDict.keys()])
-            cmdCollisionSet = set(cmdVerbSet & devCmdSet)
-            if cmdCollisionSet:
-                raise RuntimeError("Multiply defined commands: %s" %  ", ".join(cmdCollisionSet))
-            cmdVerbSet.update(devCmdSet)
+        # add device name breakthrough commands
+        if doDevNameCmds:
+            for dev in devs:
+                lowDevName = dev.name.lower()
+                if lowDevName in self.devCmdDict:
+                    raise RuntimeError("Device name %s duplicates device-specific command for device %s" % \
+                        (dev.name, self.devCmdDict[lowDevName][0]))
+                self.devCmdDict[lowDevName] = (dev, "", "send an arbitrary command to device %s" % (dev.name,))
+
+        devCmdSet = set(key.lower() for key in self.devCmdDict)
+        cmdCollisionSet = set(cmdVerbSet & devCmdSet)
+        if cmdCollisionSet:
+            raise RuntimeError("Device commands %s duplicate local commands" %  sorted(list(cmdCollisionSet,)))
+        cmdVerbSet.update(devCmdSet)
 
         BaseActor.__init__(self,
             userPort = userPort,
@@ -176,9 +189,10 @@ class Actor(BaseActor):
                 cmd.cmdVerb, cmd.cmdArgs = res
             else:
                 cmd.cmdVerb = res[0]
+            cmd.cmdVerb = cmd.cmdVerb.lower()
 
         # see if command is a local command
-        cmdFunc = self.locCmdDict.get(cmd.cmdVerb.lower())
+        cmdFunc = self.locCmdDict.get(cmd.cmdVerb)
         if cmdFunc is not None:
             # execute local command
             try:
@@ -206,14 +220,7 @@ class Actor(BaseActor):
         if devCmdInfo:
             # command verb is one handled by a device
             dev, devCmdVerb, cmdHelp = devCmdInfo
-            devCmdStr = "%s %s" % (devCmdVerb, cmd.cmdArgs)
-        else:
-            dev = self.dev.nameDict.get(cmd.cmdVerb)
-            if dev is not None:
-                # command verb is the name of a device;
-                # the command arguments are the string to send to the device
-                devCmdStr = cmd.cmdArgs
-                print 'Break through command', devCmdStr
+            devCmdStr = "%s %s" % (devCmdVerb, cmd.cmdArgs) if devCmdVerb else cmd.cmdArgs
         if dev and devCmdStr:
             try:
                 dev.startCmd(devCmdStr, userCmd=cmd, timeLim=2)
@@ -402,8 +409,3 @@ class Actor(BaseActor):
 
         for c, n in pairs[:100]:
             self.writeToOneUser("i", "RefCount=%5d, %s" % (n, c.__name__), cmd=cmd)
-
-    def cmd_debugWing(self, cmd=None):
-        """load wingdbstub so you can debug this code using WingIDE"""
-        import wingdbstub
-        self.writeToUsers("i", 'Text="Debugging with WingIDE enabled"', cmd=cmd)

@@ -102,7 +102,7 @@ class Device(BaseMixin):
         """
         BaseMixin.__init__(self)
         self.name = name
-        self.cmdInfo = cmdInfo or()
+        self.cmdInfo = cmdInfo or ()
         self.connReq = (False, None)
         self.conn = conn
         self.cmdClass = cmdClass
@@ -712,7 +712,7 @@ class DeviceCollection(object):
 
     Access is as follows:
     - .<name> for the device named <name>, e.g. .foo for the device "foo"
-    - .nameDict contains a collections.OrderedDict of devices in alphabetical order by device name
+    - .nameDict contains a collections.OrderedDict of dev.name: dev, in alphabetical order
     """
     def __init__(self, devList):
         """Construct a DeviceCollection
