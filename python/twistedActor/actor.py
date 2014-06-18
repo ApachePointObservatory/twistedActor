@@ -80,9 +80,6 @@ class Actor(BaseActor):
 
         if doDevCmd:
             devCmdSet = set([key.lower() for key in self.dev.nameDict.keys()])
-            print 'devCmdSet', devCmdSet
-            print 'cmdVerbSet', cmdVerbSet
-            print
             cmdCollisionSet = set(cmdVerbSet & devCmdSet)
             if cmdCollisionSet:
                 raise RuntimeError("Multiply defined commands: %s" %  ", ".join(cmdCollisionSet))
