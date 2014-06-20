@@ -172,6 +172,11 @@ class DeviceSet(object):
         """
         return [slot for slot, dev in self._slotDevDict.iteritems() if dev]
 
+    def get(self, slot, default=None):
+        """Return the device in the specified slot, or default if no such slot
+        """
+        return self._slotDevDict.get(slot, default)
+
     def getIndex(self, slot):
         """Get the index of the slot
 
@@ -374,6 +379,11 @@ class DeviceSet(object):
 
     def __repr__(self):
         return type(self).__name__
+
+    def __contains__(self, slot):
+        """Return True if the slot exists
+        """
+        return slot in self._slotDevDict
 
 
 class RunCmdDict(object):
