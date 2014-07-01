@@ -219,7 +219,6 @@ class ScriptRunner(BaseScriptRunner):
         self.debugPrint("waitCmd calling startCmd")
 
         cmdVar = self.startCmd (
-            actor = self._actor,
             cmdStr = cmdStr,
             timeLim = timeLim,
             callFunc = callFunc,
