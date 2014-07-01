@@ -99,13 +99,20 @@ class DispatcherWrapper(BaseWrapper):
         """
         return self.actorWrapper.didFail or (self.dispatcher is not None and self.dispatcher.connection.didFail)
 
-    def queueCmd(self, cmdStr, callFunc=None, callCodes=":"):
+    def queueCmd(self, cmdStr, timeLim=0, timeLimKeyVar=None, timeLimKeyInd=0, keyVars=None, callFunc=None, callCodes=":"):
         """add command to queue, dispatch when ready
 
         @warning error handling is determined by callCodes; for details, see the documentation
             for the returned deferred below
 
         @param[in] cmdStr: a command string
+        @param[in] timeLim: maximum time before command expires, in sec; 0 for no limit
+        @param[in] timeLimKeyVar: a KeyVar specifying a delta-time by which the command must finish
+        @param[in] timeLimKeyInd: the index of the time limit value in timeLimKeyVar; defaults to 0;
+            ignored if timeLimKeyVar is None.
+        @param[in] keyVars: a sequence of 0 or more keyword variables to monitor for this command.
+            Any data for those variables that arrives IN RESPONSE TO THIS COMMAND is saved
+            and can be retrieved using cmdVar.getKeyVarData or cmdVar.getLastKeyVarData.
         @param[in] callFunc: receives one arguement the CmdVar
         @param[in] callCodes: a string of message codes that will result in calling callFunc;
             common values include ":"=success, "F"=failure and ">"=queued
@@ -130,6 +137,10 @@ class DispatcherWrapper(BaseWrapper):
         cmdVar = CmdVar(
             actor = self._dictName,
             cmdStr = cmdStr,
+            timeLim = timeLim,
+            timeLimKeyVar = timeLimKeyVar,
+            timeLimKeyInd = timeLimKeyInd,
+            keyVars = keyVars,
         )
         cmdWrapper = CmdWrapper(cmdVar=cmdVar, callFunc=callFunc, callCodes=callCodes)
         self.cmdQueue.addCmd(cmdWrapper)
