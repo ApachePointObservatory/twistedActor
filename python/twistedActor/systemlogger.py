@@ -6,7 +6,7 @@ import syslog
 DEBUG = syslog.LOG_DEBUG
 INFO = syslog.LOG_INFO
 WARNING = syslog.LOG_WARNING
-ERROR = syslog.LOG_ERROR
+ERROR = syslog.LOG_ERR
 CRITICAL = syslog.LOG_CRIT
 
 facilityDict = {
