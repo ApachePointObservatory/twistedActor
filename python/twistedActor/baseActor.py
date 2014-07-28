@@ -7,14 +7,14 @@ import RO.Comm.TwistedSocket
 from RO.StringUtil import quoteStr, strFromException
 
 from .command import UserCmd
-from .log import writeToLog
+from .log import log
 
 __all__ = ["BaseActor"]
 
 class BaseActor(object):
     """Base class for a hub actor or instrument control computer with no assumption about command format
     other than commands may start with 0, 1 or 2 integers
-    
+
     Subclass this and define parseAndDispatchCmd to parse and dispatch commands.
     """
     def __init__(self,
@@ -25,7 +25,7 @@ class BaseActor(object):
         name = "BaseActor",
     ):
         """Construct a BaseActor
-    
+
         Inputs:
         - userPort      port on which to listen for users
         - maxUsers      the maximum allowed # of users; if 0 then there is no limit
@@ -57,13 +57,13 @@ class BaseActor(object):
         """
         self.server.close()
         self._cancelTimers()
-    
+
     def cmdCallback(self, cmd):
         """Called when a user command changes state; report completion or failure
         """
         if not cmd.isDone:
             return
-        writeToLog("%s %s" % (self, cmd))
+        log.info("%s %s" % (self, cmd))
         msgCode, msgStr = cmd.getKeyValMsg()
         self.writeToUsers(msgCode, msgStr, cmd=cmd)
 
@@ -74,11 +74,11 @@ class BaseActor(object):
         return "%d %d %s %s" % (cmdID, userID, msgCode, msgStr)
         # changed from:
         #return "%d %d %s %s" % (userID, cmdID, msgCode, msgStr)
-    
+
     @staticmethod
     def getUserCmdID(msgCode=None, cmd=None, userID=None, cmdID=None):
         """Return userID, cmdID based on user-supplied information.
-        
+
         @param[in] msgCode: used to determine if cmd is a valid default:
             if cmd is provided and cmd.isDone and msgCode is not a done code, then cmd is ignored (treated as None).
             This allows you to continue to use a completed command to send informational messages,
@@ -97,17 +97,17 @@ class BaseActor(object):
             userID if userID is not None else (cmd.userID if cmd else 0),
             cmdID if cmdID is not None else (cmd.cmdID if cmd else 0),
         )
-    
+
     def newCmd(self, sock):
         """Called when a command is read from a user.
-        
+
         Note: command name collisions are resolved as follows:
         - local commands (cmd_<foo> methods of this actor)
         - commands handled by devices
         - direct device access commands (device name)
         """
         cmdStr = sock.readLine()
-        writeToLog("%s.newCmd(%r)" % (self, cmdStr))
+        log.info("%s.newCmd(%r)" % (self, cmdStr))
         #print "%s.newCmd; cmdStr=%r" % (self, cmdStr,)
         if not cmdStr:
             return
@@ -129,32 +129,32 @@ class BaseActor(object):
             sock.writeLine("0 0 E NoFreeConnections")
             sock.close()
             return
-        
+
         currIDs = set(self.userDict.keys())
         userID = 1
         while userID in currIDs:
             userID += 1
         # add userID as an attribute that is likely to be unique
         setSocketUserID(sock, userID)
-        
+
         self.userDict[userID] = sock
         sock.setReadCallback(self.newCmd)
         sock.addStateCallback(self.userSocketClosing)
-        
+
         # report user information and additional info
         fakeCmd = UserCmd(userID=userID)
         self.showNewUserInfo(fakeCmd)
         return fakeCmd
-    
+
     def showNewUserInfo(self, fakeCmd):
         """Show information for new users; called automatically when a new user connects
-        
+
         Inputs:
         - fakeCmd: a minimal command that just contains the ID of the new user
         """
         self.showUserInfo(fakeCmd)
         self.showVersion(fakeCmd, onlyOneUser=True)
-    
+
     def parseAndDispatchCmd(self, cmd):
         """Dispatch a user command
         """
@@ -165,7 +165,7 @@ class BaseActor(object):
         """
         if self.server.isReady:
             print "%s listening on port %s" % (self, self.server.port)
-        writeToLog("%s.server.state=%s" % (self, self.server.state))
+        log.info("%s.server.state=%s" % (self, self.server.state))
 
     def showUserInfo(self, cmd):
         """Show user information including your userID.
@@ -180,7 +180,7 @@ class BaseActor(object):
         msgStr = "; ".join(msgData)
         self.writeToOneUser("i", msgStr, cmd=cmd)
         self.showUserList(cmd)
-    
+
     def showUserList(self, cmd=None):
         """Show a list of connected users
         """
@@ -189,10 +189,10 @@ class BaseActor(object):
             sock = self.userDict[userId]
             msgStr = "UserInfo=%s, %s" % (userId, sock.host)
             self.writeToUsers("i", msgStr, cmd=cmd)
-        
+
     def userSocketClosing(self, sock):
         """Called when a user socket is closing
-        
+
         Technically this is called for any state change, but it amounts to "when closing"
         because the socket is connected before the callback is registered,
         and once a socket starts closing this callback is deregistered.
@@ -205,11 +205,11 @@ class BaseActor(object):
         try:
             del self.userDict[getSocketUserID(sock)]
         except KeyError:
-            sys.stderr.write("Warning: user socket closed but could not find user %s in userDict\n" % 
+            sys.stderr.write("Warning: user socket closed but could not find user %s in userDict\n" %
                 (getSocketUserID(sock),))
         sock.removeStateCallback(self.userSocketClosing, doRaise=False) # I'm done with this socket; I don't want to know when it is fully closed
         self.showUserList(cmd=UserCmd(userID=0))
-    
+
     def showVersion(self, cmd, onlyOneUser=False):
         """Show actor version
         """
@@ -218,15 +218,15 @@ class BaseActor(object):
             self.writeToOneUser("i", msgStr, cmd=cmd)
         else:
             self.writeToUsers("i", msgStr, cmd=cmd)
-        
+
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to all users.
-        
+
         @param[in] msgCode: message code (e.g. "i"); see command.py for a full list of message codes.
         @param[in] cmd: user command; used as a default for userID and cmdID, but see msgCode
         @param[in] userID: user ID: if None then use cmd.cmdID, but see msgCode
         @param[in] cmdID: command ID: if None then use cmd.userID, but see msgCode
-        
+
         cmdID and userID are obtained from cmd unless overridden by the explicit argument. Both default to 0.
         However, if cmd.isDone and msgCode is not a done code, then cmd is ignored.
         This allows you to continue to use a completed command to send informational messages,
@@ -235,10 +235,10 @@ class BaseActor(object):
         userID, cmdID = self.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToUsers(%s)" % (fullMsgStr,)
-        writeToLog("%s.writeToUsers(%r)" % (self, fullMsgStr))
+        log.info("%s.writeToUsers(%r)" % (self, fullMsgStr))
         for sock in self.userDict.itervalues():
             sock.writeLine(fullMsgStr)
-    
+
     def writeToOneUser(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to one user.
 
@@ -246,7 +246,7 @@ class BaseActor(object):
         @param[in] cmd: user command; used as a default for userID and cmdID, but see msgCode
         @param[in] userID: user ID: if None then use cmd.cmdID, but see msgCode
         @param[in] cmdID: command ID: if None then use cmd.userID, but see msgCode
-        
+
         cmdID and userID are obtained from cmd unless overridden by the explicit argument. Both default to 0.
         However, if cmd.isDone and msgCode is not a done code, then cmd is ignored.
         This allows you to continue to use a completed command to send informational messages,
@@ -259,13 +259,13 @@ class BaseActor(object):
         sock = self.userDict[userID]
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         #print "writeToOneUser(%s)" % (fullMsgStr,)
-        writeToLog("%s.writeToOneUser(%r); userID=%s" % (self, fullMsgStr, userID))
+        log.info("%s.writeToOneUser(%r); userID=%s" % (self, fullMsgStr, userID))
         sock.writeLine(fullMsgStr)
 
     @classmethod
     def writeToStdOut(cls, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
         """Write a message to stdout.
-        
+
         One use is writing properly formatted messages in the absence of an instance of BaseActor
         (note that this is a class method).
 
@@ -273,7 +273,7 @@ class BaseActor(object):
         @param[in] cmd: user command; used as a default for userID and cmdID, but see msgCode
         @param[in] userID: user ID: if None then use cmd.cmdID, but see msgCode
         @param[in] cmdID: command ID: if None then use cmd.userID, but see msgCode
-        
+
         cmdID and userID are obtained from cmd unless overridden by the explicit argument. Both default to 0.
         However, if cmd.isDone and msgCode is not a done code, then cmd is ignored.
         This allows you to continue to use a completed command to send informational messages,
@@ -282,7 +282,7 @@ class BaseActor(object):
         userID, cmdID = cls.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = cls.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         print fullMsgStr
-    
+
     def __str__(self):
         return "%s(%s)" % (self.__class__.__name__, self.name)
 

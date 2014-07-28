@@ -21,7 +21,7 @@ from RO.StringUtil import quoteStr, strFromException
 import opscore.actor
 
 from .command import DevCmd, DevCmdVar, UserCmd
-from .log import writeToLog
+from .log import log
 
 __all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 
@@ -122,7 +122,7 @@ class Device(BaseMixin):
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
-        writeToLog("%s.connect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim))
+        log.info("%s.connect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim))
         return ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim).userCmd
 
     def disconnect(self, userCmd=None, timeLim=DefaultTimeLim):
@@ -132,7 +132,7 @@ class Device(BaseMixin):
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
-        writeToLog("%s.disconnect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim))
+        log.info("%s.disconnect(userCmd=%s, timeLim=%s)" % (self, userCmd, timeLim))
         return DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim).userCmd
 
     def cleanup(self):
@@ -161,7 +161,7 @@ class Device(BaseMixin):
 
         This is overridden by Actor when the device is added to the actor
         """
-        writeToLog("Device does not yet have access to writeToUsers: msgCode=%r; msgStr=%r" % (msgCode, msgStr))
+        log.info("Device does not yet have access to writeToUsers: msgCode=%r; msgStr=%r" % (msgCode, msgStr))
         # print "msgCode=%r; msgStr=%r" % (msgCode, msgStr)
 
     def handleReply(self, replyStr):
@@ -239,7 +239,7 @@ class Device(BaseMixin):
         @warning: subclasses must supplement or override this method to set the devCmd done when finished.
         Subclasses that use a command queue will usually replace this method.
         """
-        writeToLog("%s.startCmd(cmdStr=%r, callFunc=%s, userCmd=%s, timeLim=%s)" % (self, cmdStr, callFunc, userCmd, timeLim))
+        log.info("%s.startCmd(cmdStr=%r, callFunc=%s, userCmd=%s, timeLim=%s)" % (self, cmdStr, callFunc, userCmd, timeLim))
         devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, timeLim=timeLim, dev=self)
         if not self.conn.isConnected:
             devCmd.setState(devCmd.Failed, textMsg="%s %s failed: not connected" % (self.name, cmdStr))
@@ -698,7 +698,7 @@ class ActorDevice(TCPDevice):
             callFunc = callFunc,
             dev = self,
         )
-        writeToLog("%s writing %r" % (self, cmdVar.cmdStr))
+        log.info("%s writing %r" % (self, cmdVar.cmdStr))
         self.dispatcher.executeCmd(cmdVar)
         return devCmdVar
 

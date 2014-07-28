@@ -3,7 +3,7 @@ from __future__ import division, absolute_import
 """
 import os
 
-from . import log
+from . import startFileLogging, stopLogging
 
 def startLogging(filePath):
     """Set TCC environment variables appropriately for running unit tests
@@ -17,7 +17,7 @@ def startLogging(filePath):
     logDir = os.path.join(testDir,  ".tests")
     os.environ["TWISTED_LOG_DIR"] = logDir
     logFileName = "%s.log" % (os.path.splitext(testFile)[0],)
-    log.startLogging(logDir, logFileName, deleteOldLog=True)
+    startFileLogging(os.path.join(logDir, logFileName))
 
 def init(filePath=None):
     """Prepare for a unit test to run that starts an actor
@@ -27,4 +27,5 @@ def init(filePath=None):
             in order to determine where the log file should go.
         - If None, no log file is created.
     """
+    stopLogging() # stop incase logging is already on.
     startLogging(filePath)

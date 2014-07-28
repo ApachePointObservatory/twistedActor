@@ -9,13 +9,13 @@ import RO.Alg
 from RO.StringUtil import quoteStr
 from RO.Comm.TwistedTimer import Timer
 
-from .log import writeToLog
+from .log import log
 
 __all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd"]
 
 class CommandError(Exception):
     """Raise for a "normal" command failure
-    
+
     Raise this error while processing a command when you want the explanation
     to be nothing more than the text of the exception, rather than a traceback.
     """
@@ -56,7 +56,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         timeLim = None,
     ):
         """Construct a BaseCmd
-        
+
         @param[in] cmdStr: command string
         @param[in] userID: user ID number
         @param[in] cmdID: command ID number
@@ -80,7 +80,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
     @property
     def timeLim(self):
         return self._timeLim
-    
+
     @property
     def cmdStr(self):
         return self._cmdStr
@@ -90,13 +90,13 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """Command failed or was cancelled
         """
         return self._state in self.FailedStates
-    
+
     @property
     def isActive(self):
         """Command is running, canceling or failing
         """
         return self._state in self.ActiveStates
-    
+
     @property
     def isDone(self):
         """Command is done (whether successfully or not)
@@ -108,7 +108,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """Command is being cancelled or is failing
         """
         return self._state in self.FailingStates
-    
+
     @property
     def msgCode(self):
         """The hub message code appropriate to the current state
@@ -174,9 +174,9 @@ class BaseCmd(RO.AddCallback.BaseMixin):
 
     def setState(self, newState, textMsg=None, hubMsg=None):
         """Set the state of the command and call callbacks.
-        
+
         If new state is done then remove all callbacks (after calling them).
-        
+
         @param[in] newState: new state of command
         @param[in] textMsg: a message to be printed using the Text keyword; if None then not changed
         @param[in] hubMsg: a message in keyword=value format (without a header); if None then not changed
@@ -185,7 +185,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         (depending on the situation).
 
         If the new state is Failed then please supply a textMsg and/or hubMsg.
-        
+
         Error conditions:
         - Raise RuntimeError if this command is finished.
         """
@@ -201,19 +201,19 @@ class BaseCmd(RO.AddCallback.BaseMixin):
             self._textMsg = str(textMsg)
         if hubMsg is not None:
             self._hubMsg = str(hubMsg)
-        writeToLog(str(self))
+        log.info(str(self))
         self._basicDoCallbacks(self)
         if self.isDone:
             self._timeoutTimer.cancel()
             self._removeAllCallbacks()
             self.untrackCmd()
-    
+
     def setTimeLimit(self, timeLim):
         """Set a new time limit
-        
+
         If the new limit is 0 or None then there is no time limit.
         If the new limit is < 0, it is ignored and a warning is printed to stderr
-        
+
         If the command is has not started running, then the timer starts when the command starts running.
         If the command is running the timer starts now (any time spent before now is ignored).
         If the command is done then the new time limit is silently ignored.
@@ -245,25 +245,25 @@ class BaseCmd(RO.AddCallback.BaseMixin):
             self._cmdCallback(cmdToTrack)
         else:
             cmdToTrack.addCallback(self._cmdCallback)
-    
+
     def untrackCmd(self):
         """Stop tracking a command if tracking one, else do nothing
         """
         if self._cmdToTrack:
             self._cmdToTrack.removeCallback(self._cmdCallback)
             self._cmdToTrack = None
-    
+
     @classmethod
     def stateFromMsgCode(cls, msgCode):
         """Return the command state associated with a particular message code
         """
         return cls._InvMsgCodeDict[msgCode]
-    
+
     def _cmdCallback(self, cmdToTrack):
         """Tracked command's state has changed; copy state, textMsg and hubMsg
         """
         self.setState(cmdToTrack.state, textMsg=cmdToTrack.textMsg, hubMsg=cmdToTrack.hubMsg)
-    
+
     def _timeout(self):
         """Call when command has timed out
         """
@@ -290,20 +290,20 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         if doFull and self._cmdToTrack:
             descrList.append("cmdToTrack=%r" % (self._cmdToTrack,))
         return descrList
-    
+
     def __str__(self):
         return "%s(%s)" % (self.__class__.__name__, ", ".join(self._getDescrList(doFull=False)))
-    
+
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, ", ".join(self._getDescrList(doFull=True)))
 
 
 class DevCmd(BaseCmd):
     """Generic device command
-    
+
     You may wish to subclass to override the following:
     * fullCmdStr returns: locCmdID cmdStr
-    
+
     Useful attributes:
     - dev: device being commanded (if specified, as it will be for calls to Device.startCmd)
     - locCmdID: command ID number (assigned when the device command is created);
@@ -318,7 +318,7 @@ class DevCmd(BaseCmd):
         dev = None,
     ):
         """Construct a DevCmd
-        
+
         @param[in] cmdStr: command string
         @param[in] callFunc: function to call when command changes state, or None;
             receives one argument: this command
@@ -344,11 +344,11 @@ class DevCmd(BaseCmd):
             self.userID = userCmd.userID
             self.cmdID = userCmd.cmdID
             userCmd.trackCmd(self)
-    
+
     @property
     def fullCmdStr(self):
         """The command string formatted for the device
-        
+
         This version returns: locCmdID cmdStr
         if you want another format then subclass DevCmd
         """
@@ -371,7 +371,7 @@ class DevCmdVar(BaseCmd):
         dev = None,
     ):
         """Construct an DevCmdVar
-        
+
         @param[in] cmdVar: the command variable to wrap (an instance of opscore.actor.CmdVar)
         @param[in] callFunc: function to call when command changes state;
             receives one argument: this command
@@ -393,15 +393,15 @@ class DevCmdVar(BaseCmd):
 
         self.cmdVar = cmdVar
         self.cmdVar.addCallback(self._cmdVarCallback)
-    
+
     @property
     def cmdStr(self):
         return self.cmdVar.cmdStr
-    
+
     @property
     def locCmdID(self):
         return self.cmdVar.cmdID
-    
+
     def _cmdVarCallback(self, cmdVar=None):
         if not self.cmdVar.isDone:
             return
@@ -433,7 +433,7 @@ class UserCmd(BaseCmd):
         timeLim = None,
     ):
         """Construct a UserCmd
-    
+
         @param[in] userID    ID of user (always 0 if a single-user actor)
         @param[in] cmdStr    full command
         @param[in] callFunc  function to call when command finishes or fails;
@@ -447,21 +447,21 @@ class UserCmd(BaseCmd):
             timeLim = timeLim,
         )
         self.parseCmdStr(cmdStr)
-    
+
     def parseCmdStr(self, cmdStr):
         """Parse command
-        
+
         @param[in] cmdStr: command string (see module doc string for format)
         """
         cmdMatch = self._HeaderBodyRE.match(cmdStr)
         if not cmdMatch:
             raise CommandError("Could not parse command %r" % cmdStr)
-        
+
         cmdDict = cmdMatch.groupdict("")
         cmdIDStr = cmdDict["cmdID"]
         #self.cmdID = int(cmdIDStr) if cmdIDStr else 0
         if cmdIDStr:
-            self.cmdID = int(cmdIDStr) 
+            self.cmdID = int(cmdIDStr)
         else:
             self.cmdID = 0
         self.cmdBody = cmdDict.get("cmdBody", "")
