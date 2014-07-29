@@ -80,11 +80,8 @@ class LogTest(TestCase):
 
     def tearDown(self):
         stopLogging()
-        # deleteMes = self.getAllLogs()
         for f in self.getAllLogs():
             os.remove(f)
-        # if os.path.exists(self.testLogDir):
-        #     shutil.rmtree(self.testLogDir)
 
     def getLogInfo(self, filename):
         return LogLineParser().parseLogFile(filename)
