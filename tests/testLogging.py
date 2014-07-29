@@ -11,16 +11,14 @@ runtimeError
 import collections
 import glob
 import os
-import sys
 import time
+import shutil
 
 from twisted.trial.unittest import TestCase
 from twistedActor import log, stopLogging, startFileLogging, LogLineParser
-import twistedActor
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred
 
-path2logs = os.path.join(os.path.abspath(os.path.dirname(__file__)), "logtest")
+TestLogDir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "logtest")
 logNum = 0
 
 def secsNow():
@@ -58,24 +56,19 @@ class LogTest(TestCase):
 
     def setUp(self):
         global logNum
-        self.testLogPath = path2logs
+        self.testLogDir = TestLogDir
 
-        self.logFile = startFileLogging(self.testLogPath + "%i" % logNum)
+        self.logFile = startFileLogging(self.testLogDir + "%i" % logNum)
         logNum += 1
         os.chmod(self.logFile, 0777)
-
-    def emptyDir(self, dir):
-        itemsToDelete = glob.glob(self.testLogPath + "*")
-        for deleteMe in itemsToDelete:
-            os.remove(deleteMe)
 
     def getSecsNow(self):
         t = time.localtime()
         return (t.tm_hour*60 + t.tm_min)*60 + t.tm_sec
 
     def getAllLogs(self):
-        return glob.glob(self.testLogPath + "*")
-        # return glob.glob(os.path.join(self.testLogPath, "logtest*"))
+        return glob.glob(self.testLogDir + "*")
+        # return glob.glob(os.path.join(self.testLogDir, "logtest*"))
 
     def getCurrentLog(self):
         logs = sorted(self.getAllLogs())
@@ -87,10 +80,8 @@ class LogTest(TestCase):
 
     def tearDown(self):
         stopLogging()
-        self.emptyDir(self.testLogPath)
-        rmCmd = "rm -r %s"%self.testLogPath
-        os.system(rmCmd)
-
+        if os.path.exists(self.testLogDir):
+            shutil.rmtree(self.testLogDir)
 
     def getLogInfo(self, filename):
         return LogLineParser().parseLogFile(filename)
