@@ -316,7 +316,7 @@ class Actor(BaseActor):
         runInBackground = False
         for devName in devNameList:
             dev = self.dev.nameDict[devName]
-            if dev.isConnected:
+            if not dev.isConnected:
                 self.showOneDevConnStatus(dev, cmd=cmd)
             else:
                 runInBackground = True
