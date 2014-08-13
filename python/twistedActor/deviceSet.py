@@ -270,6 +270,7 @@ class DeviceSet(object):
             # rebuild _devNameSlotDict to purge old device
             self._devNameSlotDict = dict((dev.name, slot) for slot, dev in self._slotDevDict.iteritems())
             self._addDevCallbacks(dev)
+            self._initCallback(dev) # init succeeded, but finished before calling _addDevCallbacks, so call the callback now
             if not userCmd.isDone:
                 userCmd.setState(userCmd.Done)
 
