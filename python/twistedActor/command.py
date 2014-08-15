@@ -57,12 +57,12 @@ class BaseCmd(RO.AddCallback.BaseMixin):
     ):
         """Construct a BaseCmd
 
-        @param[in] cmdStr: command string
-        @param[in] userID: user ID number
-        @param[in] cmdID: command ID number
-        @param[in] callFunc: function to call when command changes state;
+        @param[in] cmdStr  command string
+        @param[in] userID  user ID number
+        @param[in] cmdID  command ID number
+        @param[in] callFunc  function to call when command changes state;
             receives one argument: this command
-        @param[in] timeLim: time limit for command (sec); if None or 0 then no time limit
+        @param[in] timeLim  time limit for command (sec); if None or 0 then no time limit
         """
         self._cmdStr = cmdStr
         self.userID = int(userID)
@@ -136,11 +136,11 @@ class BaseCmd(RO.AddCallback.BaseMixin):
     def addCallback(self, callFunc, callNow=False):
         """Add a callback function
 
-        @param[in] callFunc: callback function:
+        @param[in] callFunc  callback function:
         - it receives one argument: this command
         - it is called whenever the state changes, and immediately if the command is already done
             or callNow is True
-        @param[in] callNow: if True, call callFunc immediately
+        @param[in] callNow  if True, call callFunc immediately
         """
         if self.isDone:
             RO.AddCallback.safeCall2("%s.addCallback callFunc =" % (self,), callFunc, self)
@@ -157,7 +157,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
     def getKeyValMsg(self, textPrefix=""):
         """Get full message data as (msgCode, msgStr), where msgStr is in keyword-value format
 
-        @param[in] textPrefix: a prefix added to self._textMsg
+        @param[in] textPrefix  a prefix added to self._textMsg
         @return two values:
         - msgCode: message code (e.g. "W")
         - msgStr: message string: a combination of _textMsg and _hubMsg in keyword-value format.
@@ -177,9 +177,9 @@ class BaseCmd(RO.AddCallback.BaseMixin):
 
         If new state is done then remove all callbacks (after calling them).
 
-        @param[in] newState: new state of command
-        @param[in] textMsg: a message to be printed using the Text keyword; if None then not changed
-        @param[in] hubMsg: a message in keyword=value format (without a header); if None then not changed
+        @param[in] newState  new state of command
+        @param[in] textMsg  a message to be printed using the Text keyword; if None then not changed
+        @param[in] hubMsg  a message in keyword=value format (without a header); if None then not changed
 
         You can set both textMsg and hubMsg, but typically only one or the other will be displayed
         (depending on the situation).
@@ -319,12 +319,12 @@ class DevCmd(BaseCmd):
     ):
         """Construct a DevCmd
 
-        @param[in] cmdStr: command string
-        @param[in] callFunc: function to call when command changes state, or None;
+        @param[in] cmdStr  command string
+        @param[in] callFunc  function to call when command changes state, or None;
             receives one argument: this command
-        @param[in] userCmd: user command whose state is to track this command, or None
-        @param[in] timeLim: time limit for command (sec); if None or 0 then no time limit
-        @param[in] dev: device being commanded; for simple actors and devices this can probably be left None,
+        @param[in] userCmd  user command whose state is to track this command, or None
+        @param[in] timeLim  time limit for command (sec); if None or 0 then no time limit
+        @param[in] dev  device being commanded; for simple actors and devices this can probably be left None,
             but for complex actors it can be very helpful information, e.g. for callback functions
 
         If userCmd is specified then its state is set to the same state as the device command
@@ -372,11 +372,11 @@ class DevCmdVar(BaseCmd):
     ):
         """Construct an DevCmdVar
 
-        @param[in] cmdVar: the command variable to wrap (an instance of opscore.actor.CmdVar)
-        @param[in] callFunc: function to call when command changes state;
+        @param[in] cmdVar  the command variable to wrap (an instance of opscore.actor.CmdVar)
+        @param[in] callFunc  function to call when command changes state;
             receives one argument: this command
-        @param[in] userCmd: a user command that will track this new device command
-        @param[in] timeLim: time limit for command (sec); if None or 0 then no time limit
+        @param[in] userCmd  a user command that will track this new device command
+        @param[in] timeLim  time limit for command (sec); if None or 0 then no time limit
         """
         BaseCmd.__init__(self,
             cmdStr = "", # instead of copying cmdVar.cmdStr, override the cmdStr property below
@@ -438,7 +438,7 @@ class UserCmd(BaseCmd):
         @param[in] cmdStr    full command
         @param[in] callFunc  function to call when command finishes or fails;
                     the function receives two arguments: this UserCmd, isOK
-        @param[in] timeLim: time limit for command (sec); if None or 0 then no time limit
+        @param[in] timeLim  time limit for command (sec); if None or 0 then no time limit
         """
         BaseCmd.__init__(self,
             cmdStr = cmdStr,
@@ -451,7 +451,7 @@ class UserCmd(BaseCmd):
     def parseCmdStr(self, cmdStr):
         """Parse command
 
-        @param[in] cmdStr: command string (see module doc string for format)
+        @param[in] cmdStr  command string (see module doc string for format)
         """
         cmdMatch = self._HeaderBodyRE.match(cmdStr)
         if not cmdMatch:

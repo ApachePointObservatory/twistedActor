@@ -19,8 +19,8 @@ class LinkCommands(object):
     def __init__(self, mainCmd, subCmdList):
         """Link a main command to a collection of sub-commands
 
-        @param[in] mainCmd: the main command, a BaseCmd
-        @param[in] subCmdList: a collection of sub-commands, each a BaseCmd
+        @param[in] mainCmd  the main command, a BaseCmd
+        @param[in] subCmdList  a collection of sub-commands, each a BaseCmd
         """
         if hasattr(mainCmd, 'isLinked'):
             raise RuntimeError("Cannont link main command %s, it is already linked elsewhere!"%str(mainCmd))
@@ -37,7 +37,7 @@ class LinkCommands(object):
     def subCmdCallback(self, dumCmd=None):
         """Callback to be added to each device cmd
 
-        @param[in] dumCmd: sub-command issuing the callback (ignored)
+        @param[in] dumCmd  sub-command issuing the callback (ignored)
         """
         if not all(subCmd.isDone for subCmd in self.subCmdList):
             # not all device commands have terminated so keep waiting

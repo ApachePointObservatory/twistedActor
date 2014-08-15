@@ -29,13 +29,13 @@ class ActorWrapper(BaseWrapper):
     ):
         """Construct a ActorWrapper that manages its devices and controllers
 
-        @param[in] name: a name to use for messages
-        @param[in] deviceWrapperList: a list of device wrappers (twistedActor.DeviceWrapper);
+        @param[in] name  a name to use for messages
+        @param[in] deviceWrapperList  a list of device wrappers (twistedActor.DeviceWrapper);
             each must be starting up or ready
-        @param[in] userPort: port for mirror controller connections; 0 to auto-select
-        @param[in] stateCallback: function to call when state of actor server socket or any device wrapper changes
+        @param[in] userPort  port for mirror controller connections; 0 to auto-select
+        @param[in] stateCallback  function to call when state of actor server socket or any device wrapper changes
             receives one argument: this actor wrapper
-        @param[in] debug: print debug messages to stdout?
+        @param[in] debug  print debug messages to stdout?
         """
         BaseWrapper.__init__(self,
             name = name,

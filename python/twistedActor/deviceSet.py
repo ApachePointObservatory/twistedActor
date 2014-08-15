@@ -48,16 +48,16 @@ class DeviceSet(object):
     def __init__(self, actor, slotList, devList, connStateKeyword):
         """Construct a DeviceSet
 
-        @param[in] actor: actor (instance of twistedActor.BaseActor);
+        @param[in] actor  actor (instance of twistedActor.BaseActor);
             used for writeToUsers in this class, and subclasses may make additonal use of it
-        @param[in] slotList: name of each device slot (even if that slot has no device)
-        @param[in] devList: sequence of devices;
+        @param[in] slotList  name of each device slot (even if that slot has no device)
+        @param[in] devList  sequence of devices;
             each device is either an instances of twistedActor.Device or is None if the device is unavailable
-        @param[in] connStateKeyword: connection state keyword;
+        @param[in] connStateKeyword  connection state keyword;
             format is <connStateKeyword>=state0, state1...
             where stateN is the state of the device in slot N, or None if no device
 
-        @raise RuntimeError if:
+        @throw RuntimeError if:
         - len(devList) != len(slotList)
         - names in slotList are not unique
         """
@@ -98,15 +98,15 @@ class DeviceSet(object):
     def connect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
         """Connect devices specified by slot name
 
-        @param[in] doConnect: if True, connect the specified devices, else disconnect them
-        @param[in] slotList: collection of slot names, or None for all filled slots
-        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+        @param[in] doConnect  if True, connect the specified devices, else disconnect them
+        @param[in] slotList  collection of slot names, or None for all filled slots
+        @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
-        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+        @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
 
-        @raise RuntimeError if:
+        @throw RuntimeError if:
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
@@ -116,15 +116,15 @@ class DeviceSet(object):
     def disconnect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
         """Connect devices specified by slot name
 
-        @param[in] doConnect: if True, connect the specified devices, else disconnect them
-        @param[in] slotList: collection of slot names, or None for all filled slots
-        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+        @param[in] doConnect  if True, connect the specified devices, else disconnect them
+        @param[in] slotList  collection of slot names, or None for all filled slots
+        @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
-        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+        @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
 
-        @raise RuntimeError if:
+        @throw RuntimeError if:
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
@@ -134,11 +134,11 @@ class DeviceSet(object):
     def expandSlotList(self, slotList, connOnly=False):
         """Expand a collection of slot names, changing None to the correct list and checking the list
 
-        @param[in] slotList: collection of slot names, or None for all filled slots
-        @param[in] connOnly: if True and slotList is None then only include connected devices
+        @param[in] slotList  collection of slot names, or None for all filled slots
+        @param[in] connOnly  if True and slotList is None then only include connected devices
             (typically used for status); ignored unless slotList is None
 
-        @raise RuntimeError if slotList contains an unknown or empty slot name
+        @throw RuntimeError if slotList contains an unknown or empty slot name
         """
         if slotList is None:
             return self.filledSlotList
@@ -180,14 +180,14 @@ class DeviceSet(object):
     def getIndex(self, slot):
         """Get the index of the slot
 
-        @raise KeyError if slot does not exist
+        @throw KeyError if slot does not exist
         """
         return self._slotIndexDict[slot]
 
     def showConnState(self, userCmd=None):
         """Show connection state in slot order
 
-        @param[in] userCmd: user command to use for reporting, or None; its state is not set
+        @param[in] userCmd  user command to use for reporting, or None; its state is not set
             if userCmd is None state is reported only if has changed since last time it was reported,
             or if not all existing devices are connected
         """
@@ -207,7 +207,7 @@ class DeviceSet(object):
     def slotListFromBoolList(self, boolList):
         """Return a list of slot names given a list of bools
 
-        @param[in] boolList: a list of bool values of length len(self);
+        @param[in] boolList  a list of bool values of length len(self);
 
         @return a list of slot names corresponding to True values in boolList
 
@@ -233,15 +233,15 @@ class DeviceSet(object):
 
         The old device (if it exists) is closed by calling init()
 
-        @param[in] slot: slot slot of device (must match a slot in slotList)
-        @param[in] dev: the new device, or None to remove the existing device
-        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+        @param[in] slot  slot slot of device (must match a slot in slotList)
+        @param[in] dev  the new device, or None to remove the existing device
+        @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
-        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+        @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
 
         @return userCmd: the supplied userCmd or a newly created UserCmd
 
-        @raise RuntimeError if slot is not in slotList
+        @throw RuntimeError if slot is not in slotList
         """
         if slot not in self._slotDevDict:
             raise RuntimeError("Invalid slot %s" % (slot,))
@@ -284,17 +284,17 @@ class DeviceSet(object):
         The same command or list of commands is sent to each device;
         use startCmdDict to send different commands to different devices.
 
-        @param[in] cmdStrOrList: command to send
-        @param[in] slotList: collection of slot names, or None for all filled slots
-        @param[in] callFunc: callback function to call when each device command succeeds or fails, or None.
+        @param[in] cmdStrOrList  command to send
+        @param[in] slotList  collection of slot names, or None for all filled slots
+        @param[in] callFunc  callback function to call when each device command succeeds or fails, or None.
             See the description in startCmdDict for details.
-        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+        @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
-        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+        @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
 
-        @raise RuntimeError if:
+        @throw RuntimeError if:
         - slotList has empty or non-existent slots
         - userCmd is already done
         """
@@ -306,19 +306,19 @@ class DeviceSet(object):
     def startCmdDict(self, cmdDict, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """Start a dictionary of commands on one or more devices
 
-        @param[in] cmdDict: a dict of slot: command string or sequence of command strings
+        @param[in] cmdDict  a dict of slot: command string or sequence of command strings
             if the slot is empty or unknown then an exception is raised
-        @param[in] callFunc: callback function to call when each device command succeeds or fails, or None.
+        @param[in] callFunc  callback function to call when each device command succeeds or fails, or None.
             If supplied, the function receives one positional argument: a DevCmdInfo.
             The function may return a new devCmd, in which case the completion of the full set of commands
             is delayed until the new command is finished; one use case is to initialize an actuator if a move fails.
-        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+        @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
-        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+        @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
 
-        @raise RuntimeError if:
+        @throw RuntimeError if:
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
@@ -342,11 +342,11 @@ class DeviceSet(object):
     def _connectOrDisconnect(self, doConnect, slotList, userCmd, timeLim):
         """Connect or disconnect a set of devices
 
-        @param[in] doConnect: if True connect, else disconnect
-        @param[in] slotList: collection of slot names, or None for all filled slots
-        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+        @param[in] doConnect  if True connect, else disconnect
+        @param[in] slotList  collection of slot names, or None for all filled slots
+        @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
-        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+        @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
@@ -393,15 +393,15 @@ class RunCmdDict(object):
     def __init__(self, devSet, callFunc, cmdDict, userCmd, timeLim):
         """Start running a command dict
 
-        @param[in] devSet: device set
-        @param[in] cmdDict: a dict of slot name: command string or sequence of command strings
-        @param[in] callFunc: callback function to call when each device command succeeds or fails, or None.
+        @param[in] devSet  device set
+        @param[in] cmdDict  a dict of slot name: command string or sequence of command strings
+        @param[in] callFunc  callback function to call when each device command succeeds or fails, or None.
             If supplied, the function receives one positional argument: a DevCmdInfo.
             The function may return a new devCmd, in which case the completion of the full set of commands
             is delayed until the new command is finished; one use case is to initialize an actuator if a move fails.
-        @param[in] userCmd: user command (twistedActor.UserCmd), or None;
+        @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
-        @param[in] timeLim: time limit for each command (sec); None or 0 for no limit
+        @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
         """

@@ -10,7 +10,7 @@ import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.Comm.TCPConnection import TCPConnection
 from RO.Comm.TwistedTimer import Timer
-from opscore.actor import ActorDispatcher, CmdVar, DoneCodes, FailedCodes
+from opscore.actor import ActorDispatcher, CmdVar, FailedCodes
 
 from .baseWrapper import BaseWrapper
 
@@ -39,13 +39,13 @@ class DispatcherWrapper(BaseWrapper):
     ):
         """Construct a DispatcherWrapper that manages everything
 
-        @param[in] actorWrapper: actor wrapper (twistedActor.ActorWrapper); must be starting up or ready
-        @param[in] dictName: name of actor keyword dictionary
-        @param[in] name: a name to use for messages
-        @param[in] readCallback: function to call when the actor dispatcher has data to read
-        @param[in] stateCallback: function to call when connection state of of any socket changes;
+        @param[in] actorWrapper  actor wrapper (twistedActor.ActorWrapper); must be starting up or ready
+        @param[in] dictName  name of actor keyword dictionary
+        @param[in] name  a name to use for messages
+        @param[in] readCallback  function to call when the actor dispatcher has data to read
+        @param[in] stateCallback  function to call when connection state of of any socket changes;
             receives one argument: this actor wrapper
-        @param[in] debug: print debug messages to stdout?
+        @param[in] debug  print debug messages to stdout?
         """
         BaseWrapper.__init__(self,
             name = name,
@@ -105,16 +105,16 @@ class DispatcherWrapper(BaseWrapper):
         @warning error handling is determined by callCodes; for details, see the documentation
             for the returned deferred below
 
-        @param[in] cmdStr: a command string
-        @param[in] timeLim: maximum time before command expires, in sec; 0 for no limit
-        @param[in] timeLimKeyVar: a KeyVar specifying a delta-time by which the command must finish
-        @param[in] timeLimKeyInd: the index of the time limit value in timeLimKeyVar; defaults to 0;
+        @param[in] cmdStr  a command string
+        @param[in] timeLim  maximum time before command expires, in sec; 0 for no limit
+        @param[in] timeLimKeyVar  a KeyVar specifying a delta-time by which the command must finish
+        @param[in] timeLimKeyInd  the index of the time limit value in timeLimKeyVar; defaults to 0;
             ignored if timeLimKeyVar is None.
-        @param[in] keyVars: a sequence of 0 or more keyword variables to monitor for this command.
+        @param[in] keyVars  a sequence of 0 or more keyword variables to monitor for this command.
             Any data for those variables that arrives IN RESPONSE TO THIS COMMAND is saved
             and can be retrieved using cmdVar.getKeyVarData or cmdVar.getLastKeyVarData.
-        @param[in] callFunc: receives one arguement the CmdVar
-        @param[in] callCodes: a string of message codes that will result in calling callFunc;
+        @param[in] callFunc  receives one arguement the CmdVar
+        @param[in] callCodes  a string of message codes that will result in calling callFunc;
             common values include ":"=success, "F"=failure and ">"=queued
             see opscore.actor.keyvar for all call codes.
 
@@ -175,10 +175,12 @@ class CmdWrapper(object):
     def __init__(self, cmdVar, callFunc, callCodes):
         """Start a command and call callFunc if it succeeds
 
-        @param[in] cmdVar: command variable (instance of opscore.actor.CmdVar)
-        @param[in] callFunc: callback function to call if the command succeeds;
-            it receives one argument: cmdVar
-        @param[in] callCodes: if True then only call callFunc if and when the command succeeds
+        @param[in] cmdVar  command variable (instance of opscore.actor.CmdVar)
+        @param[in] callFunc  callback function to call if the command succeeds, or None;
+            if specified, callFunc receives one argument: cmdVar;
+            if callFunc raises an exception then a traceback is printed and the command wrapper fails
+        @param[in] callCodes  if True then only call callFunc if and when the command succeeds
+        @param[in] stateFunc  callback function to call when the wrapper state changes
 
         Maintain a deferred that fails if the command fails or callFunc raises an exception
         and completes successfully if both succeed.
@@ -188,41 +190,62 @@ class CmdWrapper(object):
         self.callFunc = callFunc
         self.callCodes = set(callCodes)
         self._checkCmd = not bool(self.callCodes & set(FailedCodes)) # check command state if callFunc is not called on command failure
-        callCodesPlusDoneCodes = str(self.callCodes | set(DoneCodes))
-
-        cmdVar.addCallback(self._callback, callCodes = callCodesPlusDoneCodes)
+        cmdVar.addCallback(self._cmdCallback, callCodes = callCodes)
+        self._stateFunc = None
         self.didFail = False
+
+    def setStateFunc(self, stateFunc):
+        if self._stateFunc is not None:
+            raise RuntimeError("%s already has a state function" % (self,))
+        if self.isDone:
+            raise RuntimeError("%s already finished" % (self,))
+        self._stateFunc = stateFunc
 
     def startCmd(self, dispatcher):
         """Start running the command
         """
         if self.cmdVar.isDone:
             raise RuntimeError("Already done")
-#        print "Starting command %s" % (self.cmdVar,)
+        print "Starting command %s" % (self.cmdVar,)
         dispatcher.executeCmd(self.cmdVar)
 
     @property
     def isDone(self):
         return self.deferred.called
 
-    def _callback(self, cmdVar=None):
+    @property
+    def _reportFailure(self):
+        """Return True if cmdVar and we check for failure (because failure codes not in callCodes)
+        """
+        return self.cmdVar.didFail and self._checkCmd
+
+    def _cmdCallback(self, cmdVar=None):
         """Command callback
         """
-        if self._checkCmd and self.cmdVar.didFail:
-            self._finish(RuntimeError("%s failed: %s" % (cmdVar, cmdVar.lastReply.string)))
-            return
-
-        try:
-            if self.callFunc is not None and self.cmdVar.lastCode in self.callCodes:
+        # call the callback, if justified:
+        # function exists, last message code matches and command does not have a reportable failure
+        if (self.callFunc is not None) and (self.cmdVar.lastCode in self.callCodes) and not self._reportFailure:
+            # either the command succeeded, or checking for success is disabled
+            try:
                 self.callFunc(self.cmdVar)
-            if self.cmdVar.isDone:
-                self._finish()
-        except Exception, e:
-            traceback.print_exc(file=sys.stderr) # is this always needed?
-            self._finish(e)
+            except Exception, e:
+                # callback failed; fail this command
+                traceback.print_exc(file=sys.stderr) # is this always needed?
+                Timer(0, self._finish, e)
+                return
+
+        if self.cmdVar.isDone:
+            if self._reportFailure:
+                print "Command %s failed: %s" % (self.cmdVar, self.cmdVar.reason)
+            else:
+                print "Command %s done" % (self.cmdVar,)
+            Timer(0, self._finish)
+
 
     def _finish(self, exception=None):
-        """Succeed or fail; clear callback and call deferred
+        """Command finished; call deferred and stateFunc and clear callFunc and stateFunc
+
+        @param[in] exception  an exception or None; if specified, the command wrapper is failed
         """
         self.callFunc = None
         if exception:
@@ -230,6 +253,9 @@ class CmdWrapper(object):
             self.deferred.errback(failure.Failure(exception))
         else:
             self.deferred.callback(self.cmdVar)
+        if self._stateFunc:
+            stateFunc, self._stateFunc = self._stateFunc, None
+            stateFunc(self)
 
     def __repr__(self):
         return "%s(cmdVar=%r, callFunc=%r, callCodes=%s)" % \
@@ -240,7 +266,7 @@ class DispatcherCmdQueue(object):
     def __init__(self, dispatcher):
         """A simple command queue that dispatches commands in the order received
 
-        @param[in] dispatcher: an opscore dispatcher
+        @param[in] dispatcher  an opscore dispatcher
         """
         self.dispatcher = dispatcher
         self.currCmdWrapper = None
@@ -249,22 +275,36 @@ class DispatcherCmdQueue(object):
     def addCmd(self, cmdWrapper):
         """Add a cmdVar to the queue and call a callFunc if it succeeds
 
-        @param[in] cmdWrapper: command wrapper, an instance of CmdWrapper
+        @param[in] cmdWrapper  command wrapper, an instance of CmdWrapper
         """
         self.cmdQueue.append(cmdWrapper)
         self.runQueue()
 
-    def runQueue(self, cmdVar=None):
-        if self.currCmdWrapper:
-            if not self.currCmdWrapper.isDone:
-                return
-            if self.currCmdWrapper.didFail:
-                # stop the test
-                for cmdWrapper in self.cmdQueue:
-                    cmdWrapper.deferred.callback("cancel because %s failed" % (self.currCmdWrapper,))
-                return
+    @property
+    def isBusy(self):
+        """Return True if the command queue is running a command
+        """
+        return self.currCmdWrapper is not None and not self.currCmdWrapper.isDone
+
+    def _cmdWrapperDone(self, cmdWrapper):
+        if not cmdWrapper.isDone:
+            print "Warning: DispatcherCmdQueue._cmdWrapperDone called with not done wrapper"
+            return
+
+        if cmdWrapper.didFail:
+            # stop the test
+            for cmdWrapper in self.cmdQueue:
+                cmdWrapper.deferred.callback("cancel because %s failed" % (self.currCmdWrapper,))
+            return
+        else:
+            self.runQueue()
+
+    def runQueue(self):
+        if self.isBusy:
+            return
 
         if self.cmdQueue:
             self.currCmdWrapper = self.cmdQueue.popleft()
-            self.currCmdWrapper.cmdVar.addCallback(self.runQueue)
+            self.currCmdWrapper.setStateFunc(self._cmdWrapperDone)
+#            self.currCmdWrapper.startCmd(self.dispatcher)
             Timer(0, self.currCmdWrapper.startCmd, self.dispatcher)

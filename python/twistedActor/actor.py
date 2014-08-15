@@ -49,14 +49,14 @@ class Actor(BaseActor):
     ):
         """Construct an Actor
 
-        @param[in] userPort: port on which to listen for users
-        @param[in] devs: a collection of Device objects that this ICC controls
-        @param[in] maxUsers: the maximum allowed # of users; if 0 then there is no limit
-        @param[in] doDebugMsgs: print debug messages?
-        @param[in] version: actor version str
-        @param[in] name: actor name, used for logging
-        @param[in] doConnect: if True then connect devices on construction
-        @param[in] doDevNameCmds: if True, support device name commands to send arbitrary commands to each device
+        @param[in] userPort  port on which to listen for users
+        @param[in] devs  a collection of Device objects that this ICC controls
+        @param[in] maxUsers  the maximum allowed # of users; if 0 then there is no limit
+        @param[in] doDebugMsgs  print debug messages?
+        @param[in] version  actor version str
+        @param[in] name  actor name, used for logging
+        @param[in] doConnect  if True then connect devices on construction
+        @param[in] doDevNameCmds  if True, support device name commands to send arbitrary commands to each device
         """
         # local command dictionary containing cmd verb: method
         # all methods whose name starts with cmd_ are added
@@ -136,7 +136,7 @@ class Actor(BaseActor):
     def checkLocalCmd(self, newCmd):
         """Check if the new local command can run given what else is going on
 
-        @param[in] newCmd: new local user command (twistedActor.UserCmd);
+        @param[in] newCmd  new local user command (twistedActor.UserCmd);
             "local" means this command will trigger a cmd_<verb> method of this actor
 
         If the new command cannot run then raise CommandError
@@ -154,7 +154,7 @@ class Actor(BaseActor):
     def devConnStateCallback(self, conn):
         """Called when a device's connection state changes
 
-        @param[in] conn: device connection whose state has changed
+        @param[in] conn  device connection whose state has changed
         """
         dev = self.dev.getFromConnection(conn)
         wantConn, cmd = dev.connReq
@@ -169,7 +169,7 @@ class Actor(BaseActor):
     def parseAndDispatchCmd(self, cmd):
         """Parse and dispatch a command
 
-        @param[in] cmd: user command (twistedActor.UserCmd)
+        @param[in] cmd  user command (twistedActor.UserCmd)
 
         Duplicate command names are resolved such that the first match in this list is used:
         - local commands (cmd_<foo> methods of this actor)
@@ -241,7 +241,7 @@ class Actor(BaseActor):
     def showNewUserInfo(self, sock):
         """Show information for new users; called automatically when a new user connects
 
-        @param[in] sock: socket connection to new user
+        @param[in] sock  socket connection to new user
         """
         fakeCmd = BaseActor.showNewUserInfo(self, sock)
         self.showDevConnStatus(cmd=fakeCmd, onlyOneUser=True, onlyIfNotConn=True)
@@ -249,9 +249,9 @@ class Actor(BaseActor):
     def showDevConnStatus(self, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
         """Show connection status for all devices
 
-        @param[in] cmd: user command (twistedActor.UserCmd)
-        @param[in] onlyOneUser: if True only display the information to the commanding user
-        @param[in] onlyIfNotConn: only show information for devices that are disconnected
+        @param[in] cmd  user command (twistedActor.UserCmd)
+        @param[in] onlyOneUser  if True only display the information to the commanding user
+        @param[in] onlyIfNotConn  only show information for devices that are disconnected
         """
         for dev in self.dev.nameDict.itervalues():
             self.showOneDevConnStatus(dev, onlyOneUser=onlyOneUser, onlyIfNotConn=onlyIfNotConn, cmd=cmd)
@@ -259,9 +259,9 @@ class Actor(BaseActor):
     def showOneDevConnStatus(self, dev, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
         """Show connection status for one device
 
-        @param[in] cmd: user command (twistedActor.UserCmd)
-        @param[in] onlyOneUser: if True only display the information to the commanding user
-        @param[in] onlyIfNotConn: only show information for devices that are disconnected
+        @param[in] cmd  user command (twistedActor.UserCmd)
+        @param[in] onlyOneUser  if True only display the information to the commanding user
+        @param[in] onlyIfNotConn  only show information for devices that are disconnected
         """
         if onlyIfNotConn and dev.conn.isConnected:
             return

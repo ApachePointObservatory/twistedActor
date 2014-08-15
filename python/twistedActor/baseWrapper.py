@@ -37,12 +37,12 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
     ):
         """Construct a DispatcherWrapper that manages everything
 
-        @param[in] name: a name to use for messages
-        @param[in] stateCallback: function to call when connection state of of any socket changes;
+        @param[in] name  a name to use for messages
+        @param[in] stateCallback  function to call when connection state of of any socket changes;
             receives one argument: this actor wrapper
-        @param[in] callNow: call stateCallback now? (Defaults to false because typically
+        @param[in] callNow  call stateCallback now? (Defaults to false because typically
             subclasses have some additional setup to do before calling callback functions).
-        @param[in] debug: print debug messages to stdout?
+        @param[in] debug  print debug messages to stdout?
         """
         self.name = name
         RO.AddCallback.BaseMixin.__init__(self, defCallNow=True)
@@ -110,7 +110,7 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
                     self.readyDeferred.callback(None)
                 elif self.didFail:
                     self.debugMsg("failing readyDeferred")
-                    self.readyDeferred.errback("Failed") # probably should not be a string?
+                    self.readyDeferred.errback(RuntimeError("failed"))
 
 
         self._doCallbacks()

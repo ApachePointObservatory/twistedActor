@@ -28,9 +28,9 @@ __all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 def expandUserCmd(userCmd):
     """If userCmd is None, make a new one; if userCmd is done, raise RuntimeError
 
-    @param[in] userCmd: user command (twistedActor.UserCmd) or None
+    @param[in] userCmd  user command (twistedActor.UserCmd) or None
     @return userCmd: return supplied userCmd if not None, else a new twistedActor.UserCmd
-    @raise RuntimeError if userCmd is done
+    @throw RuntimeError if userCmd is done
     """
     if userCmd is None:
         userCmd = UserCmd()
@@ -117,7 +117,7 @@ class Device(BaseMixin):
 
         If already connected then simply set returned userCmd's state to userCmd.Done.
 
-        @param[in] userCmd: user command (or None); if None a new one is generated
+        @param[in] userCmd  user command (or None); if None a new one is generated
             to allow tracking the progress of this command
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
@@ -186,9 +186,9 @@ class Device(BaseMixin):
     def init(self, userCmd=None, timeLim=DefaultTimeLim, getStatus=True):
         """Initialize the device and cancel all pending commands
 
-        @param[in] userCmd: user command that tracks this command, if any
-        @param[in] timeLim: maximum time before command expires, in sec; None for no limit
-        @param[in] getStatus: if true then get status after init
+        @param[in] userCmd  user command that tracks this command, if any
+        @param[in] timeLim  maximum time before command expires, in sec; None for no limit
+        @param[in] getStatus  if true then get status after init
         @return devCmd: the first device command that was started (and may already have failed)
 
         @warning: must be defined by the subclass
@@ -226,11 +226,11 @@ class Device(BaseMixin):
     def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """Start a new command.
 
-        @param[in] cmdStr: command string
-        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
+        @param[in] cmdStr  command string
+        @param[in] callFunc  callback function: function to call when command succeeds or fails, or None;
             if specified it receives one argument: a device command
-        @param[in] userCmd: user command that tracks this command, if any
-        @param[in] timeLim: maximum time before command expires, in sec; None for no limit
+        @param[in] userCmd  user command that tracks this command, if any
+        @param[in] timeLim  maximum time before command expires, in sec; None for no limit
 
         @return devCmd: the device command that was started (and may already have failed)
 
@@ -255,13 +255,13 @@ class Device(BaseMixin):
     def startCmdList(self, cmdList, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """Start a sequence of commands; if a command fails then subsequent commands are ignored
 
-        @param[in] cmdList: a sequence of command strings
-        @param[in] callFunc: callback function: function to call when the final command is done
+        @param[in] cmdList  a sequence of command strings
+        @param[in] callFunc  callback function: function to call when the final command is done
             or when a command fails (in which case subsequent commands are ignored), or None;
             if specified it receives one argument: the final device command that was executed
             (if a command fails, it will be the one that failed)
-        @param[in] userCmd: user command that tracks this list of commands, if any
-        @param[in] timeLim: maximum time before each command in the list expires, in sec; None for no limit
+        @param[in] userCmd  user command that tracks this list of commands, if any
+        @param[in] timeLim  maximum time before each command in the list expires, in sec; None for no limit
 
         @return devCmd: the first device command that was started (and may already have failed)
         """
@@ -298,9 +298,9 @@ class ConnectDevice(object):
     def __init__(self, dev, userCmd, timeLim):
         """Start connecting a device
 
-        @param[in] dev: device
-        @param[in] userCmd: user command associated with the connection, or None
-        @param[in] timeLim: time limit (sec) to make this connection
+        @param[in] dev  device
+        @param[in] userCmd  user command associated with the connection, or None
+        @param[in] timeLim  time limit (sec) to make this connection
         """
         self.dev = dev
         self._timeLim = timeLim
@@ -477,14 +477,14 @@ class RunCmdList(object):
     def __init__(self, dev, cmdList, callFunc, userCmd, timeLim):
         """Construct a RunCmdList
 
-        @param[in] dev: device (instance of Device)
-        @param[in] cmdList: a sequence of command strings
-        @param[in] callFunc: callback function: function to call when the final command is done
+        @param[in] dev  device (instance of Device)
+        @param[in] cmdList  a sequence of command strings
+        @param[in] callFunc  callback function: function to call when the final command is done
             or when a command fails (in which case subsequent commands are ignored), or None;
             if specified it receives one argument: the final device command that was executed
             (if a command fails, it will be the one that failed)
-        @param[in] userCmd: user command that tracks this list of commands, if any
-        @param[in] timeLim: maximum time before each command in the list expires, in sec; None for no limit
+        @param[in] userCmd  user command that tracks this list of commands, if any
+        @param[in] timeLim  maximum time before each command in the list expires, in sec; None for no limit
         """
         self.dev = dev
         self.cmdStrIter = iter(cmdList)
@@ -509,7 +509,7 @@ class RunCmdList(object):
         If the command succeeded then execute the next command
         If there are no more command to execute, then conclude the userCmd (if any)
 
-        @param[in] devCmd: device command
+        @param[in] devCmd  device command
         """
         if not devCmd.isDone:
             return
@@ -532,7 +532,7 @@ class RunCmdList(object):
     def finish(self, devCmd):
         """Finish the sequence of commands by calling callFunc and setting state of userCmd
 
-        @raise RuntimeError if devCmd not done
+        @throw RuntimeError if devCmd not done
 
         @note: finish takes devCmd as an argument because it is possible the command
         started by dev.startCmd will have failed before the new devCmd is returned
@@ -663,20 +663,20 @@ class ActorDevice(TCPDevice):
     ):
         """Queue or start a new command.
 
-        @param[in] cmdStr: the command; no terminating \n wanted
-        @param[in] callFunc: callback function: function to call when command succeeds or fails, or None;
+        @param[in] cmdStr  the command; no terminating \n wanted
+        @param[in] callFunc  callback function: function to call when command succeeds or fails, or None;
             if specified it receives one argument: an opscore.actor.CmdVar object
-        @param[in] userCmd: user command that tracks this command, if any
-        @param[in] callFunc: a callback function; it receives one argument: a CmdVar object
-        @param[in] userCmd: user command that tracks this command, if any
-        @param[in] timeLim: maximum time before command expires, in sec; 0 for no limit
-        @param[in] timeLimKeyVar: a KeyVar specifying a delta-time by which the command must finish
+        @param[in] userCmd  user command that tracks this command, if any
+        @param[in] callFunc  a callback function; it receives one argument: a CmdVar object
+        @param[in] userCmd  user command that tracks this command, if any
+        @param[in] timeLim  maximum time before command expires, in sec; 0 for no limit
+        @param[in] timeLimKeyVar  a KeyVar specifying a delta-time by which the command must finish
             this KeyVar must be registered with the message dispatcher.
-        @param[in] timeLimKeyInd: the index of the time limit value in timeLimKeyVar; defaults to 0;
+        @param[in] timeLimKeyInd  the index of the time limit value in timeLimKeyVar; defaults to 0;
             ignored if timeLimKeyVar is None.
-        @param[in] abortCmdStr: a command string that will abort the command.
+        @param[in] abortCmdStr  a command string that will abort the command.
             Sent to the actor if abort is called and if the command is executing.
-        @param[in] keyVars: a sequence of 0 or more keyword variables to monitor for this command.
+        @param[in] keyVars  a sequence of 0 or more keyword variables to monitor for this command.
             Any data for those variables that arrives IN RESPONSE TO THIS COMMAND is saved
             and can be retrieved using cmdVar.getKeyVarData or cmdVar.getLastKeyVarData.
 
@@ -717,7 +717,7 @@ class DeviceCollection(object):
     def __init__(self, devList):
         """Construct a DeviceCollection
 
-        @param[in] devList: a collection of devices (instances of device.Device).
+        @param[in] devList  a collection of devices (instances of device.Device).
             Required attributes are:
             - name: name of device
             - connection: connection used by device

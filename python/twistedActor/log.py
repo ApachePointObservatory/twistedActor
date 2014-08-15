@@ -26,7 +26,7 @@ facilityDict = {
 
 def startFileLogging(filename):
     """ Start logging using python logging module to a file.
-        @param[in] filename: Full path to file where logging should start.
+        @param[in] filename  Full path to file where logging should start.
         @return filename with datetimestamp appended, or None if logging has already started
     """
     global log

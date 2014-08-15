@@ -39,15 +39,15 @@ class DeviceWrapper(BaseWrapper):
 
         You must specify either controller or controllerWrapper but not both
 
-        @param[in] name: name of device
-        @param[in] controller: the controller the device talks to (a RO.Comm.TwistedSocket.TCPServer);
+        @param[in] name  name of device
+        @param[in] controller  the controller the device talks to (a RO.Comm.TwistedSocket.TCPServer);
             it need not be listening yet, but must be trying to start listening.
-        @param[in] controllerWrapper: a wrapper around the controller the device talks to (an ActorWrapper).
-        @param[in] stateCallback: function to call when connection state of controller or device changes;
+        @param[in] controllerWrapper  a wrapper around the controller the device talks to (an ActorWrapper).
+        @param[in] stateCallback  function to call when connection state of controller or device changes;
             receives one argument: this device wrapper
-        @param[in] debug: print debug messages to stdout?
+        @param[in] debug  print debug messages to stdout?
 
-        @raise RuntimeError if you do not specify exactly one of controller or controllerWrapper
+        @throw RuntimeError if you do not specify exactly one of controller or controllerWrapper
         
         Subclasses must override _makeDevice
         """
@@ -138,7 +138,7 @@ class DeviceWrapper(BaseWrapper):
     def _setController(self, controller):
         """Set self.controller and self.server and server state callbacks
 
-        @param[in] controller: an instance of BaseActor or RO.Comm.TwistedSocket.TCPSocket
+        @param[in] controller  an instance of BaseActor or RO.Comm.TwistedSocket.TCPSocket
         """
         self.controller = controller
         if isinstance(controller, BaseActor):

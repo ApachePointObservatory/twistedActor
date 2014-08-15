@@ -21,9 +21,9 @@ class QueuedCommand(object):
     def __init__(self, cmd, priority, runFunc):
         """The type of object queued in the CommandQueue.
 
-            @param[in] cmd: a twistedActor BaseCmd with a cmdVerb attribute
-            @param[in] priority: an integer, or CommandQueue.Immediate
-            @param[in] runFunc: function that runs the command; called once, when the command is ready to run,
+            @param[in] cmd  a twistedActor BaseCmd with a cmdVerb attribute
+            @param[in] priority  an integer, or CommandQueue.Immediate
+            @param[in] runFunc  function that runs the command; called once, when the command is ready to run,
                 just after cmd's state is set to cmd.Running; receives one argument: cmd
         """
         if not hasattr(cmd, 'cmdVerb'):
@@ -160,9 +160,9 @@ class CommandQueue(object):
     def addRule(self, action, newCmds="all", queuedCmds="all"):
         """Add special case rules for collisions.
 
-        @param[in] action: one of CancelNew, CancelQueued, KillRunning
-        @param[in] newCmds: a list of incoming commands to which this rule applies or "all"
-        @param[in] queuedCmds: a list of the commands (queued or running) to which this rule applies or "all"
+        @param[in] action  one of CancelNew, CancelQueued, KillRunning
+        @param[in] newCmds  a list of incoming commands to which this rule applies or "all"
+        @param[in] queuedCmds  a list of the commands (queued or running) to which this rule applies or "all"
 
         See documentation for the addCommand method to learn exactly how rules are evaluated
         """
@@ -205,8 +205,8 @@ class CommandQueue(object):
     def getRule(self, newCmd, queuedCmd):
         """Get the rule for a specific new command vs. a specific queued command.
 
-        @param[in] newCmd: the incoming command verb
-        @param[in] queuedCmd: a command verb currently on the queue
+        @param[in] newCmd  the incoming command verb
+        @param[in] queuedCmd  a command verb currently on the queue
         @return a rule, one of self._AddActions
 
         Note: there is some logic to determine which rule is grabbed:
@@ -252,8 +252,8 @@ class CommandQueue(object):
     def addCmd(self, cmd, runFunc):
         """ Add a command to the queue, taking rules and priority into account.
 
-            @param[in] cmd: a twistedActor command object
-            @param[in] runFunc: function that runs the command; called once, when the command is ready to run,
+            @param[in] cmd  a twistedActor command object
+            @param[in] runFunc  function that runs the command; called once, when the command is ready to run,
                 just after cmd's state is set to cmd.Running; receives one argument: cmd
 
             Here's the logic:
@@ -365,7 +365,7 @@ class CommandQueue(object):
     def scheduleRunQueue(self, cmd=None):
         """Run the queue on a zero second timer
 
-        @param[in] cmd: command; if provided and not Done then the queue is not run (a BaseCmd);
+        @param[in] cmd  command; if provided and not Done then the queue is not run (a BaseCmd);
             this allows use of scheduleRunQueue as a command callback
         """
         if not self._enabled:
