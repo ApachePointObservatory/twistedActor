@@ -9,7 +9,18 @@ import os
 import sys
 import pyparsing as pp
 
-__all__ = ["log", "LogLineParser", "startFileLogging", "startSystemLogging", "stopLogging"]
+__all__ = ["log", "LogLineParser", "startFileLogging", "startSystemLogging", "stopLogging",
+    "getLoggerFacilityName"]
+
+def getLoggerFacilityName(facility):
+    """Get a facility name for the unix logger executable
+
+    @param[in] facility  syslog facility constant; must be one of
+        LOG_USER, LOG_SYSLOG and LOG_LOCAL* (the others are not supported)
+
+    @throw KeyError if facility is not supported
+    """
+    return SyslogLogger.FacilityNameDict[facility].lower()
 
 def startFileLogging(basePath):
     """!Start logging to a file using python logging module
@@ -39,7 +50,7 @@ def startSystemLogging(facility):
     global log
     if log:
         raise RuntimeError("startSystemLogging called, but %s logger already active." % (log))
-    log.replaceLogger(SysLogger(facility))
+    log.replaceLogger(SyslogLogger(facility))
 
 def stopLogging():
     """!Stop the current log process
@@ -161,7 +172,7 @@ class FileLogger(BaseLogger):
         return "%s(%s)" % (type(self).__name__, self.filePath)
 
 
-class SysLogger(BaseLogger):
+class SyslogLogger(BaseLogger):
     """!Logger that logs to syslog
 
     This module uses the syslog module, for performance
@@ -187,7 +198,7 @@ class SysLogger(BaseLogger):
     }
 
     def __init__(self, facility):
-        """!Construct a SysLogger
+        """!Construct a SyslogLogger
 
         @param[in] facility  a syslog.LOG_ facility constant; only a subset are permitted:
             LOG_USER, LOG_SYSLOG and LOG_LOCAL*

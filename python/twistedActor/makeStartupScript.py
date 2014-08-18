@@ -4,7 +4,9 @@ from __future__ import absolute_import, division
 import os
 import sys
 
-def makeStartupScript(actorName, pkgName, binScript, facility):
+from twistedActor import getLoggerFacilityName
+
+def makeStartupScript(actorName, pkgName, binScript, userPort, facility):
     """Return a startup bash script as a long string
 
     script output is redirected to the syslog using the specified facility:
@@ -15,6 +17,7 @@ def makeStartupScript(actorName, pkgName, binScript, facility):
     @param[in] pkgName  eups package name of actor.
     @param[in] binScript  script that starts the actor, e.g. "tcc35m.py";
         if it is not on $PATH, then it must be specified relative to its package directory.
+    @param[in] userPort  port on which actor will listen for commands
     @param[in] facility  logging facility (e.g. syslog.LOG_LOCAL1
     """
     pkgDirVar = "%s_DIR" % (pkgName.upper(),)
@@ -24,12 +27,15 @@ def makeStartupScript(actorName, pkgName, binScript, facility):
         print "%s not setup" % (actorName,)
         sys.exit(1)
 
-    argDict = dict(
+    facilityName = getLoggerFacilityName(facility)
+
+    valDict = dict(
         actorName = actorName,
         pkgDirVar = pkgDirVar,
         pkgDir = pkgDir,
         binScript = binScript,
-        facility = facility,
+        userPort = userPort,
+        facilityName = facilityName,
     )
 
     return """#!/bin/bash
@@ -61,7 +67,7 @@ get_pid() {
     PID=$pid
     
     if test "$pid"; then
-        echo "%(actorName)s is running as process $pid"
+        echo "%(actorName)s is running on port %(userPort)s as process $pid"
     else
         echo "%(actorName)s is not running"
     fi
@@ -80,7 +86,7 @@ do_start() {
     echo "Starting new %(actorName)s...\c"
 
     # redirect stdout to logger at priority "warning" and stderr at priority "error"
-    { %(binScript)s 2>&3 & | logger -p %(facility)s.warning } 3>&1 | logger -p %(facility)s.error &
+    { %(binScript)s 2>&3 | logger -p %(facilityName)s.warning } 3>&1 | logger -p %(facilityName)s.error &
     
     # Check that it really started...
     #
@@ -149,4 +155,4 @@ case $cmd in
 esac
 
 exit 0
-""" % argDict
+""" % valDict
