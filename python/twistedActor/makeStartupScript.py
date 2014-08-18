@@ -1,33 +1,46 @@
 from __future__ import absolute_import, division
 """Make a startup script for a given actor
 """
+import os
+import sys
 
-def makeStartupScript(actorName, pkgName, binScript, logDirVar="TWISTED_LOG_DIR"):
+def makeStartupScript(actorName, pkgName, binScript, facility):
     """Return a startup bash script as a long string
 
-    @param[in]
-    - actorName: name of actor. Used only for messages.
-    - pkgName: eups package name of actor.
-    - binScript: script that starts the actor, e.g. "tcc35m.py";
+    script output is redirected to the syslog using the specified facility:
+    - stdout uses priority "warning"
+    - stderr uses priority "error"
+
+    @param[in] actorName  name of actor. Used only for messages.
+    @param[in] pkgName  eups package name of actor.
+    @param[in] binScript  script that starts the actor, e.g. "tcc35m.py";
         if it is not on $PATH, then it must be specified relative to its package directory.
-    - logDirVar: name of environment variable for the directory into which to write logs
+    @param[in] facility  logging facility (e.g. syslog.LOG_LOCAL1
     """
+    pkgDirVar = "%s_DIR" % (pkgName.upper(),)
+    try:
+        pkgDir = os.environ[pkgDirVar]
+    except KeyError:
+        print "%s not setup" % (actorName,)
+        sys.exit(1)
+
     argDict = dict(
         actorName = actorName,
-        pkgDirVar = "%s_DIR" % (pkgName,),
+        pkgDirVar = pkgDirVar,
+        pkgDir = pkgDir,
         binScript = binScript,
-        logDirVar = logDirVar,
+        facility = facility,
     )
 
     return """#!/bin/bash
 
-if test -z "$TCC_DIR"; then
+if test -z $%(pkgDirVar)s; then
     echo "The %(actorName)s is not setup" >&1
     exit 1
 fi
 
 echo
-echo ====================== Using %(actorName)s in %(pkgDirVar)s=$%(pkgDirVar)s
+echo ====================== Using %(actorName)s in $%(pkgDirVar)s='%(pkgDir)s'
 echo
 
 usage() {
@@ -39,9 +52,6 @@ if test $# != 1; then
     usage
 fi
 cmd=$1
-
-# in case binScript is not on $PATH
-cd $%(pkgDirVar)s
 
 # Return the actor's pid, or the empty string.
 #
@@ -69,9 +79,8 @@ do_start() {
     
     echo "Starting new %(actorName)s...\c"
 
-    now=`date -u +"%%Y-%%m-%%dT%%H:%%M:%%SZ"`
-    (cd $%(logDirVar)s; rm -f current.log; ln -s $now current.log)
-    %(binScript)s >$%(logDirVar)s/%(actorName)s_stdout_$now 2>&1 &        
+    # redirect stdout to logger at priority "warning" and stderr at priority "error"
+    { %(binScript)s 2>&3 & | logger -p %(facility)s.warning } 3>&1 | logger -p %(facility)s.error &
     
     # Check that it really started...
     #
@@ -115,12 +124,6 @@ do_stopdead() {
     kill -KILL $PID
 }
 
-# Query a running actor for simple status.
-#
-do_status() {
-    get_pid
-}
-
 case $cmd in
     start) 
         do_start
@@ -134,8 +137,6 @@ case $cmd in
     status)
         # Check whether the actor is running
         get_pid
-        
-        # Query it for essential liveness
         ;;
     restart)
         do_stop

@@ -9,141 +9,126 @@ import os
 import sys
 import pyparsing as pp
 
-__all__ = ["LogLineParser", "startFileLogging", "startSystemLogging", "stopLogging", "log"]
+__all__ = ["log", "LogLineParser", "startFileLogging", "startSystemLogging", "stopLogging"]
 
-facilityDict = {
-    "USER": syslog.LOG_USER,
-    "SYSLOG": syslog.LOG_SYSLOG,
-    "LOCAL0": syslog.LOG_LOCAL0,
-    "LOCAL1": syslog.LOG_LOCAL1,
-    "LOCAL2": syslog.LOG_LOCAL2,
-    "LOCAL3": syslog.LOG_LOCAL3,
-    "LOCAL4": syslog.LOG_LOCAL4,
-    "LOCAL5": syslog.LOG_LOCAL5,
-    "LOCAL6": syslog.LOG_LOCAL6,
-    "LOCAL7": syslog.LOG_LOCAL7
-}
+def startFileLogging(basePath):
+    """!Start logging to a file using python logging module
 
-def startFileLogging(filename):
-    """ Start logging using python logging module to a file.
-        @param[in] filename  Full path to file where logging should start.
-        @return filename with datetimestamp appended, or None if logging has already started
+    @param[in] basePath  Full path to file where logging should start.
+    @return basePath with datetimestamp appended, or None if logging has already started
     """
     global log
     if log:
-        # logging already rolling send an error msg
-        raise RuntimeError("startFileLogging called, but %s logger already active." % (log))
+        raise RuntimeError("%s logger already active" % (log))
         # log.warn("startFileLogging called, but %s logger already active." % (log))
     else:
-        logger = PyLogger(filename)
-        log.setLogger(logger)
-        return logger.filepath
+        logger = FileLogger(basePath)
+        log.replaceLogger(logger)
+        return logger.filePath
 
 def startSystemLogging(facility):
-    """Start logging using python's syslog module.  Note you will need to configure
-    syslog/rsyslog for the system.
-    @param[in] facility where logs are sent, must be a key in facilityDict
+    """!Start logging to syslog using python's syslog module
+
+    @note Configure syslog or rsyslog for the specified facility in order to:
+    - specify where the messages are logged (e.g. a file or a remote logger)
+    - format the messages (e.g. prepend the date)
+
+    @param[in] facility  a syslog.LOG_ facility constant; only a subset are permitted:
+        LOG_USER, LOG_SYSLOG and LOG_LOCAL*
     """
     global log
     if log:
-        # logging already rolling send an error msg
         raise RuntimeError("startSystemLogging called, but %s logger already active." % (log))
-        # log.warn("startSystemLogging called, but %s logger already active." % (log))
-    elif facility not in facilityDict.keys():
-        # send msg to std error
-        sys.stderr.write("Cannot start system logging to facility %s. Must be one of %s"%(facility, facilityDict.keys()))
-    else:
-        log.setLogger(SysLogger(facility))
+    log.replaceLogger(SysLogger(facility))
 
 def stopLogging():
-    """Stop the current log process
+    """!Stop the current log process
     """
     global log
     log.stopLogging()
-    log.setLogger(NullLogger())
+
 
 class BaseLogger(object):
+    """!Base class for loggers
 
-    def _log(self, logMsg, logLevel):
-        """Subclasses must provide this method
+    Subclasses must:
+    - define class constants DEBUG, INFO, WARNING, ERROR, CRITICAL
+    - override the "log" and "stopLogging" methods
+    - define "__init__" to construct the logger and starts logging
+    """
+    def log(self, logMsg, logLevel):
+        """!Log a message at the specified log level
+
+        @param[in] logMsg  message to log (a str)
+        @param[in] logLevel  level at which to log, one of:
+            self.DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+        Subclasses must provide an implementation of this method
+        and define class variables DEBUG, INFO, WARNING, ERROR and CRITICAL
         """
         raise NotImplementedError()
 
-    def debug(self, msg):
-        self._log(msg, self.DEBUG)
-
-    def info(self, msg):
-        self._log(msg, self.INFO)
-
-    def warn(self, msg):
-        self._log(msg, self.WARNING)
-
-    def error(self, msg):
-        self._log(msg, self.ERROR)
-
-    def critical(self, msg):
-        self._log(msg, self.CRITICAL)
+    def stopLogging(self):
+        """!Stop logging with this logger
+        """
+        raise NotImplementedError()
 
     def __repr__(self):
         return "%s" % (type(self).__name__)
 
 
-class NullLogger(BaseLogger):
+class DefaultLogger(BaseLogger):
+    """!Logger that logs to stderr
 
-    def debug(self,msg):
-        pass
-
-    def info(self, msg):
-        pass
-
-    def warn(self, msg):
-        sys.stderr.write("%s [Warn] %s"%(self, msg))
-
-    def error(self, msg):
-        sys.stderr.write("%s [Error] %s"%(self, msg))
-
-    def critical(self, msg):
-        sys.stderr.write("%s [Crit] %s"%(self, msg))
-
-    def __nonzero__(self):
-        """Boolean value of this logger is False
-        """
-        return False
+    Debug and info messages are ignored (to avoid clutter)
+    """
+    DEBUG = "Debug"
+    INFO = "Info"
+    WARNING = "Warning"
+    ERROR = "Error"
+    CRITICAL = "Critical"
+    def log(self, logMsg, logLevel):
+        if logLevel in (self.DEBUG, self.INFO):
+            pass
+        sys.stderr.write("%s [%s] %s"%(self, logLevel, logMsg))
 
     def stopLogging(self):
         pass # nothing to stop!
 
-class PyLogger(BaseLogger):
+
+class FileLogger(BaseLogger):
+    """!Logger that logs to a file
+
+    This logger uses the logging module
+    """
     DEBUG = logging.DEBUG
     INFO = logging.INFO
     WARNING = logging.WARNING
     ERROR = logging.ERROR
     CRITICAL = logging.CRITICAL
 
-    def __repr__(self):
-        return "%s(%s)" % (type(self).__name__, self.filepath)
+    def __init__(self, basePath):
+        """!Construct a FileLogger for a specific log file.
 
-    def __init__(self, filepath):
-        """Begin logging to a specified log file.
-
-        @param[in] filepath, path to file.  Currrent date/time will be appended to the filename
-        @return filepath, the filepath with the appended filename.
+        @param[in] basePath  path to log file; the full file name will have the date and ".log" appended
+            hence "example/foo" will write to "example/foo_<yyyy>_<mm>_<dd>:<hh><mm><ss>.log"
+        @return filePath, the basePath with the appended basePath.
         """
-        # determine directories, creat em if they dont exist
-        dirname, filename = os.path.split(filepath)
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-        # append current time to filename
-        filename = filename + datetime.datetime.now().strftime("%y-%m-%dT%H:%M:%S")
-        fullpath = os.path.join(dirname, filename)
+        dirPath, baseName = os.path.split(basePath)
+        if not os.path.exists(dirPath):
+            raise RuntimeError("Directory %r does not exist" % (dirPath,))
+            os.makedirs(dirPath)
+        # append current time to baseName
+        filePath = "%s_%s.log" % (basePath, datetime.datetime.now().strftime("%y-%m-%dT%H:%M:%S"))
 
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
 
-        fh = logging.FileHandler(fullpath)
+        fh = logging.FileHandler(filePath)
         fh.setLevel(logging.DEBUG)
 
-        console = logging.StreamHandler(sys.stdout) # writes to sys.stderr
+        # configure stdout to write messages with level warning
+        console = logging.StreamHandler(sys.stdout)
         console.setLevel(logging.WARNING)
 
         logFormatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d %(levelname)s:  %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -158,10 +143,13 @@ class PyLogger(BaseLogger):
         self.logger = logger
         self.console = console
         self.fh = fh
-        self.filepath = fullpath
+        self.filePath = filePath
+
+    def log(self, logMsg, logLevel):
+        self.logger.log(logLevel, logMsg)
 
     def stopLogging(self):
-        """Shut down logging.
+        """!Stop logging and close the log file
         """
         self.logger.removeHandler(self.fh)
         self.logger.removeHandler(self.console)
@@ -169,57 +157,117 @@ class PyLogger(BaseLogger):
         self.fh = None
         self.console = None
 
-    def _log(self, logMsg, logLevel):
-        self.logger.log(logLevel, logMsg)
+    def __repr__(self):
+        return "%s(%s)" % (type(self).__name__, self.filePath)
+
 
 class SysLogger(BaseLogger):
+    """!Logger that logs to syslog
+
+    This module uses the syslog module, for performance
+    """
     DEBUG = syslog.LOG_DEBUG
     INFO = syslog.LOG_INFO
     WARNING = syslog.LOG_WARNING
     ERROR = syslog.LOG_ERR
     CRITICAL = syslog.LOG_CRIT
 
+    # dict of facility value: name as used by logger unix executable
+    FacilityNameDict = {
+        syslog.LOG_USER:   "user",
+        syslog.LOG_SYSLOG: "syslog",
+        syslog.LOG_LOCAL0: "local0",
+        syslog.LOG_LOCAL1: "local1",
+        syslog.LOG_LOCAL2: "local2",
+        syslog.LOG_LOCAL3: "local3",
+        syslog.LOG_LOCAL4: "local4",
+        syslog.LOG_LOCAL5: "local5",
+        syslog.LOG_LOCAL6: "local6",
+        syslog.LOG_LOCAL7: "local7",
+    }
+
     def __init__(self, facility):
-        syslog.openlog(facility = facilityDict[facility])
+        """!Construct a SysLogger
+
+        @param[in] facility  a syslog.LOG_ facility constant; only a subset are permitted:
+            LOG_USER, LOG_SYSLOG and LOG_LOCAL*
+        """
+        if facility not in self.FacilityNameDict:
+            raise RuntimeError("Unsupported facility %s")
+
+        syslog.openlog(facility)
+
+    def log(self, logMsg, logLevel):
+        syslog.syslog(logLevel, logMsg)
 
     def stopLogging(self):
+        """!Stop logging
+        """
         syslog.closelog()
 
-    def _log(self, logMsg, logLevel):
-        syslog.syslog(logLevel, logMsg)
 
 class LogManager(object):
     """Object that holds the current logger.
+
+    This is needed so that the logger used by the log object can be changed at will.
     """
     def __init__(self):
-        self.logger = NullLogger()
+        self.logger = DefaultLogger()
 
-    def __nonzero__(self):
-        return bool(self.logger)
+    def log(self, logMsg, logLevel):
+        self.logger.log(logMsg, logLevel)
 
-    def setLogger(self, logger):
+    def replaceLogger(self, logger):
+        """!Stop the current logger and switch to a new logger
+
+        @param[in] logger  an instance of BaseLogger
+        """
+        self.logger.stopLogging()
         self.logger = logger
 
-    def debug(self, msg):
-        self.logger.debug(msg)
-
-    def info(self, msg):
-        self.logger.info(msg)
-
-    def warn(self, msg):
-        self.logger.warn(msg)
-
-    def error(self, msg):
-        self.logger.error(msg)
-
-    def critical(self, msg):
-        self.logger.critical(msg)
-
     def stopLogging(self):
+        """!Stop the current logger and switch back to the default logger
+        """
         self.logger.stopLogging()
+        self.logger = DefaultLogger()
+
+    def debug(self, logMsg):
+        """!Write a debug-level message
+
+        @param[in] logMsg  message string
+        """
+        self.logger.debug(logMsg)
+
+    def info(self, logMsg):
+        """!Write a debug-level message
+
+        @param[in] logMsg  message string
+        """
+        self.logger.log(logMsg, self.logger.INFO)
+
+    def warn(self, logMsg):
+        """!Write a debug-level message
+
+        @param[in] logMsg  message string
+        """
+        self.logger.log(logMsg, self.logger.WARNING)
+
+    def error(self, logMsg):
+        """!Write a debug-level message
+
+        @param[in] logMsg  message string
+        """
+        self.logger.log(logMsg, self.logger.ERROR)
+
+    def critical(self, logMsg):
+        self.logger.log(logMsg, self.logger.CRITICAL)
 
     def __repr__(self):
         return "%s" % self.logger
+
+    def __nonzero__(self):
+        return not isinstance(self.logger, DefaultLogger)
+
 
 class LogLineParser(object):
     def __init__(self):
@@ -261,4 +309,4 @@ class LogLineParser(object):
         return outList
 
 # global log
-log = LogManager() # global logger, 2 flavors available PyLogger and SystemLogger, if logging hasn't started, use NullLogger.
+log = LogManager()
