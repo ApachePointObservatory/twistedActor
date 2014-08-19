@@ -206,7 +206,7 @@ class SyslogLogger(BaseLogger):
         if facility not in self.FacilityNameDict:
             raise RuntimeError("Unsupported facility %s")
 
-        syslog.openlog(facility)
+        syslog.openlog(facility=facility)
 
     def log(self, logMsg, logLevel):
         syslog.syslog(logLevel, logMsg)
