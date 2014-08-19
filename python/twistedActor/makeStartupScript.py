@@ -86,7 +86,9 @@ do_start() {
     echo "Starting new %(actorName)s...\c"
 
     # redirect stdout to logger at priority "warning" and stderr at priority "error"
-    { %(binScript)s 2>&3 | logger -p %(facilityName)s.warning } 3>&1 | logger -p %(facilityName)s.error &
+    {
+        %(binScript)s 2>&3 | logger -p %(facilityName)s.warning
+    } 3>&1 | logger -p %(facilityName)s.error &
     
     # Check that it really started...
     #
