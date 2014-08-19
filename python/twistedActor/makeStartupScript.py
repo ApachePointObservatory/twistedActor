@@ -83,7 +83,7 @@ do_start() {
         return
     fi
     
-    echo "Starting new %(actorName)s...\c"
+    echo "Starting new %(actorName)s..."
 
     # run the actor, as follows:
     # disable buffering of stdout using "stdbuf -o0"
