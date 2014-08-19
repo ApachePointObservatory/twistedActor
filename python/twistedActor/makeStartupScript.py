@@ -85,9 +85,11 @@ do_start() {
     
     echo "Starting new %(actorName)s...\c"
 
+    # run the actor, as follows:
+    # disable buffering of stdout using "stdbuf -o0"
     # redirect stdout to logger at priority "warning" and stderr at priority "error"
     {
-        %(binScript)s 2>&3 | logger -p %(facilityName)s.warning
+        stdbuf -o0 %(binScript)s 2>&3 | logger -p %(facilityName)s.warning
     } 3>&1 | logger -p %(facilityName)s.error &
     
     # Check that it really started...
