@@ -15,7 +15,6 @@ def startLogging(filePath):
         return
     testDir, testFile = os.path.split(filePath)
     logDir = os.path.join(testDir,  ".tests")
-    os.environ["TWISTED_LOG_DIR"] = logDir
     logFileName = "%s" % (os.path.splitext(testFile)[0],)
     startFileLogging(os.path.join(logDir, logFileName))
 
