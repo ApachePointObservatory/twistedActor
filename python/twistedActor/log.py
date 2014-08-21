@@ -100,8 +100,8 @@ class DefaultLogger(BaseLogger):
     CRITICAL = "Critical"
     def log(self, logMsg, logLevel):
         if logLevel in (self.DEBUG, self.INFO):
-            pass
-        sys.stderr.write("%s [%s] %s"%(self, logLevel, logMsg))
+            return
+        sys.stderr.write("%s [%s] %s\n"%(self, logLevel, logMsg))
 
     def stopLogging(self):
         pass # nothing to stop!

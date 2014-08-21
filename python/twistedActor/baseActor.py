@@ -2,6 +2,7 @@ from __future__ import division, absolute_import
 """Basic framework for a hub actor or ICC based on the Twisted event loop.
 """
 import sys
+import socket
 
 import RO.Comm.TwistedSocket
 from RO.StringUtil import quoteStr, strFromException
@@ -10,6 +11,19 @@ from .command import UserCmd
 from .log import log
 
 __all__ = ["BaseActor"]
+
+def isAvailable(port):
+    """Return True if the specified socket is available, False otherwise
+
+    (this function will soon appear in RO.Comm, but I don't want to require that version of RO yet)
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.connect(("localhost", port))
+        s.close()
+        return False
+    except Exception:
+        return True
 
 class BaseActor(object):
     """Base class for a hub actor or instrument control computer with no assumption about command format
@@ -41,6 +55,8 @@ class BaseActor(object):
         # entries are: userID, socket
         self.userDict = dict()
 
+        if userPort != 0 and not isAvailable(userPort):
+            raise RuntimeError("Port %s is already in use" % (userPort,))
         self.server = RO.Comm.TwistedSocket.TCPServer(
             connCallback = self.newUser,
             stateCallback = self.serverStateCallback,

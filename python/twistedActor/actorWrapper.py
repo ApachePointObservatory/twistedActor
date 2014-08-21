@@ -46,6 +46,7 @@ class ActorWrapper(BaseWrapper):
         self.deviceWrapperList = deviceWrapperList
         self._userPort = userPort
         self.actor = None # the actor, once it is built; None until then
+        self._actorFailed = False
         for dw in self.deviceWrapperList:
             dw.addCallback(self._deviceWrapperStateChanged, callNow=False)
         self._deviceWrapperStateChanged()
@@ -75,13 +76,15 @@ class ActorWrapper(BaseWrapper):
     def isDone(self):
         """Return True if the actor and fake hardware controller are fully disconnected
         """
-        return all(dw.isDone for dw in self.deviceWrapperList) and self.actor is not None and self.actor.server.isDone
+        return all(dw.isDone for dw in self.deviceWrapperList) and \
+            (self._actorFailed or (self.actor is not None and self.actor.server.isDone))
 
     @property
     def isFailing(self):
         """Return True if anything failed
         """
-        return any(dw.didFail for dw in self.deviceWrapperList) or self.actor is not None and self.actor.server.didFail
+        return any(dw.didFail for dw in self.deviceWrapperList) or self._actorFailed \
+            or self.actor is not None and self.actor.server.didFail
 
     def _basicClose(self):
         """Close clients and servers
@@ -105,7 +108,14 @@ class ActorWrapper(BaseWrapper):
         if not self.actor:
             # opening
             if all(dw.isReady for dw in self.deviceWrapperList):
-                self._makeActor()
+                try:
+                    self._makeActor()
+                except Exception, e:
+                    self._actorFailed = True
+                    self.debugMsg("failing readyDeferred: %s" % (e,))
+                    self.readyDeferred.errback(e)
+                    self._stateChanged()
+                    return
                 self.actor.server.addStateCallback(self._stateChanged)
         elif self._closeDeferred:
             # closing
