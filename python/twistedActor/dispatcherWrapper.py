@@ -10,7 +10,7 @@ import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
 from RO.Comm.TCPConnection import TCPConnection
 from RO.Comm.TwistedTimer import Timer
-from opscore.actor import ActorDispatcher, CmdVar, FailedCodes
+from opscore.actor import ActorDispatcher, CmdVar, DoneCodes, FailedCodes
 
 from .baseWrapper import BaseWrapper
 
@@ -190,7 +190,8 @@ class CmdWrapper(object):
         self.callFunc = callFunc
         self.callCodes = set(callCodes)
         self._checkCmd = not bool(self.callCodes & set(FailedCodes)) # check command state if callFunc is not called on command failure
-        cmdVar.addCallback(self._cmdCallback, callCodes = callCodes)
+        callOrDoneCodes = "".join(set(callCodes) | set(DoneCodes))
+        cmdVar.addCallback(self._cmdCallback, callCodes = callOrDoneCodes)
         self._stateFunc = None
         self.didFail = False
 
@@ -236,10 +237,16 @@ class CmdWrapper(object):
 
         if self.cmdVar.isDone:
             if self._reportFailure:
-                print "Command %s failed: %s" % (self.cmdVar, self.cmdVar.reason)
+                try:
+                    reason = self.cmdVar.lastReply.string
+                except Exception:
+                    reason = "why? (no lastReply)"
+                msgStr = "Command %s failed: %s" % (self.cmdVar, reason)
+                print msgStr
+                Timer(0, self._finish, RuntimeError(msgStr))
             else:
                 print "Command %s done" % (self.cmdVar,)
-            Timer(0, self._finish)
+                Timer(0, self._finish)
 
 
     def _finish(self, exception=None):
