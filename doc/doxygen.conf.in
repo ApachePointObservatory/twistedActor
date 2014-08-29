@@ -1,0 +1,3 @@
+# For some reason this one package results in hundreds of warnings
+# about member variables being undocumented. This flag suppressses those warnings
+WARN_IF_UNDOCUMENTED = NO

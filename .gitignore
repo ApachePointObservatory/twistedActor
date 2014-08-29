@@ -2,5 +2,8 @@
 .scon*
 config.log
 tests/.tests
+doc/doxygen.conf
+doc/html/
+doc/twistedActor.tag
 *.cfgc
 tests/logtest

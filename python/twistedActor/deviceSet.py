@@ -260,7 +260,7 @@ class DeviceSet(object):
         def initCallback(initCmd, slot=slot, dev=dev, userCmd=userCmd):
             if initCmd.didFail:
                 errMsg = "Failed to initialize new %s device %s: %s" % (slot, dev.name, initCmd.getMsg())
-                self.actor.writeToUsers("w", "Text=%s" % (quoteStr(errMsg),))
+                self.actor.writeToUsers("w", "text=%s" % (quoteStr(errMsg),))
 
             oldDev = self._slotDevDict[slot]
             if oldDev:
@@ -436,7 +436,7 @@ class RunCmdDict(object):
                     except Exception:
                         self.failSlotDict[slot] = devCmd
                         textBody = "%s command %r failed: %s" % (slot, devCmd.cmdStr, devCmd.getMsg())
-                        msgStr = "Text=%s" % (quoteStr(textBody),)
+                        msgStr = "text=%s" % (quoteStr(textBody),)
                         devSet.actor.writeToUsers("f", msgStr=msgStr)
                         traceback.print_exc(file=sys.stderr)
 

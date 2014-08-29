@@ -300,7 +300,7 @@ class Actor(BaseActor):
                 try:
                     dev.connect()
                 except Exception, e:
-                    self.writeToUsers("w", "Text=could not connect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
+                    self.writeToUsers("w", "text=could not connect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground
 
     def cmd_disconnDev(self, cmd=None):
@@ -324,7 +324,7 @@ class Actor(BaseActor):
                 try:
                     dev.disconnect()
                 except Exception, e:
-                    self.writeToUsers("w", "Text=could disconnect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
+                    self.writeToUsers("w", "text=could disconnect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground
 
     def cmd_exit(self, cmd=None):
@@ -369,7 +369,7 @@ class Actor(BaseActor):
             helpList.append("%s <text>: send <text> to device %s" % (devName, devName))
 
         for helpStr in helpList:
-            self.writeToUsers("i", "Text=%r" % (helpStr,), cmd=cmd)
+            self.writeToUsers("i", "text=%r" % (helpStr,), cmd=cmd)
 
     def cmd_ping(self, cmd):
         """verify that actor is alive"""
@@ -408,4 +408,4 @@ class Actor(BaseActor):
         pairs.sort(key=operator.itemgetter(1), reverse=True)
 
         for c, n in pairs[:100]:
-            self.writeToOneUser("i", "RefCount=%5d, %s" % (n, c.__name__), cmd=cmd)
+            self.writeToOneUser("i", "refCount=%5d, %s" % (n, c.__name__), cmd=cmd)

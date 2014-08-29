@@ -1,18 +1,18 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
-	<title>Writing an Actor using TwistedActor</title>
+	<title>Writing an Actor Using twistedActor</title>
 </head>
 <body>
-<h1>Writing an Actor using <a href="index.html">TwistedActor</a></h1>
+<h1>Writing an Actor Using <a href="index.html">twistedActor</a></h1>
 
-<p>This manual describes the details of writing an actor based on TwistedActor.
+<p>This manual describes the details of writing an actor based on twistedActor.
 
 <p>The general issue of writing an actor (such as an instrument control computer) is described in <a href="http://www.apo.nmsu.edu/35m_operations/ICCDesign">Instrument Control Computer Design</a>. Please make sure you understand this material before proceeding.
 
-<p>TwistedActor is written in Python and uses Twisted framework for communications and event-based multitasking. Event-based multitasking generally results in simpler code than multithreaded code. However, one must be careful not to take too long while handling a particular event.
+<p>twistedActor is written in Python and uses Twisted framework for communications and event-based multitasking. Event-based multitasking generally results in simpler code than multithreaded code. However, one must be careful not to take too long while handling a particular event.
 
-<p>TwistedActor is intrinsically asynchronous. Thus, to the extent that the underlying hardware controllers support it, an actor based on TwistedActor can execute multiple commands at the same time. If a new command is received while an old command is executing then the new command will either be accepted (if compatible) or rejected (if not). I do not recommend queueing commands unless you must; avoiding queueing simplifies programming and removes the need for adding commands to report and clear the queue.
+<p>twistedActor is intrinsically asynchronous. Thus, to the extent that the underlying hardware controllers support it, an actor based on twistedActor can execute multiple commands at the same time. If a new command is received while an old command is executing then the new command will either be accepted (if compatible) or rejected (if not). I do not recommend queueing commands unless you must; avoiding queueing simplifies programming and removes the need for adding commands to report and clear the queue.
 
 <h2><a name="Basics">Basics</a></h2>
 
@@ -50,7 +50,7 @@
 
 <p>Replies must be in <a href="http://www.apo.nmsu.edu/35m_operations/ICCDesign/#Replies">hub-standard format</a> and prefixed with cmdID userID.
 
-<p><b>Warning</b>: Replies that indicate the end of a command (using message code ":" or "f") must be prefixed with the correct cmdID and userID. If you fail to do this the user has no way of knowing the command is finished! (On the other hand, cmdID and userID are not important for messages that indicate status; you may use 0 for either or both if that is more convenient.)
+<p><b>Warning</b>: Replies that indicate the end of a command (using message code ":" or "f") must be prefixed with the correct cmdID and userID. If you fail to do this the user has no way of knowing the command is finished! On the other hand, cmdID and userID are not important for messages that indicate status; you may use 0 for either or both if that is more convenient.
 
 <h2><a name="WritingAnActor"></a>Writing an Actor</h2>
 
@@ -58,7 +58,7 @@
 
 <p>An actor typically controls one or more devices. For example an Instrument Control Computer (ICC) controls an imager and often a filterwheel or slit turret. A hub actor typically controls an ICC or other hardware controller. 
 
-<p>For each device controlled by your actor: write a software representation of this device as a sublcass of TwistedActor.Device or TwistedActor.TCPDevice. This is a very important part of the actor; expect to spend 50-80% of your time on this task.
+<p>For each device controlled by your actor: write a software representation of this device as a sublcass of twistedActor.Device or twistedActor.TCPDevice. This is a very important part of the actor; expect to spend 50-80% of your time on this task.
 
 <p>The device code tends to fall into several categories: code to support executing commands, code to handle replies and code to represent the internal state of the device.
 
@@ -66,7 +66,7 @@
 
 <h3>Write code for the actor</h3>
 
-<p>Write one actor as a sublcass of TwistedActor.Actor or TwistedActor.BaseActor. Actor is suitable for the typical actor on the mountain; it contains a command dispatcher that assumes commands consist of a verb and arguments. BaseActor requires you to write your own command dispatcher and thus makes fewer assumptions about the command format.
+<p>Write one actor as a sublcass of twistedActor.Actor or twistedActor.BaseActor. Actor is suitable for the typical actor on the mountain; it contains a command dispatcher that assumes commands consist of a verb and arguments. BaseActor requires you to write your own command dispatcher and thus makes fewer assumptions about the command format.
 
 <p>Both classes are described in more detail below
 
@@ -111,7 +111,7 @@
     <li><i>dev</i>: send text directly to a device
 </ul>
 
-<p>The full list is documented in <a href="standardCommands.html">TwistedActor.Actor Standard Commands</a>
+<p>The full list is documented in <a href="standardCommands.html">twistedActor.Actor Standard Commands</a>
 
 <h3>Command Dispatcher</h3>
 
@@ -145,11 +145,19 @@
     </ul>
 </ul>
 
-<p>To report a UserCmd as finished call cmd.setState("done") or cmd.setState("failed") as appropriate (note that you can provide an explanatory message at the same time; this is highly recommended if the command fails). The Actor keeps track of the state of each UserCmd and will report the command as finished and then delete the command.
+<p>To report a UserCmd as finished call cmd.setState("done") or cmd.setState("failed") as appropriate. Note that you can provide an explanatory message at the same time; this is highly recommended if the command fails. The Actor keeps track of the state of each UserCmd and will report the command as finished and then delete the command.
 
 <p>In addition whenever you call newCmd on a device it creates a DevCmd which is very similar to a UserCmd but with slightly different information. It is possible to tie a UserCmd to a DevCmd such that the state of the former tracks the state of the latter. This is especially useful when a user command can be directly handled by a device (perhaps after a little massaging).
 
 <p>Note that you will probably have to provide a device callback to track each DevCmd and delete it when it is finished (or has timed out).
+
+<h2>Example Actors</h2>
+
+<p>Existing actors that are based on twistedActor include:
+<ul>
+    <li><a href="http://www.apo.nmsu.edu/Telescopes/mirrorCtrl">mirrorCtrl</a>: the mirror controller actor used by the TCC.
+    <li><a href="http://www.apo.nmsu.edu/Telescopes/TCC/">TCC</a>: a telescope control computer based on the BaseActor (because it supports a legacy command set that was not well matched to Actor).
+</ul>
 
 </body>
 </html>

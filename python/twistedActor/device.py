@@ -408,7 +408,7 @@ class DisconnectDevice(object):
         else:
             # not fully connected, so cannot send init, but not fully disconnected yet, so finish disconnecting
             textMsg = "%s connection state=%s; cannot initialize before disconnecting" % (self.dev.name, self.dev.conn.state)
-            self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
+            self.dev.writeToUsers("w", "text=%s" % (quoteStr(textMsg),))
             self.startDisconnect()
             return
 
@@ -435,7 +435,7 @@ class DisconnectDevice(object):
 
         if initUserCmd.didFail:
             textMsg = "%s initialization failed: %s" % (self.dev.name, initUserCmd.textMsg,)
-            self.dev.writeToUsers("w", "Text=%s" % (quoteStr(textMsg),))
+            self.dev.writeToUsers("w", "text=%s" % (quoteStr(textMsg),))
         self.startDisconnect()
 
     def connCallback(self, conn):

@@ -190,8 +190,8 @@ class BaseActor(object):
         if numUsers == 0:
             return
         msgData = [
-            "YourUserID=%s" % (cmd.userID,),
-            "NumUsers=%s" % (numUsers,),
+            "yourUserID=%s" % (cmd.userID,),
+            "numUsers=%s" % (numUsers,),
         ]
         msgStr = "; ".join(msgData)
         self.writeToOneUser("i", msgStr, cmd=cmd)
@@ -229,7 +229,7 @@ class BaseActor(object):
     def showVersion(self, cmd, onlyOneUser=False):
         """Show actor version
         """
-        msgStr = "Version=%s" % (quoteStr(self.version),)
+        msgStr = "version=%s" % (quoteStr(self.version),)
         if onlyOneUser:
             self.writeToOneUser("i", msgStr, cmd=cmd)
         else:

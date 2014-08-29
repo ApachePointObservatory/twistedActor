@@ -168,7 +168,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         if self._hubMsg:
             msgInfo.append(self._hubMsg)
         if self._textMsg or textPrefix:
-            msgInfo.append("Text=%s" % (quoteStr(textPrefix + self._textMsg),))
+            msgInfo.append("text=%s" % (quoteStr(textPrefix + self._textMsg),))
         msgStr = "; ".join(msgInfo)
         return (msgCode, msgStr)
 
