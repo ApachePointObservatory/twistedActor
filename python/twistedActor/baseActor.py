@@ -130,12 +130,12 @@ class BaseActor(object):
         userID = getSocketUserID(sock)
         try:
             cmd = UserCmd(userID, cmdStr, self.cmdCallback)
-        except Exception, e:
+        except Exception as e:
             self.writeToUsers("f", "Could not parse the following as a command: %r"%cmdStr)
             return
         try:
             self.parseAndDispatchCmd(cmd)
-        except Exception, e:
+        except Exception as e:
             cmd.setState(cmd.Failed, "Command %r failed: %s" % (cmd.cmdBody, strFromException(e)))
 
     def newUser(self, sock):

@@ -110,7 +110,7 @@ class ActorWrapper(BaseWrapper):
             if all(dw.isReady for dw in self.deviceWrapperList):
                 try:
                     self._makeActor()
-                except Exception, e:
+                except Exception as e:
                     self._actorFailed = True
                     self.debugMsg("failing readyDeferred: %s" % (e,))
                     self.readyDeferred.errback(e)

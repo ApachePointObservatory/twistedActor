@@ -198,10 +198,10 @@ class Actor(BaseActor):
             try:
                 self.checkLocalCmd(cmd)
                 retVal = cmdFunc(cmd)
-            except CommandError, e:
+            except CommandError as e:
                 cmd.setState("failed", strFromException(e))
                 return
-            except Exception, e:
+            except Exception as e:
                 sys.stderr.write("command %r failed\n" % (cmd.cmdStr,))
                 sys.stderr.write("function %s raised %s\n" % (cmdFunc, strFromException(e)))
                 traceback.print_exc(file=sys.stderr)
@@ -224,10 +224,10 @@ class Actor(BaseActor):
         if dev and devCmdStr:
             try:
                 dev.startCmd(devCmdStr, userCmd=cmd, timeLim=2)
-            except CommandError, e:
+            except CommandError as e:
                 cmd.setState("failed", strFromException(e))
                 return
-            except Exception, e:
+            except Exception as e:
                 sys.stderr.write("command %r failed\n" % (cmd.cmdStr,))
                 sys.stderr.write("function %s raised %s\n" % (cmdFunc, strFromException(e)))
                 traceback.print_exc(file=sys.stderr)
@@ -299,7 +299,7 @@ class Actor(BaseActor):
                 dev.connReq = (True, cmd)
                 try:
                     dev.connect()
-                except Exception, e:
+                except Exception as e:
                     self.writeToUsers("w", "text=could not connect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground
 
@@ -323,7 +323,7 @@ class Actor(BaseActor):
                 dev.connReq = (False, cmd)
                 try:
                     dev.disconnect()
-                except Exception, e:
+                except Exception as e:
                     self.writeToUsers("w", "text=could disconnect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground
 

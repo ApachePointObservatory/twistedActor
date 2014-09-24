@@ -247,7 +247,7 @@ class Device(BaseMixin):
             fullCmdStr = devCmd.fullCmdStr
             try:
                 self.conn.writeLine(fullCmdStr)
-            except Exception, e:
+            except Exception as e:
                 devCmd.setState(devCmd.Failed, textMsg="%s %s failed: %s" % (self.name, cmdStr, strFromException(e)))
 
         return devCmd

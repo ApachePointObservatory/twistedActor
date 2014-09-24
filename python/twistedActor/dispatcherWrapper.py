@@ -229,7 +229,7 @@ class CmdWrapper(object):
             # either the command succeeded, or checking for success is disabled
             try:
                 self.callFunc(self.cmdVar)
-            except Exception, e:
+            except Exception as e:
                 # callback failed; fail this command
                 traceback.print_exc(file=sys.stderr) # is this always needed?
                 Timer(0, self._finish, e)
