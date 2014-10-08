@@ -98,7 +98,6 @@ class DeviceSet(object):
     def connect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
         """Connect devices specified by slot name
 
-        @param[in] doConnect  if True, connect the specified devices, else disconnect them
         @param[in] slotList  collection of slot names, or None for all filled slots
         @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
@@ -116,7 +115,6 @@ class DeviceSet(object):
     def disconnect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
         """Connect devices specified by slot name
 
-        @param[in] doConnect  if True, connect the specified devices, else disconnect them
         @param[in] slotList  collection of slot names, or None for all filled slots
         @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
@@ -137,6 +135,7 @@ class DeviceSet(object):
         @param[in] slotList  collection of slot names, or None for all filled slots
         @param[in] connOnly  if True and slotList is None then only include connected devices
             (typically used for status); ignored unless slotList is None
+        @return expanded slot list
 
         @throw RuntimeError if slotList contains an unknown or empty slot name
         """
@@ -342,7 +341,7 @@ class DeviceSet(object):
     def _connectOrDisconnect(self, doConnect, slotList, userCmd, timeLim):
         """Connect or disconnect a set of devices
 
-        @param[in] doConnect  if True connect, else disconnect
+        @param[in] doConnect  if True connect the specified devices, else disconnect them
         @param[in] slotList  collection of slot names, or None for all filled slots
         @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
