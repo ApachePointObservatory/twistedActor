@@ -342,6 +342,7 @@ class ConnectDevice(object):
         """
         if self.dev.conn.isConnected:
             self._connTimer.cancel()
+            print "connCallback starting init of %s" % (self.dev,)
             initUserCmd = UserCmd(cmdStr="connect %s" % (self.dev.name,), callFunc=self.initCallback)
             self.dev.init(userCmd=initUserCmd, timeLim=self._timeLim, getStatus=True)
         elif self.dev.conn.didFail:

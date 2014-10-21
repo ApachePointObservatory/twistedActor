@@ -8,7 +8,6 @@ import traceback
 from RO.SeqUtil import isSequence
 from RO.StringUtil import quoteStr
 
-from .command import UserCmd
 from .device import expandUserCmd
 from .linkCommands import LinkCommands
 
@@ -227,10 +226,25 @@ class DeviceSet(object):
         """
         return self._slotDevDict.keys()[index]
 
+    def _setDev(self, slot, dev):
+        """Set the device at a particular slot
+
+        This is a low-level command that does not connect or disconnect devices
+
+        @param[in] slot  slot slot of device (must match a slot in slotList)
+        @param[in] dev  device to go in this slot, or None if slot is empty
+        @return the existing device in that slot
+        """
+        oldDev = self._slotDevDict[slot]
+        self._slotDevDict[slot] = dev
+        self._devNameSlotDict = dict((dev.name, slot)
+            for slot, dev in self._slotDevDict.iteritems() if dev is not None)
+        return oldDev
+
     def replaceDev(self, slot, dev, userCmd=None, timeLim=DefaultTimeLim):
         """Replace or remove one device
 
-        The old device (if it exists) is closed by calling init()
+        The old device (if it exists) is disconnected, which initializes it
 
         @param[in] slot  slot slot of device (must match a slot in slotList)
         @param[in] dev  the new device, or None to remove the existing device
@@ -246,35 +260,23 @@ class DeviceSet(object):
             raise RuntimeError("Invalid slot %s" % (slot,))
         userCmd = expandUserCmd(userCmd)
 
+        # disconnect and purge existing device, after removing callbacks
+        oldDev = self._setDev(slot, None)
+        if oldDev:
+            self._removeDevCallbacks(oldDev)
+            oldDev.disconnect()
+
         if dev is None:
-            oldDev = self._slotDevDict[slot]
-            self._slotDevDict[slot] = None
-            if oldDev:
-                self._removeDevCallbacks(oldDev)
-                oldDev.init()
+            # no new device, so disconnecting the old device is all we need to do
+            # and we don't have to wait for it to fully disconnect
             if not userCmd.isDone:
                 userCmd.setState(userCmd.Done)
             return userCmd
 
-        def initCallback(initCmd, slot=slot, dev=dev, userCmd=userCmd):
-            if initCmd.didFail:
-                errMsg = "Failed to initialize new %s device %s: %s" % (slot, dev.name, initCmd.getMsg())
-                self.actor.writeToUsers("w", "text=%s" % (quoteStr(errMsg),))
-
-            oldDev = self._slotDevDict[slot]
-            if oldDev:
-                self._removeDevCallbacks(oldDev)
-                oldDev.init()
-            self._slotDevDict[slot] = dev
-            # rebuild _devNameSlotDict to purge old device
-            self._devNameSlotDict = dict((dev.name, slot) for slot, dev in self._slotDevDict.iteritems())
-            self._addDevCallbacks(dev)
-            self._initCallback(dev) # init succeeded, but finished before calling _addDevCallbacks, so call the callback now
-            if not userCmd.isDone:
-                userCmd.setState(userCmd.Done)
-
-        initCmd = UserCmd(callFunc=initCallback)
-        dev.connect(userCmd=initCmd, timeLim=timeLim)
+        # connect new device
+        self._setDev(slot, dev)
+        self._addDevCallbacks(dev)
+        dev.connect(userCmd=userCmd)
         return userCmd
 
     def startCmd(self, cmdStrOrList, slotList=None, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):

@@ -296,7 +296,10 @@ class CommandQueue(object):
                         textMsg = "Cancelled on queue by immediate priority command %r" % (cmd.cmdStr,),
                     )
             if not self.currExeCmd.cmd.isDone:
-                self.currExeCmd.cmd.setState(self.currExeCmd.cmd.Cancelled, "Immediate priority command: %r on queue"%toQueue.cmd)
+                self.currExeCmd.cmd.setState(
+                    self.currExeCmd.cmd.Cancelled,
+                    textMsg = "Killed by immediate priority command %r" % (cmd.cmdStr,),
+                )
         else:
             # check new command against queued commands
             # iterate over a copy because the queue is updated for each cancelled command,
