@@ -104,15 +104,16 @@ class ActorWrapper(BaseWrapper):
     def _deviceWrapperStateChanged(self, dumArg=None):
         """Called when the device wrapper changes state
         """
-        # print "%s._deviceWrapperStateChanged()" % (self,)
+        self.debugMsg("_deviceWrapperStateChanged()")
         if not self.actor:
             # opening
             if all(dw.isReady for dw in self.deviceWrapperList):
                 try:
+                    self.debugMsg("calling _makeActor()")
                     self._makeActor()
                 except Exception as e:
                     self._actorFailed = True
-                    self.debugMsg("failing readyDeferred: %s" % (e,))
+                    self.debugMsg("_makeActor() failed; failing readyDeferred: %s" % (e,))
                     self.readyDeferred.errback(e)
                     self._stateChanged()
                     return

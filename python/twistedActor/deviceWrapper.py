@@ -93,11 +93,10 @@ class DeviceWrapper(BaseWrapper):
     def isDone(self):
         """Return True if the device and controller are fully disconnected
         """
-        self.debugMsg("%s.isDone: self.server.state=%s; self.device.state=%s" % (
-            self,
-            self.server.state if self.server else "no server",
-            self.device.state if self.device else "no device",
-        ))
+        # self.debugMsg("isDone: self.server.state=%s; self.device.state=%s" % (
+        #     self.server.state if self.server else "no server",
+        #     self.device.state if self.device else "no device",
+        # ))
         if self.server is None:
             return self.controllerWrapper.didFail # wrapper failed, so controller will not be built
         else:
@@ -126,12 +125,16 @@ class DeviceWrapper(BaseWrapper):
         """
         if not disconnCmd.isDone:
             return
+        self.debugMsg("_disconnCmdCallback(disconnCmd=%s)" % (disconnCmd,))
         if self.controllerWrapper is not None:
+            self.debugMsg("controllerWrapper.close()")
             self.controllerWrapper.close()
         else:
             if self.controller is not None:
+                self.debugMsg("controller.close()")
                 self.controller.close()
             if self.server is not None:
+                self.debugMsg("server.close()")
                 self.server.close()
         self._stateChanged()
 
@@ -140,29 +143,32 @@ class DeviceWrapper(BaseWrapper):
 
         @param[in] controller  an instance of BaseActor or RO.Comm.TwistedSocket.TCPSocket
         """
+        self.debugMsg("_setController(controller=%s)" % (controller,))
         self.controller = controller
         if isinstance(controller, BaseActor):
             self.server = controller.server
         else:
             self.server = controller
+        self.debugMsg("server=%s" % (self.server,))
         self.server.addStateCallback(self.serverStateChanged)
         self.serverStateChanged()
 
     def serverStateChanged(self, dumArg=None):
         """Called when the controller's server socket changes state
         """
-        # print "%s.serverStateChanged; server=%s; state=%s" % (self, self.server, self.server.state)
+        self.debugMsg("serverStateChanged; server=%s; state=%s" % (self.server, self.server.state))
         if self.server.isReady and not self.device:
-            # print "%s._makeDevice()" % (self,)
+            self.debugMsg("_makeDevice()")
             self._makeDevice()
             self.device.addCallback(self._stateChanged)
+            self.debugMsg("device.connect()")
             self.device.connect()
         self._stateChanged()
 
     def _controllerWrapperStateChanged(self, dumArg=None):
         """Called when the controller wrapper state changed
         """
-        # print "_controllerWrapperStateChanged; controllerWrapper=%s" % (self.controllerWrapper,)
+        self.debugMsg("_controllerWrapperStateChanged; controllerWrapper=%s" % (self.controllerWrapper,))
         if self.controllerWrapper.isReady and not self.controller:
             self._setController(self.controllerWrapper.actor)
 

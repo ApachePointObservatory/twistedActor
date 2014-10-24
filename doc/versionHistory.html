@@ -6,6 +6,18 @@
 <body>
 <h1><a href="index.html">twistedActor</a>: Version History</h1>
 
+<h3>0.9.4 2012-10-21</h3>
+
+<ul>
+    <li>Overhauled DeviceSet.replaceDev to make its behavior safer and more predictable:
+    <ul>
+        <li>Initialize the new device.
+        <li>Disconnect the replaced device, instead of merely sending INIT.
+        <li>Fixed a bug whereby DeviceSet would attempt to send a status command after disconnecting.
+        <li>Replace the device even if connecting and initializing the new device fails.
+    </ul>
+</ul>
+
 <h3>0.9.3 2012-09-24</h3>
 
 <ul>
