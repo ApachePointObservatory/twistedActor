@@ -49,6 +49,8 @@ class QueuedCommand(object):
     def setRunning(self):
         """Set the command state to Running, and execute associated code
         """
+        if self.cmd.state != self.cmd.Ready:
+            raise RuntimeError("Cannot set %r running, command not ready"%self.cmd)
         self.cmd.setState(self.cmd.Running)
         # print "%s.setRunning(); self.cmd=%r" % (self, self.cmd)
         self.runFunc(self.cmd)
@@ -389,3 +391,7 @@ class CommandQueue(object):
             self.currExeCmd = self.cmdQueue.pop(-1)
             self.currExeCmd.setRunning()
             self.currExeCmd.cmd.addCallback(self.scheduleRunQueue)
+
+    def __repr__(self):
+        cmdList = ", ".join([x.cmdStr for x in self.cmdQueue])
+        return "[" + cmdList + "]"
