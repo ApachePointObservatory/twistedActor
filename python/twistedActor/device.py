@@ -77,7 +77,7 @@ class Device(BaseMixin):
         """Construct a Device
 
         @param[in] name      a short name to identify the device
-        @param[in] conn      a connection to the device; see below for details
+        @param[in] conn      a connection to the device; an RO.Conn.TCPDevice or similar; see below for details
         @param[in] cmdInfo   a list of (user command verb, device command verb, help string)
                     for user commands that are be sent directly to this device.
                     Specify None for the device command verb if it is the same as the user command verb
@@ -86,16 +86,15 @@ class Device(BaseMixin):
                     additional functions may be added using addCallback
         @param[in] cmdClass  class for commands for this device
 
-        conn is an object implementing these methods:
+        conn is an RO.Conn.TCPDevice or object with these attributes (see RO.Comm.TCPConnection for descriptions):
         - connect()
         - disconnect()
+        - isConnected
+        - isDisconnected
+        - isDone
+        - didFail
+        - state
         - addStateCallback(callFunc, callNow=True)
-        - getFullState(): Returns the current state as a tuple:
-            - state: a numeric value; named constants are available
-            - stateStr: a short string describing the state
-            - reason: the reason for the state ("" if none)
-        - isConnected(): return True if connected, False otherwise
-        - isDone(): return True if fully connected or disconnected
         - addReadCallback(callFunc, callNow=True)
         - writeLine(str)
         - readLine()
@@ -270,16 +269,20 @@ class Device(BaseMixin):
 
     def _connCallback(self, conn=None):
         """Call when the connection state changes
+
+        Monitor that the socket has disconnected and set the internal state accordingly
         """
         # print "%s._connCallback(conn=%s); self.state=%s, self.conn.state=%s, self._ignoreConnCallback=%s" % (self, conn, self.state, self.conn.state, self._ignoreConnCallback)
         if self._ignoreConnCallback:
             return False
-        if self.conn.state == self.conn.Disconnected:
+        if self.conn.isConnected:
+            return
+        if self.isDisconnected:
             if self.state != self.Disconnected:
-                self.setState(self.Disconnected, "socket disconnected")
-        elif self.conn.state == self.conn.Disconnecting:
+                self.setState(self.Disconnected, "connection state = %s" % (self.conn.state,))
+        else:
             if self.state != self.Disconnecting:
-                self.setState(self.Disconnecting, "socket disconnecting")
+                self.setState(self.Disconnecting, "connection state = %s" % (self.conn.state,))
 
     def __repr__(self):
         return "%s(%s)" % (type(self).__name__, self.name)

@@ -126,6 +126,7 @@ class FileLogger(BaseLogger):
         @return filePath, the basePath with the appended basePath.
         """
         dirPath, baseName = os.path.split(basePath)
+        dirPath = os.path.abspath(dirPath)
         if not os.path.exists(dirPath):
             raise RuntimeError("Directory %r does not exist" % (dirPath,))
             os.makedirs(dirPath)
