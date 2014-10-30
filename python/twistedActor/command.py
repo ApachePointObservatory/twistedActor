@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 """Command objects for the twisted actor
 """
 import re
@@ -189,7 +189,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         Error conditions:
         - Raise RuntimeError if this command is finished.
         """
-        # print "%r.setState(newState=%s); self._cmdToTrack=%r" % (self, newState, self._cmdToTrack)
+        # print("%r.setState(newState=%s, textMsg=%r, hubMsg=%r); self._cmdToTrack=%r" % (self, newState, textMsg, hubMsg, self._cmdToTrack))
         if self.isDone:
             raise RuntimeError("Command %s is done; cannot change state" % str(self))
         if newState not in self.AllStates:
@@ -405,13 +405,23 @@ class DevCmdVar(BaseCmd):
     def _cmdVarCallback(self, cmdVar=None):
         if not self.cmdVar.isDone:
             return
-        textMsg = ""
+        textMsg = None
+        hubMsg = None
         if not self.cmdVar.didFail:
             newState = self.Done
         else:
             newState = self.Failed
-            textMsg = self.cmdVar.lastReply.string
-        self.setState(newState, textMsg=textMsg)
+            keyList = []
+            textMsg = None
+            if self.cmdVar.lastReply:
+                for key in self.cmdVar.lastReply.keywords:
+                    if key.name.lower() == "text":
+                        textMsg = key.values[0]
+                    else:
+                        keyList.append("%s=%s" % (key.name, ", ".join(repr(val) for val in key.values)))
+            if keyList:
+                hubMsg = "; ".join(keyList)
+        self.setState(newState, textMsg=textMsg, hubMsg=hubMsg)
 
     def _getDescrList(self, doFull=False):
         descrList = BaseCmd._getDescrList(self)
