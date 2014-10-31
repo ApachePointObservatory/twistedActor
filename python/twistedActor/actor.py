@@ -341,6 +341,9 @@ class Actor(BaseActor):
         # commands handled by this actor
         for cmdVerb, cmdFunc in self.locCmdDict.iteritems():
             helpStr = cmdFunc.__doc__.split("\n")[0]
+            if helpStr.startswith("!"):
+                # an initial "!" is used to enable Doxygen formatting of help
+                helpStr = helpStr[1:]
             if ":" in helpStr:
                 joinStr = " "
             else:

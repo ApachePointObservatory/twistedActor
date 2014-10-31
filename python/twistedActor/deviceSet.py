@@ -78,9 +78,9 @@ class DeviceSet(object):
         if len(self._slotDevDict) < len(slotList):
             raise RuntimeError("Names in slotList=%s are not unique" % (slotList,))
 
-        for dev in self.devList:
+        for ind, dev in enumerate(self.devList):
             if dev:
-                self._addDevCallbacks(dev)
+                self._addDevCallbacks(dev, self.slotFromIndex(ind))
 
     def checkSlotList(self, slotList):
         """!Raise RuntimeError if any slots in slotList do not contain a device
@@ -263,7 +263,7 @@ class DeviceSet(object):
         # disconnect and purge existing device, after removing callbacks
         oldDev = self._setDev(slot, None)
         if oldDev:
-            self._removeDevCallbacks(oldDev)
+            self._removeDevCallbacks(oldDev, slot)
             oldDev.disconnect()
 
         if dev is None:
@@ -275,7 +275,7 @@ class DeviceSet(object):
 
         # connect new device
         self._setDev(slot, dev)
-        self._addDevCallbacks(dev)
+        self._addDevCallbacks(dev, slot)
         dev.connect(userCmd=userCmd)
         return userCmd
 
@@ -326,17 +326,25 @@ class DeviceSet(object):
         rcd = RunCmdDict(devSet=self, cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd, timeLim=timeLim)
         return rcd.userCmd
 
-    def _addDevCallbacks(self, dev):
-        """!Add device-specific callbacks
+    def _addDevCallbacks(self, dev, slot):
+        """!Called when adding a device
 
-        Called when adding a device
+        Called after device is registered in slot dictionary, but possibly before it is connected.
+        Use to add callbacks to the device.
+
+        @param[in] dev  device that has been removed
+        @param[in] slot  slot the device occupied
         """
         dev.addCallback(self._devStateCallback)
 
-    def _removeDevCallbacks(self, dev):
-        """!Remove device-specific callbacks
+    def _removeDevCallbacks(self, dev, slot):
+        """!Called when removing a device
 
-        Called when removing a device
+        Called after the device is deregistered from the slot dictionary, but before it is disconnected.
+        Use this to remove callbacks from the device and to clear information about it.        
+
+        @param[in] dev  device that has been removed
+        @param[in] slot  slot the device occupied
         """
         dev.removeCallback(self._devStateCallback)
 

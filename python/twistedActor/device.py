@@ -656,6 +656,12 @@ class ActorDevice(TCPDevice):
             connection = self.conn,
         )
 
+    @property
+    def model(self):
+        """!Get the keyword model for the device
+        """
+        return self.dispatcher.model
+
     def startCmd(self,
         cmdStr,
         callFunc = None,
