@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 from .baseWrapper import BaseWrapper
 from .baseActor import BaseActor
@@ -6,7 +6,7 @@ from .baseActor import BaseActor
 __all__ = ["DeviceWrapper"]
 
 class DeviceWrapper(BaseWrapper):
-    """A wrapper for a twistedActor.Device talking to a (likely fake) controller or controller wrapper
+    """!A wrapper for a twistedActor.Device talking to a (likely fake) controller or controller wrapper
     
     This wrapper is responsible for starting and stopping a controller and device
     - It builds the device when the controller is listening
@@ -32,7 +32,7 @@ class DeviceWrapper(BaseWrapper):
         stateCallback = None,
         debug = False,
     ):
-        """Construct a DeviceWrapper
+        """!Construct a DeviceWrapper
 
         This wraps a controller (typically a fake) and a device that talks to it.
         It also has attribute server, which is the controller's server.
@@ -70,19 +70,19 @@ class DeviceWrapper(BaseWrapper):
             self._setController(controller)
     
     def _makeDevice(self):
-        """Override this method to construct the device
+        """!Override this method to construct the device
         """
         raise NotImplementedError()
     
     @property
     def port(self):
-        """Return port of controller, if known, else None
+        """!Return port of controller, if known, else None
         """
         return self.server.port
     
     @property
     def isReady(self):
-        """Return True if the controller and device are running
+        """!Return True if the controller and device are running
         """
         self._isReady = self._isReady or \
             (self.server is not None and self.server.isReady \
@@ -91,7 +91,7 @@ class DeviceWrapper(BaseWrapper):
     
     @property
     def isDone(self):
-        """Return True if the device and controller are fully disconnected
+        """!Return True if the device and controller are fully disconnected
         """
         # self.debugMsg("isDone: self.server.state=%s; self.device.state=%s" % (
         #     self.server.state if self.server else "no server",
@@ -105,7 +105,7 @@ class DeviceWrapper(BaseWrapper):
     
     @property
     def isFailing(self):
-        """Return True if there is a failure
+        """!Return True if there is a failure
         """
         if self.server is None:
             return self.controllerWrapper.didFail
@@ -113,7 +113,7 @@ class DeviceWrapper(BaseWrapper):
             return self.server.didFail or (self.device is not None and self.device.didFail)
     
     def _basicClose(self):
-        """Close everything in order: device, controller, server
+        """!Close everything in order: device, controller, server
         """
         self._isReady = False
         if self.device is not None:
@@ -121,7 +121,7 @@ class DeviceWrapper(BaseWrapper):
             disconnCmd.addCallback(self._disconnCmdCallback)
 
     def _disconnCmdCallback(self, disconnCmd):
-        """Device disconnect command callback
+        """!Device disconnect command callback
         """
         if not disconnCmd.isDone:
             return
@@ -139,7 +139,7 @@ class DeviceWrapper(BaseWrapper):
         self._stateChanged()
 
     def _setController(self, controller):
-        """Set self.controller and self.server and server state callbacks
+        """!Set self.controller and self.server and server state callbacks
 
         @param[in] controller  an instance of BaseActor or RO.Comm.TwistedSocket.TCPSocket
         """
@@ -154,7 +154,7 @@ class DeviceWrapper(BaseWrapper):
         self.serverStateChanged()
 
     def serverStateChanged(self, dumArg=None):
-        """Called when the controller's server socket changes state
+        """!Called when the controller's server socket changes state
         """
         self.debugMsg("serverStateChanged; server=%s; state=%s" % (self.server, self.server.state))
         if self.server.isReady and not self.device:
@@ -166,7 +166,7 @@ class DeviceWrapper(BaseWrapper):
         self._stateChanged()
 
     def _controllerWrapperStateChanged(self, dumArg=None):
-        """Called when the controller wrapper state changed
+        """!Called when the controller wrapper state changed
         """
         self.debugMsg("_controllerWrapperStateChanged; controllerWrapper=%s" % (self.controllerWrapper,))
         if self.controllerWrapper.isReady and not self.controller:

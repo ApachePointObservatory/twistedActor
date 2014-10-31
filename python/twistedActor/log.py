@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 import datetime
 import logging
@@ -13,7 +13,7 @@ __all__ = ["log", "LogLineParser", "startFileLogging", "startSystemLogging", "st
     "getLoggerFacilityName"]
 
 def getLoggerFacilityName(facility):
-    """Get a facility name for the unix logger executable
+    """!Get a facility name for the unix logger executable
 
     @param[in] facility  syslog facility constant; must be one of
         LOG_USER, LOG_SYSLOG and LOG_LOCAL* (the others are not supported)
@@ -219,7 +219,7 @@ class SyslogLogger(BaseLogger):
 
 
 class LogManager(object):
-    """Object that holds the current logger.
+    """!Object that holds the current logger.
 
     This is needed so that the logger used by the log object can be changed at will.
     """

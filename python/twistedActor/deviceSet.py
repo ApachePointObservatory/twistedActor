@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 import collections
 import itertools
@@ -14,7 +14,7 @@ from .linkCommands import LinkCommands
 __all__ = ["DeviceSet"]
 
 class DevCmdInfo(object):
-    """Information about a device command
+    """!Information about a device command
 
     Intended to be passed to callback functions for DeviceSet commands
     """
@@ -33,7 +33,7 @@ class DevCmdInfo(object):
             (type(self).__name__, self.slot, self.dev, self.devCmd, self.userCmd)
 
 class DeviceSet(object):
-    """A collection of related devices (e.g. axes or mirrors), some of which may not exist
+    """!A collection of related devices (e.g. axes or mirrors), some of which may not exist
 
     Note that a DeviceSet has a list of slot names that is independent of
     the actual devices. This is because a particular device may not exist
@@ -45,7 +45,7 @@ class DeviceSet(object):
     """
     DefaultTimeLim = 5 # default time limit, in seconds; subclasses may override
     def __init__(self, actor, slotList, devList, connStateKeyword):
-        """Construct a DeviceSet
+        """!Construct a DeviceSet
 
         @param[in] actor  actor (instance of twistedActor.BaseActor);
             used for writeToUsers in this class, and subclasses may make additonal use of it
@@ -53,7 +53,7 @@ class DeviceSet(object):
         @param[in] devList  sequence of devices;
             each device is either an instances of twistedActor.Device or is None if the device is unavailable
         @param[in] connStateKeyword  connection state keyword;
-            format is <connStateKeyword>=state0, state1...
+            format is &lt;connStateKeyword&gt;=state0, state1...
             where stateN is the state of the device in slot N, or None if no device
 
         @throw RuntimeError if:
@@ -83,7 +83,7 @@ class DeviceSet(object):
                 self._addDevCallbacks(dev)
 
     def checkSlotList(self, slotList):
-        """Raise RuntimeError if any slots in slotList do not contain a device
+        """!Raise RuntimeError if any slots in slotList do not contain a device
         """
         try:
             emptySlotList = [slot for slot in slotList if not self[slot]]
@@ -95,7 +95,7 @@ class DeviceSet(object):
             raise RuntimeError("One or more slots is empty: %s" % (", ".join(emptySlotList),))
 
     def connect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
-        """Connect devices specified by slot name
+        """!Connect devices specified by slot name
 
         @param[in] slotList  collection of slot names, or None for all filled slots
         @param[in] userCmd  user command (twistedActor.UserCmd), or None;
@@ -108,11 +108,11 @@ class DeviceSet(object):
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
-        # print "%s.connect(slotList=%s, userCmd=%r, timeLim=%r" % (self, slotList, userCmd, timeLim)
+        # print("%s.connect(slotList=%s, userCmd=%r, timeLim=%r" % (self, slotList, userCmd, timeLim))
         return self._connectOrDisconnect(doConnect=True, slotList=slotList, userCmd=userCmd, timeLim=timeLim)
 
     def disconnect(self, slotList=None, userCmd=None, timeLim=DefaultTimeLim):
-        """Connect devices specified by slot name
+        """!Connect devices specified by slot name
 
         @param[in] slotList  collection of slot names, or None for all filled slots
         @param[in] userCmd  user command (twistedActor.UserCmd), or None;
@@ -125,11 +125,11 @@ class DeviceSet(object):
         - a command is specified for an empty or unknown slot
         - userCmd is already done
         """
-        # print "%s.disconnect(slotList=%s, userCmd=%r, timeLim=%r" % (self, slotList, userCmd, timeLim)
+        # print("%s.disconnect(slotList=%s, userCmd=%r, timeLim=%r" % (self, slotList, userCmd, timeLim))
         return self._connectOrDisconnect(doConnect=False, slotList=slotList, userCmd=userCmd, timeLim=timeLim)
 
     def expandSlotList(self, slotList, connOnly=False):
-        """Expand a collection of slot names, changing None to the correct list and checking the list
+        """!Expand a collection of slot names, changing None to the correct list and checking the list
 
         @param[in] slotList  collection of slot names, or None for all filled slots
         @param[in] connOnly  if True and slotList is None then only include connected devices
@@ -148,42 +148,42 @@ class DeviceSet(object):
 
     @property
     def devExists(self):
-        """Return a list of bools, one per device: True if device exists
+        """!Return a list of bools, one per device: True if device exists
         """
         return [dev is not None for dev in self._slotDevDict.itervalues()]
 
     @property
     def devList(self):
-        """Return the list of devices
+        """!Return the list of devices
         """
         return self._slotDevDict.values()
 
     @property
     def slotList(self):
-        """Return the list of slot names
+        """!Return the list of slot names
         """
         return self._slotDevDict.keys()
 
     @property
     def filledSlotList(self):
-        """Return the list of names of filled slots
+        """!Return the list of names of filled slots
         """
         return [slot for slot, dev in self._slotDevDict.iteritems() if dev]
 
     def get(self, slot, default=None):
-        """Return the device in the specified slot, or default if no such slot
+        """!Return the device in the specified slot, or default if no such slot
         """
         return self._slotDevDict.get(slot, default)
 
     def getIndex(self, slot):
-        """Get the index of the slot
+        """!Get the index of the slot
 
         @throw KeyError if slot does not exist
         """
         return self._slotIndexDict[slot]
 
     def showConnState(self, userCmd=None):
-        """Show connection state in slot order
+        """!Show connection state in slot order
 
         @param[in] userCmd  user command to use for reporting, or None; its state is not set
             if userCmd is None state is reported only if has changed since last time it was reported,
@@ -203,7 +203,7 @@ class DeviceSet(object):
             self.actor.writeToUsers(msgCode=msgCode, msgStr=msgStr, cmd=userCmd)
 
     def slotListFromBoolList(self, boolList):
-        """Return a list of slot names given a list of bools
+        """!Return a list of slot names given a list of bools
 
         @param[in] boolList  a list of bool values of length len(self);
 
@@ -217,17 +217,17 @@ class DeviceSet(object):
         return [slotList[ind] for ind, boolVal in enumerate(boolList) if boolVal]
 
     def slotFromDevName(self, devName):
-        """Get the slot name from the device name, or None if this device is not current
+        """!Get the slot name from the device name, or None if this device is not current
         """
         return self._devNameSlotDict.get(devName)
 
     def slotFromIndex(self, index):
-        """Get the slot name from the index
+        """!Get the slot name from the index
         """
         return self._slotDevDict.keys()[index]
 
     def _setDev(self, slot, dev):
-        """Set the device at a particular slot
+        """!Set the device at a particular slot
 
         This is a low-level command that does not connect or disconnect devices
 
@@ -242,7 +242,7 @@ class DeviceSet(object):
         return oldDev
 
     def replaceDev(self, slot, dev, userCmd=None, timeLim=DefaultTimeLim):
-        """Replace or remove one device
+        """!Replace or remove one device
 
         The old device (if it exists) is disconnected, which initializes it
 
@@ -280,7 +280,7 @@ class DeviceSet(object):
         return userCmd
 
     def startCmd(self, cmdStrOrList, slotList=None, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
-        """Start a command or list of commands on one or more devices
+        """!Start a command or list of commands on one or more devices
 
         The same command or list of commands is sent to each device;
         use startCmdDict to send different commands to different devices.
@@ -305,7 +305,7 @@ class DeviceSet(object):
         return self.startCmdDict(cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd)
 
     def startCmdDict(self, cmdDict, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
-        """Start a dictionary of commands on one or more devices
+        """!Start a dictionary of commands on one or more devices
 
         @param[in] cmdDict  a dict of slot: command string or sequence of command strings
             if the slot is empty or unknown then an exception is raised
@@ -327,21 +327,21 @@ class DeviceSet(object):
         return rcd.userCmd
 
     def _addDevCallbacks(self, dev):
-        """Add device-specific callbacks
+        """!Add device-specific callbacks
 
         Called when adding a device
         """
         dev.addCallback(self._devStateCallback)
 
     def _removeDevCallbacks(self, dev):
-        """Remove device-specific callbacks
+        """!Remove device-specific callbacks
 
         Called when removing a device
         """
         dev.removeCallback(self._devStateCallback)
 
     def _connectOrDisconnect(self, doConnect, slotList, userCmd, timeLim):
-        """Connect or disconnect a set of devices
+        """!Connect or disconnect a set of devices
 
         @param[in] doConnect  if True connect the specified devices, else disconnect them
         @param[in] slotList  collection of slot names, or None for all filled slots
@@ -371,28 +371,28 @@ class DeviceSet(object):
         self.showConnState()
 
     def __getitem__(self, slot):
-        """Return the device in the specified slot
+        """!Return the device in the specified slot
         """
         return self._slotDevDict[slot]
 
     def __len__(self):
-        """Return number of slots"""
+        """!Return number of slots"""
         return len(self._slotDevDict)
 
     def __repr__(self):
         return type(self).__name__
 
     def __contains__(self, slot):
-        """Return True if the slot exists
+        """!Return True if the slot exists
         """
         return slot in self._slotDevDict
 
 
 class RunCmdDict(object):
-    """Run a dictionary of commands
+    """!Run a dictionary of commands
     """
     def __init__(self, devSet, callFunc, cmdDict, userCmd, timeLim):
-        """Start running a command dict
+        """!Start running a command dict
 
         @param[in] devSet  device set
         @param[in] cmdDict  a dict of slot name: command string or sequence of command strings
@@ -453,7 +453,7 @@ class RunCmdDict(object):
         self.checkDone()
 
     def checkDone(self, dumArg=None):
-        """If all device commands are finished, then set self.userCmd state to Failed or Done as appropriate
+        """!If all device commands are finished, then set self.userCmd state to Failed or Done as appropriate
         """
         for slot, devCmd in self.devCmdDict.iteritems():
             if not devCmd.isDone:

@@ -1,12 +1,12 @@
-from __future__ import division, absolute_import
-"""Utilities to aid unit tests
+from __future__ import absolute_import, division, print_function
+"""!Utilities to aid unit tests
 """
 import os
 
 from . import startFileLogging, stopLogging
 
 def startLogging(filePath):
-    """Set TCC environment variables appropriately for running unit tests
+    """!Set TCC environment variables appropriately for running unit tests
 
     @param[in] filePath  path of file being tested (e.g. __file__); must be in subdir tests of your package
         (NOT deeper in the hierarchy) in order to determine where the log file should go.
@@ -19,7 +19,7 @@ def startLogging(filePath):
     startFileLogging(os.path.join(logDir, logFileName))
 
 def init(filePath=None):
-    """Prepare for a unit test to run that starts an actor
+    """!Prepare for a unit test to run that starts an actor
 
     @param[in] filePath  path of file being tested (e.g. __file__), or None:
         - If supplied must be in subdir tests of your package (NOT deeper in the hierarchy)

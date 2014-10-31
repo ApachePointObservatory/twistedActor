@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-"""Code to run scripts that can wait for various things without messing up the main event loop
+from __future__ import absolute_import, division, print_function
+"""!Code to run scripts that can wait for various things without messing up the main event loop
 (and thus starving the rest of your program).
 
 ScriptRunner allows your script to wait for the following:
@@ -25,7 +25,7 @@ from opscore.actor import BaseScriptRunner, ScriptError
 __all__ = ["ScriptError", "ScriptRunner"]
 
 class ScriptRunner(BaseScriptRunner):
-    """Execute a script.
+    """!Execute a script.
 
     Allows waiting for various things without messing up the main event loop.
     """
@@ -40,7 +40,7 @@ class ScriptRunner(BaseScriptRunner):
         startNow = False,
         debug = False,
     ):
-        """Create a ScriptRunner
+        """!Create a ScriptRunner
         
         Inputs:
         - name          script name; used to report status
@@ -106,7 +106,7 @@ class ScriptRunner(BaseScriptRunner):
         keyVars = None,
         checkFail = True,
     ):
-        """Start a command using the same arguments as waitCmd.
+        """!Start a command using the same arguments as waitCmd.
         
         Inputs: same as waitCmd, which see.
 
@@ -178,7 +178,7 @@ class ScriptRunner(BaseScriptRunner):
         keyVars = None,
         checkFail = True,
     ):
-        """Start a command and wait for it to finish.
+        """!Start a command and wait for it to finish.
         Returns the command variable (an opscore.actor.CmdVar) in sr.value.
 
         A yield is required.

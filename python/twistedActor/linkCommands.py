@@ -1,9 +1,9 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 __all__ = ["LinkCommands"]
 
 class LinkCommands(object):
-    """Link commands such that completion of the main command depends on one or more sub-commands
+    """!Link commands such that completion of the main command depends on one or more sub-commands
 
     The main command is done when all sub-commands are done; the main command finishes
     successfully only if all sub-commands finish successfully.
@@ -17,7 +17,7 @@ class LinkCommands(object):
     - add a failEarly argument to __init__ and have it assign the alternate callback
     """
     def __init__(self, mainCmd, subCmdList):
-        """Link a main command to a collection of sub-commands
+        """!Link a main command to a collection of sub-commands
 
         @param[in] mainCmd  the main command, a BaseCmd
         @param[in] subCmdList  a collection of sub-commands, each a BaseCmd
@@ -35,7 +35,7 @@ class LinkCommands(object):
         self.subCmdCallback()
 
     def subCmdCallback(self, dumCmd=None):
-        """Callback to be added to each device cmd
+        """!Callback to be added to each device cmd
 
         @param[in] dumCmd  sub-command issuing the callback (ignored)
         """

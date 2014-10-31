@@ -1,5 +1,5 @@
-from __future__ import division, absolute_import
-"""Contains objects for managing multiple commands at once.
+from __future__ import absolute_import, division, print_function
+"""!Contains objects for managing multiple commands at once.
 """
 from bisect import insort_left
 
@@ -19,7 +19,7 @@ class QueuedCommand(object):
     Cancelling = "cancelling"
     Failing = "failing"
     def __init__(self, cmd, priority, runFunc):
-        """The type of object queued in the CommandQueue.
+        """!The type of object queued in the CommandQueue.
 
             @param[in] cmd  a twistedActor BaseCmd with a cmdVerb attribute
             @param[in] priority  an integer, or CommandQueue.Immediate
@@ -41,16 +41,16 @@ class QueuedCommand(object):
         self.runFunc = runFunc
 
     def setState(self, newState, textMsg=None, hubMsg=None):
-        """Set state of command; see twistedActor.BaseCmd.setState for details
+        """!Set state of command; see twistedActor.BaseCmd.setState for details
         """
-        # print "%r.setState(newState=%r, textMsg=%r, hubMsg=%r)" % (self, newState, textMsg, hubMsg)
+        # print("%r.setState(newState=%r, textMsg=%r, hubMsg=%r)" % (self, newState, textMsg, hubMsg))
         return self.cmd.setState(newState, textMsg, hubMsg)
 
     def setRunning(self):
-        """Set the command state to Running, and execute associated code
+        """!Set the command state to Running, and execute associated code
         """
         self.cmd.setState(self.cmd.Running)
-        # print "%s.setRunning(); self.cmd=%r" % (self, self.cmd)
+        # print("%s.setRunning(); self.cmd=%r" % (self, self.cmd))
         self.runFunc(self.cmd)
 
     @property
@@ -63,25 +63,25 @@ class QueuedCommand(object):
 
     @property
     def didFail(self):
-        """Command failed or was cancelled
+        """!Command failed or was cancelled
         """
         return self.cmd.didFail
 
     @property
     def isActive(self):
-        """Command is running, canceling or failing
+        """!Command is running, canceling or failing
         """
         return self.cmd.isActive
 
     @property
     def isDone(self):
-        """Command is done (whether successfully or not)
+        """!Command is done (whether successfully or not)
         """
         return self.cmd.isDone
 
     @property
     def state(self):
-        """The state of the command, as a string which is one of the state constants, e.g. self.Done
+        """!The state of the command, as a string which is one of the state constants, e.g. self.Done
         """
         return self.cmd.state
 
@@ -120,7 +120,7 @@ class QueuedCommand(object):
 
 
 class CommandQueue(object):
-    """A command queue.  Default behavior is to queue all commands and
+    """!A command queue.  Default behavior is to queue all commands and
     execute them one at a time in order of priority.  Equal priority commands are
     executed in the order received.  Special rules may be defined for handling special cases
     of command collisions.
@@ -158,7 +158,7 @@ class CommandQueue(object):
         return len(self.cmdQueue)
 
     def addRule(self, action, newCmds="all", queuedCmds="all"):
-        """Add special case rules for collisions.
+        """!Add special case rules for collisions.
 
         @param[in] action  one of CancelNew, CancelQueued, KillRunning
         @param[in] newCmds  a list of incoming commands to which this rule applies or "all"
@@ -203,7 +203,7 @@ class CommandQueue(object):
                 self.ruleDict[nc][qc] = action
 
     def getRule(self, newCmd, queuedCmd):
-        """Get the rule for a specific new command vs. a specific queued command.
+        """!Get the rule for a specific new command vs. a specific queued command.
 
         @param[in] newCmd  the incoming command verb
         @param[in] queuedCmd  a command verb currently on the queue
@@ -278,7 +278,6 @@ class CommandQueue(object):
         else:
             priority = self.priorityDict[cmd.cmdVerb]
 
-        # print "Queue. Incoming: %r, on queue: " %cmd, [q.cmd for q in self.cmdQueue]
         toQueue = QueuedCommand(
             cmd = cmd,
             priority = priority,
@@ -349,7 +348,7 @@ class CommandQueue(object):
         self.scheduleRunQueue()
 
     def killAll(self):
-        """Kill all commands without trying to execute any
+        """!Kill all commands without trying to execute any
 
         Use when there is no hope of sending commands, e.g. at shutdown
         """
@@ -366,7 +365,7 @@ class CommandQueue(object):
             self._enabled = True
 
     def scheduleRunQueue(self, cmd=None):
-        """Run the queue on a zero second timer
+        """!Run the queue on a zero second timer
 
         @param[in] cmd  command; if provided and not Done then the queue is not run (a BaseCmd);
             this allows use of scheduleRunQueue as a command callback

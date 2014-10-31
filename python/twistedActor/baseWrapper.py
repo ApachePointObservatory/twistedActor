@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 import sys
 
@@ -9,7 +9,7 @@ import RO.AddCallback
 __all__ = ["BaseWrapper"]
 
 class BaseWrapper(RO.AddCallback.BaseMixin):
-    """A wrapper for a client talking to a server
+    """!A wrapper for a client talking to a server
     
     This wrapper is responsible for starting and stopping everything:
     - It accepts an actor wrapper
@@ -35,7 +35,7 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         callNow=False,
         debug=False,
     ):
-        """Construct a DispatcherWrapper that manages everything
+        """!Construct a DispatcherWrapper that manages everything
 
         @param[in] name  a name to use for messages
         @param[in] stateCallback  function to call when connection state of of any socket changes;
@@ -53,39 +53,39 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
 
     @property
     def isReady(self):
-        """Return True if the actor has connected to the fake hardware controller
+        """!Return True if the actor has connected to the fake hardware controller
         """
         raise NotImplementedError()
     
     @property
     def isDone(self):
-        """Return True if the actor and fake hardware controller are fully disconnected
+        """!Return True if the actor and fake hardware controller are fully disconnected
         """
         raise NotImplementedError()
     
     @property
     def didFail(self):
-        """Return True if isDone and there is a failure
+        """!Return True if isDone and there is a failure
         """
         return self.isDone and self.isFailing
 
     @property
     def isFailing(self):
-        """Return True if there is a failure
+        """!Return True if there is a failure
         """
         raise NotImplementedError()
 
     def debugMsg(self, msgStr):
         if self.debug:
-            print "%s: %s" % (self, msgStr)
+            print("%s: %s" % (self, msgStr))
     
     def _basicClose(self):
-        """Close clients and servers
+        """!Close clients and servers
         """
         raise NotImplementedError()
     
     def _stateChanged(self, *args):
-        """Called when state changes
+        """!Called when state changes
         """
         self.debugMsg("_stateChanged(): isReady=%s, isDone=%s, didFail=%s, isFailing=%s" % \
             (self.isReady, self.isDone, self.didFail, self.isFailing))
@@ -118,7 +118,7 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
             self._removeAllCallbacks()
     
     def close(self):
-        """Close everything
+        """!Close everything
         
         @return a deferred
         """
