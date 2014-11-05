@@ -1,5 +1,5 @@
-from __future__ import absolute_import, division
-"""Make a startup script for a given actor
+from __future__ import absolute_import, division, print_function
+"""!Make a startup script for a given actor
 """
 import os
 import sys
@@ -7,7 +7,7 @@ import sys
 from twistedActor import getLoggerFacilityName
 
 def makeStartupScript(actorName, pkgName, binScript, userPort, facility):
-    """Return a startup bash script as a long string
+    """!Return a startup bash script as a long string
 
     script output is redirected to the syslog using the specified facility:
     - stdout uses priority "warning"
@@ -24,7 +24,7 @@ def makeStartupScript(actorName, pkgName, binScript, userPort, facility):
     try:
         pkgDir = os.environ[pkgDirVar]
     except KeyError:
-        print "%s not setup" % (actorName,)
+        print("%s not setup" % (actorName,))
         sys.exit(1)
 
     facilityName = getLoggerFacilityName(facility)

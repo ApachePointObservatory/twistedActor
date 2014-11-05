@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 import collections
 import sys
@@ -17,7 +17,7 @@ from .baseWrapper import BaseWrapper
 __all__ = ["DispatcherWrapper", "CmdWrapper"]
 
 class DispatcherWrapper(BaseWrapper):
-    """A wrapper for an opscore.ActorDispatcher talking to an wrapped actor
+    """!A wrapper for an opscore.ActorDispatcher talking to an wrapped actor
 
     This wrapper is responsible for starting and stopping everything:
     - It builds an actor dispatcher when the actor wrapper is ready
@@ -37,7 +37,7 @@ class DispatcherWrapper(BaseWrapper):
         stateCallback = None,
         debug = False,
     ):
-        """Construct a DispatcherWrapper that manages everything
+        """!Construct a DispatcherWrapper that manages everything
 
         @param[in] actorWrapper  actor wrapper (twistedActor.ActorWrapper); must be starting up or ready
         @param[in] dictName  name of actor keyword dictionary
@@ -71,36 +71,36 @@ class DispatcherWrapper(BaseWrapper):
 
     @property
     def actor(self):
-        """Return the actor (in this case, the mirror controller)
+        """!Return the actor (in this case, the mirror controller)
         """
         return self.actorWrapper.actor
 
     @property
     def userPort(self):
-        """Return the actor port, if known, else None
+        """!Return the actor port, if known, else None
         """
         return self.actorWrapper.userPort
 
     @property
     def isReady(self):
-        """Return True if the actor has connected to the fake hardware controller
+        """!Return True if the actor has connected to the fake hardware controller
         """
         return self.actorWrapper.isReady and self.dispatcher is not None and self.dispatcher.connection.isConnected
 
     @property
     def isDone(self):
-        """Return True if the actor and fake hardware controller are fully disconnected
+        """!Return True if the actor and fake hardware controller are fully disconnected
         """
         return self.actorWrapper.isDone and self.dispatcher is not None and self.dispatcher.connection.isDisconnected
 
     @property
     def isFailing(self):
-        """Return True if there is a failure
+        """!Return True if there is a failure
         """
         return self.actorWrapper.didFail or (self.dispatcher is not None and self.dispatcher.connection.didFail)
 
     def queueCmd(self, cmdStr, timeLim=0, timeLimKeyVar=None, timeLimKeyInd=0, keyVars=None, callFunc=None, callCodes=":"):
-        """add command to queue, dispatch when ready
+        """!add command to queue, dispatch when ready
 
         @warning error handling is determined by callCodes; for details, see the documentation
             for the returned deferred below
@@ -147,7 +147,7 @@ class DispatcherWrapper(BaseWrapper):
         return (cmdWrapper.deferred, cmdVar)
 
     def _actorWrapperStateChanged(self, dumArg=None):
-        """Called when the device wrapper changes state
+        """!Called when the device wrapper changes state
         """
         if self.actorWrapper.isReady and not self.dispatcher:
             connection = TCPConnection(
@@ -164,7 +164,7 @@ class DispatcherWrapper(BaseWrapper):
         self._stateChanged()
 
     def _basicClose(self):
-        """Close dispatcher and actor
+        """!Close dispatcher and actor
         """
         if self.dispatcher:
             self.dispatcher.disconnect()
@@ -173,14 +173,13 @@ class DispatcherWrapper(BaseWrapper):
 
 class CmdWrapper(object):
     def __init__(self, cmdVar, callFunc, callCodes):
-        """Start a command and call callFunc if it succeeds
+        """!Start a command and call callFunc if it succeeds
 
         @param[in] cmdVar  command variable (instance of opscore.actor.CmdVar)
         @param[in] callFunc  callback function to call if the command succeeds, or None;
             if specified, callFunc receives one argument: cmdVar;
             if callFunc raises an exception then a traceback is printed and the command wrapper fails
         @param[in] callCodes  if True then only call callFunc if and when the command succeeds
-        @param[in] stateFunc  callback function to call when the wrapper state changes
 
         Maintain a deferred that fails if the command fails or callFunc raises an exception
         and completes successfully if both succeed.
@@ -203,11 +202,11 @@ class CmdWrapper(object):
         self._stateFunc = stateFunc
 
     def startCmd(self, dispatcher):
-        """Start running the command
+        """!Start running the command
         """
         if self.cmdVar.isDone:
             raise RuntimeError("Already done")
-        print "Starting command %s" % (self.cmdVar,)
+        print("Starting command %s" % (self.cmdVar,))
         dispatcher.executeCmd(self.cmdVar)
 
     @property
@@ -216,12 +215,12 @@ class CmdWrapper(object):
 
     @property
     def _reportFailure(self):
-        """Return True if cmdVar and we check for failure (because failure codes not in callCodes)
+        """!Return True if cmdVar and we check for failure (because failure codes not in callCodes)
         """
         return self.cmdVar.didFail and self._checkCmd
 
     def _cmdCallback(self, cmdVar=None):
-        """Command callback
+        """!Command callback
         """
         # call the callback, if justified:
         # function exists, last message code matches and command does not have a reportable failure
@@ -242,15 +241,15 @@ class CmdWrapper(object):
                 except Exception:
                     reason = "why? (no lastReply)"
                 msgStr = "Command %s failed: %s" % (self.cmdVar, reason)
-                print msgStr
+                print(msgStr)
                 Timer(0, self._finish, RuntimeError(msgStr))
             else:
-                print "Command %s done" % (self.cmdVar,)
+                print("Command %s done" % (self.cmdVar,))
                 Timer(0, self._finish)
 
 
     def _finish(self, exception=None):
-        """Command finished; call deferred and stateFunc and clear callFunc and stateFunc
+        """!Command finished; call deferred and stateFunc and clear callFunc and stateFunc
 
         @param[in] exception  an exception or None; if specified, the command wrapper is failed
         """
@@ -271,7 +270,7 @@ class CmdWrapper(object):
 
 class DispatcherCmdQueue(object):
     def __init__(self, dispatcher):
-        """A simple command queue that dispatches commands in the order received
+        """!A simple command queue that dispatches commands in the order received
 
         @param[in] dispatcher  an opscore dispatcher
         """
@@ -280,7 +279,7 @@ class DispatcherCmdQueue(object):
         self.cmdQueue = collections.deque() # a list of CmdWrapper instances in FIFO order
 
     def addCmd(self, cmdWrapper):
-        """Add a cmdVar to the queue and call a callFunc if it succeeds
+        """!Add a cmdVar to the queue and call a callFunc if it succeeds
 
         @param[in] cmdWrapper  command wrapper, an instance of CmdWrapper
         """
@@ -289,13 +288,13 @@ class DispatcherCmdQueue(object):
 
     @property
     def isBusy(self):
-        """Return True if the command queue is running a command
+        """!Return True if the command queue is running a command
         """
         return self.currCmdWrapper is not None and not self.currCmdWrapper.isDone
 
     def _cmdWrapperDone(self, cmdWrapper):
         if not cmdWrapper.isDone:
-            print "Warning: DispatcherCmdQueue._cmdWrapperDone called with not done wrapper"
+            print("Warning: DispatcherCmdQueue._cmdWrapperDone called with not done wrapper")
             return
 
         if cmdWrapper.didFail:

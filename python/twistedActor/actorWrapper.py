@@ -1,11 +1,11 @@
-from __future__ import division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 from .baseWrapper import BaseWrapper
 
 __all__ = ["ActorWrapper"]
 
 class ActorWrapper(BaseWrapper):
-    """A wrapper for a twistedActor.Actor talking to one or more wrapped devices
+    """!A wrapper for a twistedActor.Actor talking to one or more wrapped devices
     
     This wrapper is responsible for starting the actor and stopping the devices and actor:
     - It takes a list of wrapped devices that are starting up
@@ -27,7 +27,7 @@ class ActorWrapper(BaseWrapper):
         stateCallback = None,
         debug = False,
     ):
-        """Construct a ActorWrapper that manages its devices and controllers
+        """!Construct a ActorWrapper that manages its devices and controllers
 
         @param[in] name  a name to use for messages
         @param[in] deviceWrapperList  a list of device wrappers (twistedActor.DeviceWrapper);
@@ -52,13 +52,13 @@ class ActorWrapper(BaseWrapper):
         self._deviceWrapperStateChanged()
         
     def _makeActor(self):
-        """Make self.actor; subclasses must override
+        """!Make self.actor; subclasses must override
         """
         raise NotImplementedError()
     
     @property
     def userPort(self):
-        """Return the actor port, if known, else None
+        """!Return the actor port, if known, else None
         """
         if self.actor:
             return self.actor.server.port
@@ -66,43 +66,41 @@ class ActorWrapper(BaseWrapper):
         
     @property
     def isReady(self):
-        """Return True if the actor has connected to the fake hardware controller
+        """!Return True if the actor has connected to the fake hardware controller
         """
-        # if self.actor:
-        #     print "%s.isReady: actor.server.state=%s" % (self, self.actor.server.state)
         return all(dw.isReady for dw in self.deviceWrapperList) and self.actor is not None and self.actor.server.isReady
     
     @property
     def isDone(self):
-        """Return True if the actor and fake hardware controller are fully disconnected
+        """!Return True if the actor and fake hardware controller are fully disconnected
         """
         return all(dw.isDone for dw in self.deviceWrapperList) and \
             (self._actorFailed or (self.actor is not None and self.actor.server.isDone))
 
     @property
     def isFailing(self):
-        """Return True if anything failed
+        """!Return True if anything failed
         """
         return any(dw.didFail for dw in self.deviceWrapperList) or self._actorFailed \
             or self.actor is not None and self.actor.server.didFail
 
     def _basicClose(self):
-        """Close clients and servers
+        """!Close clients and servers
         """
         for dw in self.deviceWrapperList:
             dw.close()
 
     def printState(self):
-        """Print state of components; useful for debugging
+        """!Print state of components; useful for debugging
         """
         stateList = ["%s.device.state=%s" % (dw, dw.device.state if dw.device else "?") for dw in self.deviceWrapperList]
         stateList.append(
             "self.actor.server.state=%s" % (self.actor.server.state if self.actor else "?")
         )
-        print "%s state: %s" % (self, ", ".join(stateList))
+        print("%s state: %s" % (self, ", ".join(stateList)))
 
     def _deviceWrapperStateChanged(self, dumArg=None):
-        """Called when the device wrapper changes state
+        """!Called when the device wrapper changes state
         """
         self.debugMsg("_deviceWrapperStateChanged()")
         if not self.actor:

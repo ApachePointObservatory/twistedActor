@@ -1,5 +1,5 @@
-from __future__ import division, absolute_import
-"""Base classes for interface to devices controlled by the twisted actor
+from __future__ import absolute_import, division, print_function
+"""!Base classes for interface to devices controlled by the twisted actor
 
 A Device is an interface/driver/model for one device controlled by an Actor.
 It is responsible for sending commands to the device and keeping track of the state of the device.
@@ -26,7 +26,7 @@ from .log import log
 __all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 
 def expandUserCmd(userCmd):
-    """If userCmd is None, make a new one; if userCmd is done, raise RuntimeError
+    """!If userCmd is None, make a new one; if userCmd is done, raise RuntimeError
 
     @param[in] userCmd  user command (twistedActor.UserCmd) or None
     @return userCmd: return supplied userCmd if not None, else a new twistedActor.UserCmd
@@ -39,7 +39,7 @@ def expandUserCmd(userCmd):
     return userCmd
 
 class Device(BaseMixin):
-    """Device interface.
+    """!Device interface.
 
     Data includes information necessary to connect to this device
     and a list of commands handled directly by this device.
@@ -74,10 +74,10 @@ class Device(BaseMixin):
         callFunc = None,
         cmdClass = DevCmd,
     ):
-        """Construct a Device
+        """!Construct a Device
 
         @param[in] name      a short name to identify the device
-        @param[in] conn      a connection to the device; see below for details
+        @param[in] conn      a connection to the device; an RO.Conn.TCPDevice or similar; see below for details
         @param[in] cmdInfo   a list of (user command verb, device command verb, help string)
                     for user commands that are be sent directly to this device.
                     Specify None for the device command verb if it is the same as the user command verb
@@ -86,16 +86,15 @@ class Device(BaseMixin):
                     additional functions may be added using addCallback
         @param[in] cmdClass  class for commands for this device
 
-        conn is an object implementing these methods:
+        conn is an RO.Conn.TCPDevice or object with these attributes (see RO.Comm.TCPConnection for descriptions):
         - connect()
         - disconnect()
+        - isConnected
+        - isDisconnected
+        - isDone
+        - didFail
+        - state
         - addStateCallback(callFunc, callNow=True)
-        - getFullState(): Returns the current state as a tuple:
-            - state: a numeric value; named constants are available
-            - stateStr: a short string describing the state
-            - reason: the reason for the state ("" if none)
-        - isConnected(): return True if connected, False otherwise
-        - isDone(): return True if fully connected or disconnected
         - addReadCallback(callFunc, callNow=True)
         - writeLine(str)
         - readLine()
@@ -113,12 +112,13 @@ class Device(BaseMixin):
             self.addCallback(callFunc, callNow=False)
 
     def connect(self, userCmd=None, timeLim=DefaultTimeLim):
-        """Connect the device and start init (on success)
+        """!Connect the device and start init (on success)
 
         If already connected then simply set returned userCmd's state to userCmd.Done.
 
         @param[in] userCmd  user command (or None); if None a new one is generated
             to allow tracking the progress of this command
+        @param[in] timeLim  maximum time before command expires, in sec; None for no limit
 
         @return userCmd: the specified userCmd or if that was None, then a new empty one
         """
@@ -126,7 +126,7 @@ class Device(BaseMixin):
         return ConnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim).userCmd
 
     def disconnect(self, userCmd=None, timeLim=DefaultTimeLim):
-        """Start init and disconnect the device
+        """!Start init and disconnect the device
 
         If already disconnected then simply set returned userCmd's state to userCmd.Done.
 
@@ -136,16 +136,16 @@ class Device(BaseMixin):
         return DisconnectDevice(dev=self, userCmd=userCmd, timeLim=timeLim).userCmd
 
     def cleanup(self):
-        """Release resources and halt pending processes
+        """!Release resources and halt pending processes
 
         Called when disconnecting (after disconnection begins)
         """
         pass
 
     def setState(self, state, reason=None):
-        """Set connection state
+        """!Set connection state
         """
-        # print "%s.setState(state=%s, reason=%r)" % (self, state, reason)
+        # print("%s.setState(state=%s, reason=%r)" % (self, state, reason))
         if state not in self._AllStates:
             raise RuntimeError("Unknown state=%r" % (state,))
         if self._state == state:
@@ -157,15 +157,15 @@ class Device(BaseMixin):
         self._doCallbacks()
 
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
-        """Write a message to all users.
+        """!Write a message to all users.
 
         This is overridden by Actor when the device is added to the actor
         """
         log.info("Device does not yet have access to writeToUsers: msgCode=%r; msgStr=%r" % (msgCode, msgStr))
-        # print "msgCode=%r; msgStr=%r" % (msgCode, msgStr)
+        # print("msgCode=%r; msgStr=%r" % (msgCode, msgStr))
 
     def handleReply(self, replyStr):
-        """Handle a line of output from the device. Called whenever the device outputs a new line of data.
+        """!Handle a line of output from the device. Called whenever the device outputs a new line of data.
 
         @param[in] replyStr  the reply, minus any terminating \n
 
@@ -184,7 +184,7 @@ class Device(BaseMixin):
         raise NotImplementedError()
 
     def init(self, userCmd=None, timeLim=DefaultTimeLim, getStatus=True):
-        """Initialize the device and cancel all pending commands
+        """!Initialize the device and cancel all pending commands
 
         @param[in] userCmd  user command that tracks this command, if any
         @param[in] timeLim  maximum time before command expires, in sec; None for no limit
@@ -201,30 +201,30 @@ class Device(BaseMixin):
 
     @property
     def didFail(self):
-        """Return True if device is connected (and init succeeded)
+        """!Return True if device is connected (and init succeeded)
         """
         return self._state == self.Failed
 
     @property
     def isConnected(self):
-        """Return True if device is connected (and init succeeded)
+        """!Return True if device is connected (and init succeeded)
         """
         return self._state == self.Connected
 
     @property
     def isDisconnected(self):
-        """Return True if device is disconnected or disconnection failed
+        """!Return True if device is disconnected or disconnection failed
         """
         return self._state in (self.Disconnected, self.Failed)
 
     @property
     def isDisconnecting(self):
-        """Return True if device is disconnecting or disconnected
+        """!Return True if device is disconnecting or disconnected
         """
         return self._state in (self.Disconnected, self.Failed, self.Disconnecting)
 
     def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
-        """Start a new command.
+        """!Start a new command.
 
         @param[in] cmdStr  command string
         @param[in] callFunc  callback function: function to call when command succeeds or fails, or None;
@@ -253,7 +253,7 @@ class Device(BaseMixin):
         return devCmd
 
     def startCmdList(self, cmdList, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
-        """Start a sequence of commands; if a command fails then subsequent commands are ignored
+        """!Start a sequence of commands; if a command fails then subsequent commands are ignored
 
         @param[in] cmdList  a sequence of command strings
         @param[in] callFunc  callback function: function to call when the final command is done
@@ -269,24 +269,28 @@ class Device(BaseMixin):
         return rcl.currDevCmd
 
     def _connCallback(self, conn=None):
-        """Call when the connection state changes
+        """!Call when the connection state changes
+
+        Monitor that the socket has disconnected and set the internal state accordingly
         """
-        # print "%s._connCallback(conn=%s); self.state=%s, self.conn.state=%s, self._ignoreConnCallback=%s" % (self, conn, self.state, self.conn.state, self._ignoreConnCallback)
+        # print("%s._connCallback(conn=%s); self.state=%s, self.conn.state=%s, self._ignoreConnCallback=%s" % (self, conn, self.state, self.conn.state, self._ignoreConnCallback))
         if self._ignoreConnCallback:
             return False
-        if self.conn.state == self.conn.Disconnected:
+        if self.conn.isConnected:
+            return
+        if self.isDisconnected:
             if self.state != self.Disconnected:
-                self.setState(self.Disconnected, "socket disconnected")
-        elif self.conn.state == self.conn.Disconnecting:
+                self.setState(self.Disconnected, "connection state = %s" % (self.conn.state,))
+        else:
             if self.state != self.Disconnecting:
-                self.setState(self.Disconnecting, "socket disconnecting")
+                self.setState(self.Disconnecting, "connection state = %s" % (self.conn.state,))
 
     def __repr__(self):
         return "%s(%s)" % (type(self).__name__, self.name)
 
 
 class ConnectDevice(object):
-    """Connect a device and execute dev.init
+    """!Connect a device and execute dev.init
 
     If the device is already connected then generate a new userCmd, if needed,
     and sets userCmd's state to userCmd.Done.
@@ -296,7 +300,7 @@ class ConnectDevice(object):
     - userCmd: the provided userCmd, or a new one if none provided
     """
     def __init__(self, dev, userCmd, timeLim):
-        """Start connecting a device
+        """!Start connecting a device
 
         @param[in] dev  device
         @param[in] userCmd  user command associated with the connection, or None
@@ -325,9 +329,9 @@ class ConnectDevice(object):
                 self._connTimer.start(self._timeLim, self.finish, "timed out waiting for connection")
 
     def initCallback(self, userCmd):
-        """Callback for device initialization
+        """!Callback for device initialization
         """
-        # print "%s.initCallback(userCmd=%r); _callbacks=%s" % (self, userCmd, userCmd._callbacks)
+        # print("%s.initCallback(userCmd=%r); _callbacks=%s" % (self, userCmd, userCmd._callbacks))
         if not userCmd.isDone:
             return
 
@@ -338,7 +342,7 @@ class ConnectDevice(object):
         Timer(0, self.finish, reason)
 
     def connCallback(self, conn):
-        """Callback for device connection state
+        """!Callback for device connection state
         """
         if self.dev.conn.isConnected:
             self._connTimer.cancel()
@@ -349,9 +353,9 @@ class ConnectDevice(object):
             self.finish("connection failed")
 
     def finish(self, reason=None):
-        """Call on success or failure to finish the command
+        """!Call on success or failure to finish the command
 
-        @parma[in] reason: reason for failure (if non-empty then failure is assumed)
+        @param[in] reason: reason for failure (if non-empty then failure is assumed)
         """
         self._connTimer.cancel()
         self.dev._ignoreConnCallback = False
@@ -373,7 +377,7 @@ class ConnectDevice(object):
 
 
 class DisconnectDevice(object):
-    """Execute dev.init (if the device is fully connected) and disconnect a device
+    """!Execute dev.init (if the device is fully connected) and disconnect a device
 
     If the device is already disconnected then generate a new userCmd, if needed,
     and sets userCmd's state to userCmd.Done.
@@ -383,7 +387,7 @@ class DisconnectDevice(object):
     - userCmd: the provided userCmd, or a new one if none provided
     """
     def __init__(self, dev, userCmd, timeLim):
-        """Start disconnecting a device
+        """!Start disconnecting a device
         """
         self.dev = dev
         self.userCmd = expandUserCmd(userCmd)
@@ -413,7 +417,7 @@ class DisconnectDevice(object):
             return
 
     def startDisconnect(self):
-        """Start disconnecting the connection
+        """!Start disconnecting the connection
         """
         if self.dev.conn.isDone and not self.dev.conn.isConnected:
             # fully disconnected; no more to be done
@@ -428,7 +432,7 @@ class DisconnectDevice(object):
             self.dev.conn.disconnect()
 
     def initCallback(self, initUserCmd):
-        """Callback for device initialization
+        """!Callback for device initialization
         """
         if not initUserCmd.isDone:
             return
@@ -439,15 +443,15 @@ class DisconnectDevice(object):
         self.startDisconnect()
 
     def connCallback(self, conn):
-        """Callback for device connection state
+        """!Callback for device connection state
         """
         if self.dev.conn.isDone:
             Timer(0, self.finish)
 
     def finish(self, reason=None):
-        """Call on success or failure to finish the command
+        """!Call on success or failure to finish the command
 
-        @parma[in] reason: reason for failure (if non-empty then failure is assumed)
+        @param[in] reason: reason for failure (if non-empty then failure is assumed)
         """
         self._connTimer.cancel()
         self.dev._ignoreConnCallback = False
@@ -470,12 +474,12 @@ class DisconnectDevice(object):
 
 
 class RunCmdList(object):
-    """Run a list of commands
+    """!Run a list of commands
 
     This is a separate object to make startCmdList reentrant
     """
     def __init__(self, dev, cmdList, callFunc, userCmd, timeLim):
-        """Construct a RunCmdList
+        """!Construct a RunCmdList
 
         @param[in] dev  device (instance of Device)
         @param[in] cmdList  a sequence of command strings
@@ -503,7 +507,7 @@ class RunCmdList(object):
         self._startCmd(cmdStr)
 
     def cmdCallback(self, devCmd):
-        """Device command callback
+        """!Device command callback
 
         If the command failed, stop and fail the userCmd (if any)
         If the command succeeded then execute the next command
@@ -525,12 +529,12 @@ class RunCmdList(object):
         Timer(0, self._startCmd, cmdStr)
 
     def _startCmd(self, cmdStr):
-        """Start a device command
+        """!Start a device command
         """
         self.currDevCmd = self.dev.startCmd(cmdStr, callFunc=self.cmdCallback, timeLim=self._timeLim)
 
     def finish(self, devCmd):
-        """Finish the sequence of commands by calling callFunc and setting state of userCmd
+        """!Finish the sequence of commands by calling callFunc and setting state of userCmd
 
         @throw RuntimeError if devCmd not done
 
@@ -555,7 +559,7 @@ class RunCmdList(object):
 
 
 class TCPDevice(Device):
-    """TCP-connected device.
+    """!TCP-connected device.
     """
     def __init__(self,
         name,
@@ -565,7 +569,7 @@ class TCPDevice(Device):
         callFunc = None,
         cmdClass = DevCmd,
     ):
-        """Construct a TCPDevice
+        """!Construct a TCPDevice
 
         @param[in] name      a short name to identify the device
         @param[in] host      IP address
@@ -594,12 +598,12 @@ class TCPDevice(Device):
         )
 
     def _readCallback(self, sock, replyStr):
-        """Called whenever the device has returned a reply.
+        """!Called whenever the device has returned a reply.
 
         @param[in] sock  the socket (ignored)
         @param[in] line  the reply, missing the final \n
         """
-        # print "TCPDevice._readCallback(sock, replyStr=%r)" % (replyStr,)
+        # print("TCPDevice._readCallback(sock, replyStr=%r)" % (replyStr,))
         self.handleReply(replyStr)
 
     def __str__(self):
@@ -610,7 +614,7 @@ class TCPDevice(Device):
 
 
 class ActorDevice(TCPDevice):
-    """A device that obeys the APO standard actor interface
+    """!A device that obeys the APO standard actor interface
     """
     def __init__(self,
         name,
@@ -621,7 +625,7 @@ class ActorDevice(TCPDevice):
         callFunc = None,
         cmdClass = DevCmdVar,
     ):
-        """Construct an ActorDevice
+        """!Construct an ActorDevice
 
         @param[in] name      a short name to identify the device
         @param[in] host      IP address
@@ -635,6 +639,7 @@ class ActorDevice(TCPDevice):
                     additional functions may be added using addCallback.
                     Note that device state callbacks is NOT automatically called
                     when the connection state changes; register a callback with "conn" for that task.
+        @param[in] cmdClass  class for new device commands
         """
         TCPDevice.__init__(self,
             name = name,
@@ -651,6 +656,12 @@ class ActorDevice(TCPDevice):
             connection = self.conn,
         )
 
+    @property
+    def model(self):
+        """!Get the keyword model for the device
+        """
+        return self.dispatcher.model
+
     def startCmd(self,
         cmdStr,
         callFunc = None,
@@ -661,7 +672,7 @@ class ActorDevice(TCPDevice):
         abortCmdStr = None,
         keyVars = None,
     ):
-        """Queue or start a new command.
+        """!Queue or start a new command.
 
         @param[in] cmdStr  the command; no terminating \n wanted
         @param[in] callFunc  callback function: function to call when command succeeds or fails, or None;
@@ -708,14 +719,14 @@ class ActorDevice(TCPDevice):
 
 
 class DeviceCollection(object):
-    """A collection of devices that provides easy access to them
+    """!A collection of devices that provides easy access to them
 
     Access is as follows:
-    - .<name> for the device named <name>, e.g. .foo for the device "foo"
+    - .&lt;name&gt; for the device named &lt;name&gt;, e.g. .foo for the device "foo"
     - .nameDict contains a collections.OrderedDict of dev.name: dev, in alphabetical order
     """
     def __init__(self, devList):
-        """Construct a DeviceCollection
+        """!Construct a DeviceCollection
 
         @param[in] devList  a collection of devices (instances of device.Device).
             Required attributes are:
@@ -746,13 +757,15 @@ class DeviceCollection(object):
             self.nameDict[name] = tempNameDict[name]
 
     def getFromConnection(self, conn):
-        """Return the device that has this connection
+        """!Return the device that has this connection
+
+        @param[in] conn  connection (a RO.Comm.TCPConnection)
 
         Raise KeyError if not found
         """
         return self._connDict[id(conn)]
 
     def __iter__(self):
-        """Return an iterator over the devices
+        """!Return an iterator over the devices
         """
         return self.nameDict.itervalues()

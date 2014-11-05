@@ -1,5 +1,5 @@
-from __future__ import division, absolute_import
-"""Basic framework for a hub actor or ICC based on the Twisted event loop.
+from __future__ import absolute_import, division, print_function
+"""!Basic framework for a hub actor or ICC based on the Twisted event loop.
 """
 import sys
 import socket
@@ -13,7 +13,7 @@ from .log import log
 __all__ = ["BaseActor"]
 
 def isAvailable(port):
-    """Return True if the specified socket is available, False otherwise
+    """!Return True if the specified socket is available, False otherwise
 
     (this function will soon appear in RO.Comm, but I don't want to require that version of RO yet)
     """
@@ -26,7 +26,7 @@ def isAvailable(port):
         return True
 
 class BaseActor(object):
-    """Base class for a hub actor or instrument control computer with no assumption about command format
+    """!Base class for a hub actor or instrument control computer with no assumption about command format
     other than commands may start with 0, 1 or 2 integers
 
     Subclass this and define parseAndDispatchCmd to parse and dispatch commands.
@@ -38,7 +38,7 @@ class BaseActor(object):
         version = "?",
         name = "BaseActor",
     ):
-        """Construct a BaseActor
+        """!Construct a BaseActor
 
         Inputs:
         - userPort      port on which to listen for users
@@ -64,18 +64,18 @@ class BaseActor(object):
         )
 
     def _cancelTimers(self):
-        """Cancel all timers
+        """!Cancel all timers
         """
         pass
 
     def close(self):
-        """Close the connection and cancel any timers
+        """!Close the connection and cancel any timers
         """
         self.server.close()
         self._cancelTimers()
 
     def cmdCallback(self, cmd):
-        """Called when a user command changes state; report completion or failure
+        """!Called when a user command changes state; report completion or failure
         """
         if not cmd.isDone:
             return
@@ -85,7 +85,7 @@ class BaseActor(object):
 
     @staticmethod
     def formatUserOutput(msgCode, msgStr, userID=None, cmdID=None):
-        """Format a string to send to the all users.
+        """!Format a string to send to the all users.
         """
         return "%d %d %s %s" % (cmdID, userID, msgCode, msgStr)
         # changed from:
@@ -93,7 +93,7 @@ class BaseActor(object):
 
     @staticmethod
     def getUserCmdID(msgCode=None, cmd=None, userID=None, cmdID=None):
-        """Return userID, cmdID based on user-supplied information.
+        """!Return userID, cmdID based on user-supplied information.
 
         @param[in] msgCode  used to determine if cmd is a valid default:
             if cmd is provided and cmd.isDone and msgCode is not a done code, then cmd is ignored (treated as None).
@@ -115,7 +115,7 @@ class BaseActor(object):
         )
 
     def newCmd(self, sock):
-        """Called when a command is read from a user.
+        """!Called when a command is read from a user.
 
         Note: command name collisions are resolved as follows:
         - local commands (cmd_<foo> methods of this actor)
@@ -124,7 +124,7 @@ class BaseActor(object):
         """
         cmdStr = sock.readLine()
         log.info("%s.newCmd(%r)" % (self, cmdStr))
-        #print "%s.newCmd; cmdStr=%r" % (self, cmdStr,)
+        # print("%s.newCmd; cmdStr=%r" % (self, cmdStr,))
         if not cmdStr:
             return
         userID = getSocketUserID(sock)
@@ -139,7 +139,7 @@ class BaseActor(object):
             cmd.setState(cmd.Failed, "Command %r failed: %s" % (cmd.cmdBody, strFromException(e)))
 
     def newUser(self, sock):
-        """A new user has connected. Assign an ID and report it to the user.
+        """!A new user has connected. Assign an ID and report it to the user.
         """
         if self.maxUsers and len(self.userDict) >= self.maxUsers:
             sock.writeLine("0 0 E NoFreeConnections")
@@ -163,7 +163,7 @@ class BaseActor(object):
         return fakeCmd
 
     def showNewUserInfo(self, fakeCmd):
-        """Show information for new users; called automatically when a new user connects
+        """!Show information for new users; called automatically when a new user connects
 
         Inputs:
         - fakeCmd: a minimal command that just contains the ID of the new user
@@ -172,19 +172,19 @@ class BaseActor(object):
         self.showVersion(fakeCmd, onlyOneUser=True)
 
     def parseAndDispatchCmd(self, cmd):
-        """Dispatch a user command
+        """!Dispatch a user command
         """
         raise NotImplementedError()
 
     def serverStateCallback(self, sock):
-        """Server socket state callback
+        """!Server socket state callback
         """
         if self.server.isReady:
-            print "%s listening on port %s" % (self, self.server.port)
+            print("%s listening on port %s" % (self, self.server.port))
         log.info("%s.server.state=%s" % (self, self.server.state))
 
     def showUserInfo(self, cmd):
-        """Show user information including your userID.
+        """!Show user information including your userID.
         """
         numUsers = len(self.userDict)
         if numUsers == 0:
@@ -198,7 +198,7 @@ class BaseActor(object):
         self.showUserList(cmd)
 
     def showUserList(self, cmd=None):
-        """Show a list of connected users
+        """!Show a list of connected users
         """
         userIdList = sorted(self.userDict.keys())
         for userId in userIdList:
@@ -207,7 +207,7 @@ class BaseActor(object):
             self.writeToUsers("i", msgStr, cmd=cmd)
 
     def userSocketClosing(self, sock):
-        """Called when a user socket is closing
+        """!Called when a user socket is closing
 
         Technically this is called for any state change, but it amounts to "when closing"
         because the socket is connected before the callback is registered,
@@ -227,7 +227,7 @@ class BaseActor(object):
         self.showUserList(cmd=UserCmd(userID=0))
 
     def showVersion(self, cmd, onlyOneUser=False):
-        """Show actor version
+        """!Show actor version
         """
         msgStr = "version=%s" % (quoteStr(self.version),)
         if onlyOneUser:
@@ -236,9 +236,10 @@ class BaseActor(object):
             self.writeToUsers("i", msgStr, cmd=cmd)
 
     def writeToUsers(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
-        """Write a message to all users.
+        """!Write a message to all users.
 
         @param[in] msgCode  message code (e.g. "i"); see command.py for a full list of message codes.
+        @param[in] msgStr  message to write, in keyword=value format, and without a header
         @param[in] cmd  user command; used as a default for userID and cmdID, but see msgCode
         @param[in] userID  user ID: if None then use cmd.cmdID, but see msgCode
         @param[in] cmdID  command ID: if None then use cmd.userID, but see msgCode
@@ -250,15 +251,16 @@ class BaseActor(object):
         """
         userID, cmdID = self.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
-        #print "writeToUsers(%s)" % (fullMsgStr,)
+        # print("writeToUsers(%s)" % (fullMsgStr,))
         log.info("%s.writeToUsers(%r)" % (self, fullMsgStr))
         for sock in self.userDict.itervalues():
             sock.writeLine(fullMsgStr)
 
     def writeToOneUser(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
-        """Write a message to one user.
+        """!Write a message to one user.
 
         @param[in] msgCode  message code (e.g. "i"); see command.py for a full list of message codes.
+        @param[in] msgStr  message to write, in keyword=value format, and without a header
         @param[in] cmd  user command; used as a default for userID and cmdID, but see msgCode
         @param[in] userID  user ID: if None then use cmd.cmdID, but see msgCode
         @param[in] cmdID  command ID: if None then use cmd.userID, but see msgCode
@@ -270,22 +272,23 @@ class BaseActor(object):
         """
         userID, cmdID = self.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         if userID == 0:
-            print "Error: writeToOneUser asked to write to userID=0; msgCode=%r; msgStr=%r; cmd=%r; userID=%r; cmdID=%r" % (msgCode, msgStr, cmd, userID, cmdID)
-            raise RuntimeError("writeToOneUser cannot write to user 0")
+            raise RuntimeError("writeToOneUser(msgCode=%r; msgStr=%r; cmd=%r; userID=%r; cmdID=%r) cannot write to user 0" % \
+                (msgCode, msgStr, cmd, userID, cmdID))
         sock = self.userDict[userID]
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
-        #print "writeToOneUser(%s)" % (fullMsgStr,)
+        # print("writeToOneUser(%s)" % (fullMsgStr,))
         log.info("%s.writeToOneUser(%r); userID=%s" % (self, fullMsgStr, userID))
         sock.writeLine(fullMsgStr)
 
     @classmethod
     def writeToStdOut(cls, msgCode, msgStr, cmd=None, userID=None, cmdID=None):
-        """Write a message to stdout.
+        """!Write a message to stdout.
 
         One use is writing properly formatted messages in the absence of an instance of BaseActor
         (note that this is a class method).
 
         @param[in] msgCode  message code (e.g. "i"); see command.py for a full list of message codes.
+        @param[in] msgStr  message to write, in keyword=value format, and without a header
         @param[in] cmd  user command; used as a default for userID and cmdID, but see msgCode
         @param[in] userID  user ID: if None then use cmd.cmdID, but see msgCode
         @param[in] cmdID  command ID: if None then use cmd.userID, but see msgCode
@@ -297,17 +300,17 @@ class BaseActor(object):
         """
         userID, cmdID = cls.getUserCmdID(msgCode=msgCode, cmd=cmd, userID=userID, cmdID=cmdID)
         fullMsgStr = cls.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
-        print fullMsgStr
+        print(fullMsgStr)
 
     def __str__(self):
         return "%s(%s)" % (self.__class__.__name__, self.name)
 
 def getSocketUserID(sock):
-    """Get a user ID from a socket
+    """!Get a user ID from a socket
     """
     return sock._actor_userID
 
 def setSocketUserID(sock, userID):
-    """Set a user ID on a socket
+    """!Set a user ID on a socket
     """
     sock._actor_userID = userID

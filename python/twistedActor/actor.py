@@ -1,5 +1,5 @@
-from __future__ import division, absolute_import
-"""Basic framework for a hub actor or ICC based on the Twisted event loop.
+from __future__ import absolute_import, division, print_function
+"""!Basic framework for a hub actor or ICC based on the Twisted event loop.
 """
 import operator
 import sys
@@ -16,7 +16,7 @@ from .log import log
 __all__ = ["Actor"]
 
 class Actor(BaseActor):
-    """Base class for a hub actor or instrument control computer with a unix-like command syntax
+    """!Base class for a hub actor or instrument control computer with a unix-like command syntax
 
     Subclass this and add cmd_ methods to add commands, (or add commands by adding items to self.locCmdDict
     but be careful with command names -- see comment below)
@@ -47,7 +47,7 @@ class Actor(BaseActor):
         doConnect = True,
         doDevNameCmds = True,
     ):
-        """Construct an Actor
+        """!Construct an Actor
 
         @param[in] userPort  port on which to listen for users
         @param[in] devs  a collection of Device objects that this ICC controls
@@ -111,7 +111,7 @@ class Actor(BaseActor):
             self.initialConn()
 
     def close(self):
-        """Close the connection and cancel any timers
+        """!Close the connection and cancel any timers
         """
         log.info("%s.close()" % (self,))
         for dev in self.dev:
@@ -120,7 +120,7 @@ class Actor(BaseActor):
         BaseActor.close(self)
 
     def initialConn(self):
-        """Perform initial connections.
+        """!Perform initial connections.
 
         Normally this just calls cmd_connDev, but you can override this command
         if you need a special startup sequence, such as waiting until devices boot up.
@@ -128,13 +128,13 @@ class Actor(BaseActor):
         self.cmd_connDev()
 
     def checkNoArgs(self, newCmd):
-        """Raise CommandError if newCmd has arguments
+        """!Raise CommandError if newCmd has arguments
         """
         if newCmd and newCmd.cmdArgs:
             raise CommandError("%s takes no arguments" % (newCmd.cmdVerb,))
 
     def checkLocalCmd(self, newCmd):
-        """Check if the new local command can run given what else is going on
+        """!Check if the new local command can run given what else is going on
 
         @param[in] newCmd  new local user command (twistedActor.UserCmd);
             "local" means this command will trigger a cmd_<verb> method of this actor
@@ -152,7 +152,7 @@ class Actor(BaseActor):
         pass
 
     def devConnStateCallback(self, conn):
-        """Called when a device's connection state changes
+        """!Called when a device's connection state changes
 
         @param[in] conn  device connection whose state has changed
         """
@@ -167,7 +167,7 @@ class Actor(BaseActor):
             dev.connReq = (wantConn, None)
 
     def parseAndDispatchCmd(self, cmd):
-        """Parse and dispatch a command
+        """!Parse and dispatch a command
 
         @param[in] cmd  user command (twistedActor.UserCmd)
 
@@ -239,7 +239,7 @@ class Actor(BaseActor):
         self.writeToOneUser("f", "UnknownCommand=%s" % (cmd.cmdVerb,), cmd=cmd)
 
     def showNewUserInfo(self, sock):
-        """Show information for new users; called automatically when a new user connects
+        """!Show information for new users; called automatically when a new user connects
 
         @param[in] sock  socket connection to new user
         """
@@ -247,7 +247,7 @@ class Actor(BaseActor):
         self.showDevConnStatus(cmd=fakeCmd, onlyOneUser=True, onlyIfNotConn=True)
 
     def showDevConnStatus(self, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
-        """Show connection status for all devices
+        """!Show connection status for all devices
 
         @param[in] cmd  user command (twistedActor.UserCmd)
         @param[in] onlyOneUser  if True only display the information to the commanding user
@@ -257,8 +257,9 @@ class Actor(BaseActor):
             self.showOneDevConnStatus(dev, onlyOneUser=onlyOneUser, onlyIfNotConn=onlyIfNotConn, cmd=cmd)
 
     def showOneDevConnStatus(self, dev, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
-        """Show connection status for one device
+        """!Show connection status for one device
 
+        @param[in] dev  device whose state is to be shown
         @param[in] cmd  user command (twistedActor.UserCmd)
         @param[in] onlyOneUser  if True only display the information to the commanding user
         @param[in] onlyIfNotConn  only show information for devices that are disconnected
@@ -328,18 +329,21 @@ class Actor(BaseActor):
         return runInBackground
 
     def cmd_exit(self, cmd=None):
-        """disconnect yourself"""
+        """!disconnect yourself"""
         sock = self.userDict[cmd.userID]
         sock.close()
 
     def cmd_help(self, cmd=None):
-        """print this help"""
+        """!print this help"""
         helpList = []
         debugHelpList = []
 
         # commands handled by this actor
         for cmdVerb, cmdFunc in self.locCmdDict.iteritems():
             helpStr = cmdFunc.__doc__.split("\n")[0]
+            if helpStr.startswith("!"):
+                # an initial "!" is used to enable Doxygen formatting of help
+                helpStr = helpStr[1:]
             if ":" in helpStr:
                 joinStr = " "
             else:
@@ -372,11 +376,11 @@ class Actor(BaseActor):
             self.writeToUsers("i", "text=%r" % (helpStr,), cmd=cmd)
 
     def cmd_ping(self, cmd):
-        """verify that actor is alive"""
+        """!verify that actor is alive"""
         cmd.setState("done", textMsg="alive")
 
     def cmd_status(self, cmd):
-        """show status
+        """!show status
 
         Actors may wish to override this method to output additional status.
         """
@@ -384,7 +388,7 @@ class Actor(BaseActor):
         self.showDevConnStatus(cmd=cmd)
 
     def cmd_debugMsgs(self, cmd):
-        """on/off: turn debugging messages on or off"""
+        """!on/off: turn debugging messages on or off"""
         arg = cmd.cmdArgs.lower()
         if arg == "on":
             self.doDebugMsgs = True
@@ -395,7 +399,7 @@ class Actor(BaseActor):
         self.writeToUsers("i", 'Text="Debugging messages %s"' % (arg,), cmd=cmd)
 
     def cmd_debugRefCounts(self, cmd):
-        """print the reference count for each object"""
+        """!print the reference count for each object"""
         d = {}
         # collect all classes
         for m in sys.modules.values():
