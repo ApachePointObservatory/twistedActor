@@ -17,7 +17,7 @@ def makeStartupScript(actorName, pkgName, binScript, userPort, facility):
     @param[in] pkgName  eups package name of actor.
     @param[in] binScript  script that starts the actor, e.g. "tcc35m.py";
         if it is not on $PATH, then it must be specified relative to its package directory.
-    @param[in] userPort  port on which actor will listen for commands
+    @param[in] userPort  port or list of ports on which actor will listen for commands
     @param[in] facility  logging facility (e.g. syslog.LOG_LOCAL1
     """
     pkgDirVar = "%s_DIR" % (pkgName.upper(),)
