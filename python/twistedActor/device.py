@@ -223,7 +223,7 @@ class Device(BaseMixin):
         """
         return self._state in (self.Disconnected, self.Failed, self.Disconnecting)
 
-    def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
+    def startCmd(self, cmdStr, callFunc=None, userCmd=None, timeLim=DefaultTimeLim, showReplies=False):
         """!Start a new command.
 
         @param[in] cmdStr  command string
@@ -231,6 +231,7 @@ class Device(BaseMixin):
             if specified it receives one argument: a device command
         @param[in] userCmd  user command that tracks this command, if any
         @param[in] timeLim  maximum time before command expires, in sec; None for no limit
+        @param[in] showReplies  show all replies as plain text?
 
         @return devCmd: the device command that was started (and may already have failed)
 
@@ -240,7 +241,14 @@ class Device(BaseMixin):
         Subclasses that use a command queue will usually replace this method.
         """
         log.info("%s.startCmd(cmdStr=%r, callFunc=%s, userCmd=%s, timeLim=%s)" % (self, cmdStr, callFunc, userCmd, timeLim))
-        devCmd = self.cmdClass(cmdStr, userCmd=userCmd, callFunc=callFunc, timeLim=timeLim, dev=self)
+        devCmd = self.cmdClass(
+            cmdStr = cmdStr,
+            userCmd = userCmd,
+            callFunc = callFunc,
+            timeLim = timeLim,
+            dev = self,
+            showReplies = showReplies,
+        )
         if not self.conn.isConnected:
             devCmd.setState(devCmd.Failed, textMsg="%s %s failed: not connected" % (self.name, cmdStr))
         else:
@@ -671,6 +679,7 @@ class ActorDevice(TCPDevice):
         timeLimKeyInd = 0,
         abortCmdStr = None,
         keyVars = None,
+        showReplies = False,
     ):
         """!Queue or start a new command.
 
@@ -690,6 +699,7 @@ class ActorDevice(TCPDevice):
         @param[in] keyVars  a sequence of 0 or more keyword variables to monitor for this command.
             Any data for those variables that arrives IN RESPONSE TO THIS COMMAND is saved
             and can be retrieved using cmdVar.getKeyVarData or cmdVar.getLastKeyVarData.
+        @param[in] showReplies  show all replies as plain text?
 
         @return devCmd: the device command that was started (and may already have failed)
 
@@ -703,15 +713,33 @@ class ActorDevice(TCPDevice):
             abortCmdStr = abortCmdStr,
             keyVars = keyVars,
         )
+        if showReplies:
+            cmdVar.addCallback(
+                self._showReply,
+                callCodes = opscore.actor.AllCodes,
+            )
         devCmdVar = self.cmdClass(
             cmdVar = cmdVar,
             userCmd = userCmd,
             callFunc = callFunc,
             dev = self,
+            showReplies = showReplies,
         )
         log.info("%s writing %r" % (self, cmdVar.cmdStr))
         self.dispatcher.executeCmd(cmdVar)
         return devCmdVar
+
+    def _showReply(self, cmdVar):
+        replyStr = cmdVar.lastReply.string if cmdVar.lastReply else None
+        if not replyStr:
+            return
+        msgCode = {
+            ":": "I",
+            "E": "W",
+            "F": "W",
+            "!": "W",
+        }.get(cmdVar.lastCode, cmdVar.lastCode)
+        self.writeToUsers(msgCode, "%sReply=%s" % (self.name, quoteStr(replyStr),))
 
     def __repr__(self):
         return "%s(name=%s, host=%s, port=%s, modelName=%s)" % \

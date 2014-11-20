@@ -305,9 +305,11 @@ class DevCmd(BaseCmd):
     * fullCmdStr returns: locCmdID cmdStr
 
     Useful attributes:
-    - dev: device being commanded (if specified, as it will be for calls to Device.startCmd)
+    - dev: the value specified in the constructor
+    - userCmd: the value specified in the constructor
     - locCmdID: command ID number (assigned when the device command is created);
         this is the command ID for the command sent to the device
+    - showReplies: the value specified in the constructor
     """
     _LocCmdIDGen = RO.Alg.IDGen(startVal=1, wrapVal=sys.maxint)
     def __init__(self,
@@ -316,6 +318,7 @@ class DevCmd(BaseCmd):
         userCmd = None,
         timeLim = None,
         dev = None,
+        showReplies = False,
     ):
         """Construct a DevCmd
 
@@ -326,6 +329,7 @@ class DevCmd(BaseCmd):
         @param[in] timeLim  time limit for command (sec); if None or 0 then no time limit
         @param[in] dev  device being commanded; for simple actors and devices this can probably be left None,
             but for complex actors it can be very helpful information, e.g. for callback functions
+        @param[in] showReplies  print all replies as raw text; useful for breakthrough commands and debugging
 
         If userCmd is specified then its state is set to the same state as the device command
         when the device command is done (e.g. Cancelled, Done or Failed). However, if the userCmd times out
@@ -334,6 +338,7 @@ class DevCmd(BaseCmd):
         """
         self.locCmdID = self._LocCmdIDGen.next()
         self.dev = dev
+        self.showReplies = bool(showReplies)
         BaseCmd.__init__(self,
             cmdStr = cmdStr,
             callFunc = callFunc,
@@ -369,6 +374,7 @@ class DevCmdVar(BaseCmd):
         userCmd = None,
         timeLim = None,
         dev = None,
+        showReplies = False,
     ):
         """Construct an DevCmdVar
 
@@ -377,13 +383,17 @@ class DevCmdVar(BaseCmd):
             receives one argument: this command
         @param[in] userCmd  a user command that will track this new device command
         @param[in] timeLim  time limit for command (sec); if None or 0 then no time limit
+        @param[in] dev  device being commanded; for simple actors and devices this can probably be left None,
+            but for complex actors it can be very helpful information, e.g. for callback functions
+        @param[in] showReplies  print all replies as raw text; useful for breakthrough commands and debugging
         """
+        self.dev = dev
+        self.showReplies = bool(showReplies)
         BaseCmd.__init__(self,
             cmdStr = "", # instead of copying cmdVar.cmdStr, override the cmdStr property below
             callFunc = callFunc,
             timeLim = timeLim,
         )
-        self.dev = dev
 
         if userCmd:
             self.userID = userCmd.userID
