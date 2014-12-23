@@ -139,7 +139,7 @@ class DeviceSet(object):
         @throw RuntimeError if slotList contains an unknown or empty slot name
         """
         if slotList is None:
-            return self.filledSlotList
+            slotList = self.filledSlotList
             if connOnly:
                 slotList = [slot for slot in slotList if self._slotDevDict[slot].isConnected]
 
