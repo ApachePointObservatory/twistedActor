@@ -302,7 +302,7 @@ class DeviceSet(object):
         if slotList is None: # don't call expandSlotList because startCmdDict checks the slot names
             slotList = self.filledSlotList
         cmdDict = collections.OrderedDict((slot, cmdStrOrList) for slot in slotList)
-        return self.startCmdDict(cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd)
+        return self.startCmdDict(cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd, timeLim=timeLim)
 
     def startCmdDict(self, cmdDict, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """!Start a dictionary of commands on one or more devices
