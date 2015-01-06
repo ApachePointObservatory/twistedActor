@@ -341,7 +341,7 @@ class DeviceSet(object):
         """!Called when removing a device
 
         Called after the device is deregistered from the slot dictionary, but before it is disconnected.
-        Use this to remove callbacks from the device and to clear information about it.        
+        Use this to remove callbacks from the device and to clear information about it.
 
         @param[in] dev  device that has been removed
         @param[in] slot  slot the device occupied
