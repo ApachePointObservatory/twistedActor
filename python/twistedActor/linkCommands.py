@@ -42,12 +42,9 @@ class LinkCommands(object):
         if not all(subCmd.isDone for subCmd in self.subCmdList):
             # not all device commands have terminated so keep waiting
             return
-        failedSubCommandList = []
-        for subCommand in self.subCmdList:
-            if subCommand.didFail:
-                failedSubCommandList.append(subCommand)
-        if failedSubCommandList:
-            failedCmdSummary = "; ".join(["%s: %s" % (subCmd.cmdStr, subCmd.getMsg()) for subCmd in failedSubCommandList])
+
+        failedCmdSummary = "; ".join("%s: %s" % (subCmd.cmdStr, subCmd.getMsg()) for subCmd in self.subCmdList if subCmd.didFail)
+        if failedCmdSummary:
             # at least one device command failed, fail the user command and say why
             state = self.mainCmd.Failed
             textMsg = "Sub-command(s) failed: %s" % (failedCmdSummary,)
