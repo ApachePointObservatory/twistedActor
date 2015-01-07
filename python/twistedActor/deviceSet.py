@@ -139,7 +139,7 @@ class DeviceSet(object):
         @throw RuntimeError if slotList contains an unknown or empty slot name
         """
         if slotList is None:
-            return self.filledSlotList
+            slotList = self.filledSlotList
             if connOnly:
                 slotList = [slot for slot in slotList if self._slotDevDict[slot].isConnected]
 
@@ -302,7 +302,7 @@ class DeviceSet(object):
         if slotList is None: # don't call expandSlotList because startCmdDict checks the slot names
             slotList = self.filledSlotList
         cmdDict = collections.OrderedDict((slot, cmdStrOrList) for slot in slotList)
-        return self.startCmdDict(cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd)
+        return self.startCmdDict(cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd, timeLim=timeLim)
 
     def startCmdDict(self, cmdDict, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
         """!Start a dictionary of commands on one or more devices
@@ -341,7 +341,7 @@ class DeviceSet(object):
         """!Called when removing a device
 
         Called after the device is deregistered from the slot dictionary, but before it is disconnected.
-        Use this to remove callbacks from the device and to clear information about it.        
+        Use this to remove callbacks from the device and to clear information about it.
 
         @param[in] dev  device that has been removed
         @param[in] slot  slot the device occupied
