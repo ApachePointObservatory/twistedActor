@@ -1,12 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
-import collections
+from collections import OrderedDict
 import itertools
-import sys
-import traceback
 
+from RO.AddCallback import safeCall
 from RO.SeqUtil import isSequence
-from RO.StringUtil import quoteStr
 
 from .device import expandUserCmd
 from .linkCommands import LinkCommands
@@ -31,6 +29,7 @@ class DevCmdInfo(object):
     def __repr__(self):
         return "%s(slot=%s, dev=%s, devCmd=%r, userCmd=%r)" % \
             (type(self).__name__, self.slot, self.dev, self.devCmd, self.userCmd)
+
 
 class DeviceSet(object):
     """!A collection of related devices (e.g. axes or mirrors), some of which may not exist
@@ -71,7 +70,7 @@ class DeviceSet(object):
         # dict of slot name: index
         self._slotIndexDict = dict((slot, i) for i, slot in enumerate(slotList))
         # ordered dict of slot name: device
-        self._slotDevDict = collections.OrderedDict((slot, dev) for slot, dev in itertools.izip(slotList, devList))
+        self._slotDevDict = OrderedDict((slot, dev) for slot, dev in itertools.izip(slotList, devList))
         # dict of dev.name: slot name for current devices
         self._devNameSlotDict = dict((dev.name, slot) for (slot, dev) in self._slotDevDict.iteritems() if dev)
 
@@ -288,7 +287,7 @@ class DeviceSet(object):
         @param[in] cmdStrOrList  command to send
         @param[in] slotList  collection of slot names, or None for all filled slots
         @param[in] callFunc  callback function to call when each device command succeeds or fails, or None.
-            See the description in startCmdDict for details.
+            If supplied, the function receives one positional argument: a DevCmdInfo.
         @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
         @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
@@ -301,7 +300,7 @@ class DeviceSet(object):
         """
         if slotList is None: # don't call expandSlotList because startCmdDict checks the slot names
             slotList = self.filledSlotList
-        cmdDict = collections.OrderedDict((slot, cmdStrOrList) for slot in slotList)
+        cmdDict = OrderedDict((slot, cmdStrOrList) for slot in slotList)
         return self.startCmdDict(cmdDict=cmdDict, callFunc=callFunc, userCmd=userCmd, timeLim=timeLim)
 
     def startCmdDict(self, cmdDict, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
@@ -311,8 +310,6 @@ class DeviceSet(object):
             if the slot is empty or unknown then an exception is raised
         @param[in] callFunc  callback function to call when each device command succeeds or fails, or None.
             If supplied, the function receives one positional argument: a DevCmdInfo.
-            The function may return a new devCmd, in which case the completion of the full set of commands
-            is delayed until the new command is finished; one use case is to initialize an actuator if a move fails.
         @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
         @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
@@ -406,8 +403,6 @@ class RunCmdDict(object):
         @param[in] cmdDict  a dict of slot name: command string or sequence of command strings
         @param[in] callFunc  callback function to call when each device command succeeds or fails, or None.
             If supplied, the function receives one positional argument: a DevCmdInfo.
-            The function may return a new devCmd, in which case the completion of the full set of commands
-            is delayed until the new command is finished; one use case is to initialize an actuator if a move fails.
         @param[in] userCmd  user command (twistedActor.UserCmd), or None;
             if supplied, its state is set to Done or Failed when the command is done
         @param[in] timeLim  time limit for each command (sec); None or 0 for no limit
@@ -417,38 +412,19 @@ class RunCmdDict(object):
         devSet.checkSlotList(cmdDict.keys())
         self.userCmd = expandUserCmd(userCmd)
 
-        self.devCmdDict = dict()
-        self.failSlotDict = dict() # dict of slot: devCmd
-
-        for slot, cmdStrOrList in cmdDict.iteritems():
+        # iterate in slot order so we can report errors in slot order
+        self.devCmdDict = OrderedDict()
+        for slot in devSet.slotList:
+            cmdStrOrList = cmdDict.get(slot)
+            if cmdStrOrList is None:
+                continue
             dev = devSet[slot]
 
-            def devCmdCallback(devCmd, slot=slot, dev=dev):
-                if devCmd.didFail:
-                    self.failSlotDict[slot] = devCmd
-
-                self.devCmdDict[slot] = devCmd
-
+            def devCmdCallback(devCmd, slot=slot, dev=dev, callFunc=callFunc):
+                if not devCmd.isDone:
+                    return
                 if callFunc:
-                    try:
-                        newDevCmd = callFunc(DevCmdInfo(slot=slot, dev=dev, devCmd=devCmd, userCmd=self.userCmd))
-                        if newDevCmd:
-                            # the callback function started a new command;
-                            # update self.devCmdDict and checkDone when it is done, but do NOT run callFunc again
-                            self.devCmdDict[slot] = newDevCmd
-                            def newDevCmdCallback(devCmd, slot=slot, dev=dev):
-                                self.devCmdDict[slot] = devCmd
-                                self.checkDone()
-
-                            newDevCmd.addCallback(newDevCmdCallback)
-                            self.devCmdDict[slot] = newDevCmd
-                    except Exception:
-                        self.failSlotDict[slot] = devCmd
-                        textBody = "%s command %r failed: %s" % (slot, devCmd.cmdStr, devCmd.getMsg())
-                        msgStr = "text=%s" % (quoteStr(textBody),)
-                        devSet.actor.writeToUsers("f", msgStr=msgStr)
-                        traceback.print_exc(file=sys.stderr)
-
+                    safeCall(callFunc, DevCmdInfo(slot=slot, dev=dev, devCmd=devCmd, userCmd=self.userCmd))
                 self.checkDone()
 
             if not isSequence(cmdStrOrList):
@@ -463,23 +439,27 @@ class RunCmdDict(object):
     def checkDone(self, dumArg=None):
         """!If all device commands are finished, then set self.userCmd state to Failed or Done as appropriate
         """
-        for slot, devCmd in self.devCmdDict.iteritems():
-            if not devCmd.isDone:
-                return
-            if devCmd.didFail:
-                self.failSlotDict[slot] = devCmd
+        if not all(devCmd.isDone for devCmd in self.devCmdDict.itervalues()):
+            return
 
+        if self.userCmd.isDone:
+            return
+
+        failSlotDict = OrderedDict((slot, devCmd) for slot, devCmd in self.devCmdDict.iteritems() if devCmd.didFail)
         if not self.userCmd.isDone:
-            if self.failSlotDict:
-                slotList = [slot for slot in self.failSlotDict]
-                # cmdList = ["%s %s" % (slot, devCmd.cmdStr) \
-                #     for slot, devCmd in self.failSlotDict.iteritems()]
-                errList = [devCmd.getMsg() for devDmd in self.failSlotDict.itervalues()]
+            if failSlotDict:
+                userCmdDescr = self.userCmd.cmdStr
+                if not userCmdDescr:
+                    userCmdDescr = "UserCmd for %s" % ", ".join("%s %s" % (slot, devCmd.cmdStr) \
+                        for slot, devCmd in failSlotDict.iteritems())
+
+                failSlotStr = ', '.join(slot for slot in failSlotDict)
+
+                errList = [devCmd.getMsg() for devCmd in failSlotDict.itervalues()]
                 if all(errMsg == errList[0] for errMsg in errList):
                     # all error messages are identical; just show one
                     errList = [errList[0]]
-                errMsg = "%r failed for %s: %s" % (self.userCmd.cmdStr, ", ".join(slotList), "; ".join(errList))
-#                errMsg = "%s failed: %s" % ("; ".join(cmdList), "; ".join(errList))
+                errMsg = "%r failed for %s: %s" % (userCmdDescr, failSlotStr, "; ".join(errList))
                 self.userCmd.setState(self.userCmd.Failed, textMsg=errMsg)
             else:
                 self.userCmd.setState(self.userCmd.Done)

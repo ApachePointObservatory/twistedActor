@@ -6,16 +6,23 @@
 <body>
 <h1><a href="index.html">twistedActor</a>: Version History</h1>
 
-<h3>1.0.4b2 2015-01-06</h3>
+<h3>Documentation update 2015-01-13</h3>
 
 <ul>
-    <li>Bug fix: DeviceSet.startCmd ignored the timeLim argument.
-    <li>Improved error message when a linked command (instance of LinkCommands) fails.
+    <li>Added a software license (BSD-3 in doc/license.txt) and a readme file (ReadMe.md).
 </ul>
 
-<h3>1.0.4b1 2014-12-23</h3>
+<h3>1.0.4 2015-01-07</h3>
 
 <ul>
+    <li>Improved error message when a linked command (instance of LinkCommands) fails.
+    <li>DeviceSet: simplified and rationalized the handling of callback functions in the startCmd methods:
+    <ul>
+        <li>The value returned by the callback is ignored, instead of being used to start a new device command. This was a feature that was not being used and greatly complicated the code.
+        <li>Failure of a callback result in a traceback, but does not result in failure of the command.
+        <li>Improved the error reported if a device command fails.
+    </ul>
+    <li>Bug fix: DeviceSet.startCmd ignored the timeLim argument.
     <li>Bug fix: DeviceSet.expandSlotList ignored the connOnly argument.
 </ul>
 
