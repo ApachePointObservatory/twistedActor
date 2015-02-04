@@ -415,7 +415,7 @@ class DisconnectDevice(object):
             self.dev.setState(self.dev.Disconnecting)
 
         if self.dev.conn.isConnected:
-            initUserCmd = UserCmd(callFunc=self.initCallback, timeLim=timeLim)
+            initUserCmd = UserCmd(cmdStr="Init via device.DisconnectDevice", callFunc=self.initCallback, timeLim=timeLim)
             self.dev.init(userCmd=initUserCmd, timeLim=timeLim, getStatus=False)
         else:
             # not fully connected, so cannot send init, but not fully disconnected yet, so finish disconnecting
