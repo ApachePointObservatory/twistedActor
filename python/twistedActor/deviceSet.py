@@ -6,6 +6,7 @@ import itertools
 from RO.AddCallback import safeCall
 from RO.SeqUtil import isSequence
 
+from .command import DevCmd
 from .device import expandUserCmd
 from .linkCommands import LinkCommands
 
@@ -429,9 +430,16 @@ class RunCmdDict(object):
 
             if not isSequence(cmdStrOrList):
                 devCmd = dev.startCmd(cmdStrOrList, timeLim=timeLim)
+                self.devCmdDict[slot] = devCmd
             else:
-                devCmd = dev.startCmdList(cmdStrOrList, timeLim=timeLim)
-            self.devCmdDict[slot] = devCmd
+                self.devCmdDict[slot] = DevCmd(
+                    cmdStr = "placeholder for %s while running %s" % (slot, cmdStrOrList),
+                    dev = dev,
+                )
+                def cmdListCallback(devCmd, slot=slot):
+                    self.devCmdDict[slot] = devCmd
+                    self.checkDone()
+                devCmd = dev.startCmdList(cmdStrOrList, callFunc=cmdListCallback, timeLim=timeLim)
             devCmd.addCallback(devCmdCallback)
 
         self.checkDone()
