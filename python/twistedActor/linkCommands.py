@@ -46,6 +46,8 @@ class LinkCommands(object):
         failedCmdSummary = "; ".join("%s: %s" % (subCmd.cmdStr, subCmd.getMsg()) for subCmd in self.subCmdList if subCmd.didFail)
         if failedCmdSummary:
             # at least one device command failed, fail the user command and say why
+            # note, do we want to match the type of failure? If a subcommand was cancelled
+            # should the mainCmd state be cancelled too?
             state = self.mainCmd.Failed
             textMsg = "Sub-command(s) failed: %s" % (failedCmdSummary,)
         else:
