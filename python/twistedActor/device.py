@@ -23,7 +23,7 @@ import opscore.actor
 from .command import DevCmd, DevCmdVar, UserCmd
 from .log import log
 
-__all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
+__all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection", "expandUserCmd"]
 
 def expandUserCmd(userCmd):
     """!If userCmd is None, make a new one; if userCmd is done, raise RuntimeError
