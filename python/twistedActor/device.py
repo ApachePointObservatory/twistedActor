@@ -189,7 +189,7 @@ class Device(BaseMixin):
         @param[in] userCmd  user command that tracks this command, if any
         @param[in] timeLim  maximum time before command expires, in sec; None for no limit
         @param[in] getStatus  if true then get status after init
-        @return devCmd: the first device command that was started (and may already have failed)
+        @return userCmd (a new one if the provided userCmd is None)
 
         @warning: must be defined by the subclass
         """
