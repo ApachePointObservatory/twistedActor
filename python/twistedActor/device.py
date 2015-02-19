@@ -14,29 +14,16 @@ from collections import OrderedDict
 
 import RO.Comm.Generic
 RO.Comm.Generic.setFramework("twisted")
-from RO.AddCallback import safeCall2, BaseMixin
+from RO.AddCallback import BaseMixin
 from RO.Comm.TwistedTimer import Timer
 from RO.Comm.TCPConnection import TCPConnection
 from RO.StringUtil import quoteStr, strFromException
 import opscore.actor
 
-from .command import DevCmd, DevCmdVar, UserCmd
+from .command import DevCmd, DevCmdVar, UserCmd, expandUserCmd
 from .log import log
 
-__all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection", "expandUserCmd"]
-
-def expandUserCmd(userCmd):
-    """!If userCmd is None, make a new one; if userCmd is done, raise RuntimeError
-
-    @param[in] userCmd  user command (twistedActor.UserCmd) or None
-    @return userCmd: return supplied userCmd if not None, else a new twistedActor.UserCmd
-    @throw RuntimeError if userCmd is done
-    """
-    if userCmd is None:
-        userCmd = UserCmd()
-    elif userCmd.isDone:
-        raise RuntimeError("userCmd=%s already finished" % (userCmd,))
-    return userCmd
+__all__ = ["Device", "TCPDevice", "ActorDevice", "DeviceCollection"]
 
 class Device(BaseMixin):
     """!Device interface.
@@ -260,22 +247,6 @@ class Device(BaseMixin):
 
         return devCmd
 
-    def startCmdList(self, cmdList, callFunc=None, userCmd=None, timeLim=DefaultTimeLim):
-        """!Start a sequence of commands; if a command fails then subsequent commands are ignored
-
-        @param[in] cmdList  a sequence of command strings
-        @param[in] callFunc  callback function: function to call when the final command is done
-            or when a command fails (in which case subsequent commands are ignored), or None;
-            if specified it receives one argument: the final device command that was executed
-            (if a command fails, it will be the one that failed)
-        @param[in] userCmd  user command that tracks this list of commands, if any
-        @param[in] timeLim  maximum time before each command in the list expires, in sec; None for no limit
-
-        @return devCmd: the first device command that was started (and may already have failed)
-        """
-        rcl = RunCmdList(dev=self, cmdList=cmdList, callFunc=callFunc, userCmd=userCmd, timeLim=timeLim)
-        return rcl.currDevCmd
-
     def _connCallback(self, conn=None):
         """!Call when the connection state changes
 
@@ -479,91 +450,6 @@ class DisconnectDevice(object):
 
     def __repr__(self):
         return "%s(dev.name=%s)" % (type(self).__name__, self.dev.name)
-
-
-class RunCmdList(object):
-    """!Run a list of commands
-
-    This is a separate object to make startCmdList reentrant
-    """
-    def __init__(self, dev, cmdList, callFunc, userCmd, timeLim):
-        """!Construct a RunCmdList
-
-        @param[in] dev  device (instance of Device)
-        @param[in] cmdList  a sequence of command strings
-        @param[in] callFunc  callback function: function to call when the final command is done
-            or when a command fails (in which case subsequent commands are ignored), or None;
-            if specified it receives one argument: the final device command that was executed
-            (if a command fails, it will be the one that failed)
-        @param[in] userCmd  user command that tracks this list of commands, if any
-        @param[in] timeLim  maximum time before each command in the list expires, in sec; None for no limit
-        """
-        self.dev = dev
-        self.cmdStrIter = iter(cmdList)
-        self.callFunc = callFunc
-        self.userCmd = userCmd
-        self._timeLim = timeLim
-        self.currDevCmd = None
-
-        if not cmdList:
-            raise RuntimeError("No commands")
-
-        try:
-            cmdStr = self.cmdStrIter.next()
-        except Exception:
-            raise RuntimeError("No commands specified")
-        self._startCmd(cmdStr)
-
-    def cmdCallback(self, devCmd):
-        """!Device command callback
-
-        If the command failed, stop and fail the userCmd (if any)
-        If the command succeeded then execute the next command
-        If there are no more command to execute, then conclude the userCmd (if any)
-
-        @param[in] devCmd  device command
-        """
-        if not devCmd.isDone:
-            return
-        if devCmd.didFail:
-            self.finish(devCmd)
-            return
-
-        try:
-            cmdStr = self.cmdStrIter.next()
-        except StopIteration:
-            self.finish(devCmd)
-            return
-        Timer(0, self._startCmd, cmdStr)
-
-    def _startCmd(self, cmdStr):
-        """!Start a device command
-        """
-        self.currDevCmd = self.dev.startCmd(cmdStr, callFunc=self.cmdCallback, timeLim=self._timeLim)
-
-    def finish(self, devCmd):
-        """!Finish the sequence of commands by calling callFunc and setting state of userCmd
-
-        @throw RuntimeError if devCmd not done
-
-        @note: finish takes devCmd as an argument because it is possible the command
-        started by dev.startCmd will have failed before the new devCmd is returned
-        """
-        if devCmd is None or not devCmd.isDone:
-            raise RuntimeError("finish should only be called when devCmd is done")
-
-        if self.callFunc:
-            safeCall2("RunCmdList(dev=%s).finish" % (self.dev,), self.callFunc, devCmd)
-
-        if self.userCmd:
-            if devCmd.didFail:
-                self.userCmd.setState(self.userCmd.Failed, textMsg=devCmd.textMsg, hubMsg=devCmd.hubMsg)
-            else:
-                self.userCmd.setState(self.userCmd.Done)
-
-    def __repr__(self):
-        return "%s(dev=%r, currDevCmd=%r, callFunc=%s, userCmd=%s, timeLim=%s)" % \
-            (type(self).__name__, self.dev, self.currDevCmd, self.callFunc, self.userCmd, self._timeLim)
 
 
 class TCPDevice(Device):

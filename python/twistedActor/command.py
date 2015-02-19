@@ -11,7 +11,7 @@ from RO.Comm.TwistedTimer import Timer
 
 from .log import log
 
-__all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd"]
+__all__ = ["CommandError", "BaseCmd", "DevCmd", "DevCmdVar", "UserCmd", "expandUserCmd"]
 
 class CommandError(Exception):
     """Raise for a "normal" command failure
@@ -485,3 +485,16 @@ class UserCmd(BaseCmd):
         else:
             self.cmdID = 0
         self.cmdBody = cmdDict.get("cmdBody", "")
+
+def expandUserCmd(userCmd):
+    """!If userCmd is None, make a new one; if userCmd is done, raise RuntimeError
+
+    @param[in] userCmd  user command (twistedActor.UserCmd) or None
+    @return userCmd: return supplied userCmd if not None, else a new twistedActor.UserCmd
+    @throw RuntimeError if userCmd is done
+    """
+    if userCmd is None:
+        userCmd = UserCmd()
+    elif userCmd.isDone:
+        raise RuntimeError("userCmd=%s already finished" % (userCmd,))
+    return userCmd

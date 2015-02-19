@@ -301,7 +301,7 @@ class Actor(BaseActor):
                 try:
                     dev.connect()
                 except Exception as e:
-                    self.writeToUsers("e", "text=could not connect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
+                    self.writeToUsers("w", "text=could not connect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground
 
     def cmd_disconnDev(self, cmd=None):
@@ -325,7 +325,7 @@ class Actor(BaseActor):
                 try:
                     dev.disconnect()
                 except Exception as e:
-                    self.writeToUsers("e", "text=could disconnect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
+                    self.writeToUsers("w", "text=could disconnect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
         return runInBackground
 
     def cmd_exit(self, cmd=None):

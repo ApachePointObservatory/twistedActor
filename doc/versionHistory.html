@@ -6,6 +6,14 @@
 <body>
 <h1><a href="index.html">twistedActor</a>: Version History</h1>
 
+<h3>1.0.6b1 2015-02-19</h3>
+
+<ul>
+    <li>Remove Device.startCmdList
+    <li>Change DeviceSet.startCmdDict to call Device.startCmd for each command in the list of commands; this means each Device must be capable of handling many commands in a row, e.g. by using a CommandQueue if queuing is required.
+    <li>expandUserCmd is now available as a free function.
+</ul>
+
 <h3>1.0.5 2015-02-05</h3>
 
 <ul>
