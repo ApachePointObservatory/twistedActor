@@ -132,23 +132,22 @@ class CommandQueue(object):
     CancelQueued = 'cancelqueued'
     KillRunning = 'killrunning'
     _AddActions = frozenset((CancelNew, CancelQueued, KillRunning))
-    def __init__(self, killFunc, priorityDict):
+    def __init__(self, priorityDict, killFunc=None):
         """ This is an object which keeps track of commands and smartly handles
             command collisions based on rules chosen by you.
-
+            @ a dictionary keyed by cmdVerb, with integer values or Immediate
             @ param[in] killFunc: a function to call when a running command needs to be
                 killed.  Accepts 2 parameters, the command to be canceled, and the command doing the killing.
                 This function must eventually ensure that the running command is canceled safely
-                allowing for the next queued command to go.
-            @ a dictionary keyed by cmdVerb, with integer values or Immediate
+                allowing for the next queued command to go. Or None
         """
         self.cmdQueue = []
         dumCmd = UserCmd()
         dumCmd.setState(dumCmd.Done)
         dumCmd.cmdVerb = 'dummy'
         self.currExeCmd = QueuedCommand(dumCmd, 0, lambda cmdVar: None)
-        self.killFunc = killFunc
         self.priorityDict = priorityDict
+        self.killFunc = killFunc
         self.ruleDict = {}
         self.queueTimer = Timer()
         self._enabled = True
@@ -168,6 +167,8 @@ class CommandQueue(object):
 
         See documentation for the addCommand method to learn exactly how rules are evaluated
         """
+        if action == self.KillRunning and self.killFunc is None:
+            raise RuntimeError("must supply killFunc in CommandQueue constructor before specifying a KillRunning rule")
         checkCmds = []
         if newCmds != "all":
             checkCmds = checkCmds + newCmds
