@@ -275,6 +275,9 @@ class CommandQueue(object):
 
                 Lastly insert the command in the queue in order based on it's priority.
         """
+        if not hasattr(cmd, "cmdVerb"):
+            # give it a dummy command verb
+            cmd.cmdVerb = "dummy"
         if cmd.cmdVerb not in self.priorityDict:
             # no priority pre-defined.  Assign lowest priority
             priority = 0
