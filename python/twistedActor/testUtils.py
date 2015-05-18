@@ -15,6 +15,9 @@ def startLogging(filePath):
         return
     testDir, testFile = os.path.split(filePath)
     logDir = os.path.join(testDir,  ".tests")
+    # if log dir doesn't exist create it
+    if not os.path.exists(logDir):
+        os.makedirs(logDir)
     logFileName = "%s" % (os.path.splitext(testFile)[0],)
     startFileLogging(os.path.join(logDir, logFileName))
 
