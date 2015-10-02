@@ -46,6 +46,7 @@ class Actor(BaseActor):
         name = "Actor",
         doConnect = True,
         doDevNameCmds = True,
+        commandSet = None,
     ):
         """!Construct an Actor
 
@@ -57,7 +58,9 @@ class Actor(BaseActor):
         @param[in] name  actor name, used for logging
         @param[in] doConnect  if True then connect devices on construction
         @param[in] doDevNameCmds  if True, support device name commands to send arbitrary commands to each device
+        @param[in] commandSet a twistedActor.parse.CommandSet instance, defines the command set and provides means for parsing
         """
+        self.commandSet = commandSet
         # local command dictionary containing cmd verb: method
         # all methods whose name starts with cmd_ are added
         # each such method must accept one argument: a UserCmd
@@ -180,6 +183,10 @@ class Actor(BaseActor):
             # echo to show alive
             self.writeToOneUser(":", "", cmd=cmd)
             return
+
+        # if a commandSet was supplied use it!
+        if self.commandSet is not None:
+            cmd.parsedCommand = self.commandSet.parse(cmd.cmdBody)
 
         cmd.cmdVerb = ""
         cmd.cmdArgs = ""
