@@ -10,18 +10,18 @@ __all__ = ["BaseWrapper"]
 
 class BaseWrapper(RO.AddCallback.BaseMixin):
     """!A wrapper for a client talking to a server
-    
+
     This wrapper is responsible for starting and stopping everything:
     - It accepts an actor wrapper
     - It builds an actor dispatcher when the actor wrapper is ready
     - It stops both on close()
-    
+
     Public attributes include:
     - actorWrapper: the actor wrapper (twistedActor.ActorWrapper)
     - dispatcher: the actor dispatcher (twistedActor.ActorDispatcher); None until ready
     - readyDeferred: called when the dispatcher is ready
       (for tracking closure use the Deferred returned by the close method, or stateCallback).
-      
+
     Subclasses must override:
     _basicClose
     isDone
@@ -56,13 +56,13 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         """!Return True if the actor has connected to the fake hardware controller
         """
         raise NotImplementedError()
-    
+
     @property
     def isDone(self):
         """!Return True if the actor and fake hardware controller are fully disconnected
         """
         raise NotImplementedError()
-    
+
     @property
     def didFail(self):
         """!Return True if isDone and there is a failure
@@ -78,17 +78,17 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
     def debugMsg(self, msgStr):
         if self.debug:
             print("%s: %s" % (self, msgStr))
-    
+
     def _basicClose(self):
         """!Close clients and servers
         """
         raise NotImplementedError()
-    
+
     def _stateChanged(self, *args):
         """!Called when state changes
         """
-        self.debugMsg("_stateChanged(): isReady=%s, isDone=%s, didFail=%s, isFailing=%s" % \
-            (self.isReady, self.isDone, self.didFail, self.isFailing))
+        self.debugMsg("_stateChanged(): isReady=%s, isDone=%s, didFail=%s, isFailing=%s, _closeDeferred=%s" % \
+            (self.isReady, self.isDone, self.didFail, self.isFailing, str(self._closeDeferred)))
         if self.isFailing and not self.isDone and not self._closeDeferred:
             self.close()
             return
@@ -116,10 +116,10 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         self._doCallbacks()
         if self.isDone:
             self._removeAllCallbacks()
-    
+
     def close(self):
         """!Close everything
-        
+
         @return a deferred
         """
         self.debugMsg("close()")
@@ -131,11 +131,11 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
             self.debugMsg("canceling readyDeferred")
             self.readyDeferred.cancel()
         self._basicClose()
-        return self._closeDeferred        
-    
+        return self._closeDeferred
+
     def __str__(self):
         return "%s(%s)" % (type(self).__name__, self.name)
-    
+
     def __repr__(self):
         return "%s(%s); isReady=%s, isDone=%s, didFail=%s, isFailing=%s" % \
             (type(self).__name__, self.name, self.isReady, self.isDone, self.didFail, self.isFailing)
