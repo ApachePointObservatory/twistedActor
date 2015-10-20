@@ -6,18 +6,18 @@ __all__ = ["ActorWrapper"]
 
 class ActorWrapper(BaseWrapper):
     """!A wrapper for a twistedActor.Actor talking to one or more wrapped devices
-    
+
     This wrapper is responsible for starting the actor and stopping the devices and actor:
     - It takes a list of wrapped devices that are starting up
     - It builds an Actor when the wrapped devices are ready
     - It stops both on close()
-    
+
     Public attributes include:
     - deviceWrapperList: a list of wrapped devices
     - actor: the actor (None until ready)
     - readyDeferred: called when the actor and fake Galil are ready
       (for tracking closure use the Deferred returned by the close method, or stateCallback).
-      
+
     Subclasses must override _makeActor
     """
     def __init__(self,
@@ -50,12 +50,12 @@ class ActorWrapper(BaseWrapper):
         for dw in self.deviceWrapperList:
             dw.addCallback(self._deviceWrapperStateChanged, callNow=False)
         self._deviceWrapperStateChanged()
-        
+
     def _makeActor(self):
         """!Make self.actor; subclasses must override
         """
         raise NotImplementedError()
-    
+
     @property
     def userPort(self):
         """!Return the actor port, if known, else None
@@ -63,13 +63,13 @@ class ActorWrapper(BaseWrapper):
         if self.actor:
             return self.actor.server.port
         return None
-        
+
     @property
     def isReady(self):
         """!Return True if the actor has connected to the fake hardware controller
         """
         return all(dw.isReady for dw in self.deviceWrapperList) and self.actor is not None and self.actor.server.isReady
-    
+
     @property
     def isDone(self):
         """!Return True if the actor and fake hardware controller are fully disconnected
@@ -87,8 +87,12 @@ class ActorWrapper(BaseWrapper):
     def _basicClose(self):
         """!Close clients and servers
         """
-        for dw in self.deviceWrapperList:
-            dw.close()
+        if not self.deviceWrapperList:
+            # no devices, just shut down the actor
+            return self.actor.close()
+        else:
+            for dw in self.deviceWrapperList:
+                dw.close()
 
     def printState(self):
         """!Print state of components; useful for debugging
