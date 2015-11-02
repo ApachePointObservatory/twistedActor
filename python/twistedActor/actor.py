@@ -9,7 +9,8 @@ import traceback
 from RO.StringUtil import quoteStr, strFromException
 
 from .baseActor import BaseActor
-from .command import CommandError
+from .linkCommands import LinkCommands
+from .command import CommandError, UserCmd
 from .device import DeviceCollection
 from .log import log
 
@@ -166,7 +167,8 @@ class Actor(BaseActor):
         if cmd and conn.isDone:
             succeeded = (bool(wantConn) == conn.isConnected)
             cmdState = "done" if succeeded else "failed"
-            cmd.setState(cmdState, textMsg=reason)
+            if not cmd.isDone:
+                cmd.setState(cmdState, textMsg=reason)
             dev.connReq = (wantConn, None)
 
     def parseAndDispatchCmd(self, cmd):
@@ -298,17 +300,22 @@ class Actor(BaseActor):
             devNameList = self.dev.nameDict.keys()
 
         runInBackground = False
+        subCmdList = []
         for devName in devNameList:
             dev = self.dev.nameDict[devName]
             if dev.isConnected:
                 self.showOneDevConnStatus(dev, cmd=cmd)
             else:
+                connSubCmd = UserCmd()
+                subCmdList.append(connSubCmd)
                 runInBackground = True
-                dev.connReq = (True, cmd)
+                dev.connReq = (True, connSubCmd)
                 try:
                     dev.connect()
                 except Exception as e:
                     self.writeToUsers("w", "text=could not connect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
+        if subCmdList:
+            LinkCommands(cmd, subCmdList)
         return runInBackground
 
     def cmd_disconnDev(self, cmd=None):
@@ -322,17 +329,22 @@ class Actor(BaseActor):
             devNameList = self.dev.nameDict.keys()
 
         runInBackground = False
+        subCmdList = []
         for devName in devNameList:
             dev = self.dev.nameDict[devName]
             if not dev.isConnected:
                 self.showOneDevConnStatus(dev, cmd=cmd)
             else:
+                disconnSubCmd = UserCmd()
+                subCmdList.append(disconnSubCmd)
                 runInBackground = True
-                dev.connReq = (False, cmd)
+                dev.connReq = (False, disconnSubCmd)
                 try:
                     dev.disconnect()
                 except Exception as e:
                     self.writeToUsers("w", "text=could disconnect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
+        if subCmdList:
+            LinkCommands(cmd, subCmdList)
         return runInBackground
 
     def cmd_exit(self, cmd=None):
