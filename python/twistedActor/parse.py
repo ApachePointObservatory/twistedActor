@@ -182,6 +182,16 @@ class ArgumentBase(object):
             raise ParseError("expected between %i and %i values for %s, received: %i"%(self.lowerBound, self.upperBound, self.name, len(values)))
         return values, (begPos, endPos)
 
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        # get class name
+        returnStr = type(self).__name__
+        if self.helpStr:
+            returnStr += "(help=%s)"%(self.helpStr,)
+        return returnStr
+
 class Float(ArgumentBase):
     def __init__(self, nElements=1, helpStr=""):
         ArgumentBase.__init__(self, pyparseItems.float, nElements, helpStr)
@@ -189,6 +199,12 @@ class Float(ArgumentBase):
 class Int(ArgumentBase):
     def __init__(self, nElements=1, helpStr=""):
         ArgumentBase.__init__(self, pyparseItems.int, nElements, helpStr)
+
+    def __repr__(self):
+        returnStr = "Int"
+        if self.helpStr:
+            returnStr += "(help=%s)"%(self.helpStr,)
+        return returnStr
 
 class String(ArgumentBase):
     def __init__(self, nElements=1, helpStr=""):
@@ -202,6 +218,12 @@ class Keyword(ArgumentBase):
     def __init__(self, keyword, nElements=1, helpStr=""):
         self.keyword = keyword
         ArgumentBase.__init__(self, pyparseItems.word, nElements, helpStr)
+
+    def __repr__(self):
+        returnStr = self.keyword
+        if self.helpStr:
+            returnStr += "(help=%s)"%(self.helpStr)
+        return returnStr
 
 class KeywordValue(Keyword):
     def __init__(self, keyword, value, isMandatory=True, helpStr=""):
@@ -218,6 +240,16 @@ class KeywordValue(Keyword):
             raise CommandDefinitionError("value must be of type ArgumentBase in KeywordValue.")
         self.value = value
         self.keyword = keyword
+
+    def __repr__(self):
+        returnStr = self.keyword
+        if self.helpStr:
+            returnStr += "(help=%s)"%(self.helpStr)
+        returnStr += "=%s"%(repr(self.value))
+        if not self.isMandatory:
+            # add brackets signifying optional
+            returnStr = "[" + returnStr + "]"
+        return returnStr
 
     @property
     def name(self):
@@ -238,7 +270,14 @@ class UniqueMatch(ArgumentBase):
     def __init__(self, matchList, nElements=1, helpStr=""):
         if not isSequence(matchList):
             raise CommandDefinitionError("matchlist must be a sequence")
+        self.matchList = matchList
         ArgumentBase.__init__(self, pyparseItems.uniqueMatch(matchList), nElements, helpStr)
+
+    def __repr__(self):
+        returnStr = " | ".join(self.matchList)
+        if self.helpStr:
+            returnStr += "(help%s)"%(self.helpStr,)
+        return returnStr
 
 class CommandSet(object):
     def __init__(self, commandList):
@@ -289,6 +328,12 @@ class CommandSet(object):
         cmdObj = self.getCommand(cmdName) # cmdName abbreviations allowed!
         return cmdObj.parse(cmdArgs)
 
+    def toHTML(self):
+        htmlStr = ""
+        for cmd in self.commandDict.itervalues():
+            htmlStr += "%s\n"%(cmd.toHTML(),)
+        return htmlStr
+
 class ArgumentSet(object):
     def __init__(self, argumentList):
         self.pyparseItem = pp.Empty() # build a pyparsing representation
@@ -317,6 +362,13 @@ class ArgumentSet(object):
 
     def __nonzero__(self):
         return bool(self.argumentList)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return " ".join([str(arg) for arg in self.argumentList])
+
 
 class FloatingArgumentSet(ArgumentSet):
     def __init__(self, floatingArguments):
@@ -438,6 +490,13 @@ class Command(object):
             parsedCommand.setParsedPositionalArgs(self.positionalArgumentSet.parse(argString))
         return parsedCommand
 
+    def toHTML(self):
+        if self.subCommandSet is None:
+            return "<h3><a name=%s></a>%s %s %s</h3>\n"%(self.name, self.name.upper(), self.positionalArgumentSet.toHTML(), self.floatingArgumentSet.toHTML())
+        else:
+            htmlStr = "<h3><a name=%s></a>%s subcommand</h3>\n"%(self.name, self.name.upper())
+            for cmd in self.subCommandSet:
+                htmlStr += "%s\n"%(cmd.toHTML(),)
 
 class ParsedCommand(object):
 
