@@ -186,11 +186,39 @@ class ArgumentBase(object):
         return self.__repr__()
 
     def __repr__(self):
+        """Used to format command definitions (eg html or help command)
+        """
         # get class name
-        returnStr = type(self).__name__
-        if self.helpStr:
-            returnStr += "(help=%s)"%(self.helpStr,)
+        name = type(self).__name__
+        # if self.helpStr:
+        #     returnStr += "(help=%s)"%(self.helpStr,)
+        lowerBound, upperBound = self.getBounds()
+        args = ", ".join([name]*lowerBound)
+        nOptArg = upperBound - lowerBound
+        optArgs = None
+        if upperBound == inf:
+            # no upper bound
+            optArgs = "%s[, %s [,...]]"%(name, name)
+        elif nOptArg > 0:
+            # upper bound greater than lower bound
+            # extra optional args permitted
+            optArgs = self._buildBrackets(name, upperBound)
+        if args:
+            returnStr = "%s"%(args,)
+            if optArgs is not None:
+                returnStr += " [,%s]"%(optArgs,)
+        else:
+            # all args are optional
+            returnStr = "[%s]"%(optArgs,)
         return returnStr
+
+    def _buildBrackets(self, name, n):
+        """!Construct a string repeating name n times with brackets
+        indicating it is an optional argument:
+
+        eg name=Int n=5
+        return Int[, Int [,Int [,Int [,Int]]]]
+        """
 
 class Float(ArgumentBase):
     def __init__(self, nElements=1, helpStr=""):
@@ -202,8 +230,8 @@ class Int(ArgumentBase):
 
     def __repr__(self):
         returnStr = "Int"
-        if self.helpStr:
-            returnStr += "(help=%s)"%(self.helpStr,)
+        # if self.helpStr:
+        #     returnStr += "(help=%s)"%(self.helpStr,)
         return returnStr
 
 class String(ArgumentBase):
@@ -221,8 +249,8 @@ class Keyword(ArgumentBase):
 
     def __repr__(self):
         returnStr = self.keyword
-        if self.helpStr:
-            returnStr += "(help=%s)"%(self.helpStr)
+        # if self.helpStr:
+        #     returnStr += "(help=%s)"%(self.helpStr)
         return returnStr
 
 class KeywordValue(Keyword):
@@ -243,8 +271,8 @@ class KeywordValue(Keyword):
 
     def __repr__(self):
         returnStr = self.keyword
-        if self.helpStr:
-            returnStr += "(help=%s)"%(self.helpStr)
+        # if self.helpStr:
+        #     returnStr += "(help=%s)"%(self.helpStr)
         returnStr += "=%s"%(repr(self.value))
         if not self.isMandatory:
             # add brackets signifying optional
@@ -275,8 +303,8 @@ class UniqueMatch(ArgumentBase):
 
     def __repr__(self):
         returnStr = " | ".join(self.matchList)
-        if self.helpStr:
-            returnStr += "(help%s)"%(self.helpStr,)
+        # if self.helpStr:
+        #     returnStr += "(help%s)"%(self.helpStr,)
         return returnStr
 
 class CommandSet(object):
@@ -389,6 +417,10 @@ class FloatingArgumentSet(ArgumentSet):
             self.floatingArgDict[arg.keyword] = arg
 
     @property
+    def argumentList(self):
+        return self.floatingArgDict.values()
+
+    @property
     def argMatchList(self):
         return MatchList(valueList = self.floatingArgDict.keys())
 
@@ -492,11 +524,11 @@ class Command(object):
 
     def toHTML(self):
         if self.subCommandSet is None:
-            return "<h3><a name=%s></a>%s %s %s</h3>\n"%(self.name, self.name.upper(), self.positionalArgumentSet.toHTML(), self.floatingArgumentSet.toHTML())
+            return "<h3><a name=%s></a>%s %s %s</h3>\n"%(self.commandName, self.commandName.upper(), self.positionalArgumentSet, self.floatingArgumentSet)
         else:
-            htmlStr = "<h3><a name=%s></a>%s subcommand</h3>\n"%(self.name, self.name.upper())
-            for cmd in self.subCommandSet:
-                htmlStr += "%s\n"%(cmd.toHTML(),)
+            htmlStr = "<h3><a name=%s></a>%s subcommand</h3>\n"%(self.commandName, self.commandName.upper())
+            htmlStr += "%s\n"%(self.subCommandSet.toHTML(),)
+            return htmlStr
 
 class ParsedCommand(object):
 
