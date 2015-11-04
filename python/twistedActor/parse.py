@@ -570,8 +570,12 @@ class Command(object):
                 htmlStr += "<blockquote>\n"
                 htmlStr += "Argument Detail:<br>\n"
                 htmlStr += "<blockquote>\n"
+                htmlStr += "<table>\n"
                 for arg in self.positionalArgumentSet.argumentList + self.floatingArgumentSet.argumentList:
-                    htmlStr += "%s :: %s<br>\n"%(arg.name, arg.helpStr)
+                    htmlStr += "<tr>"
+                    htmlStr += "<td><b>%s</b></td><td>::</td><td>%s</td>\n"%(arg.name, arg.helpStr)
+                    htmlStr += "</tr>"
+                htmlStr += "</table>"
                 htmlStr += "</blockquote>\n"
                 htmlStr += "</blockquote>\n"
         else:
