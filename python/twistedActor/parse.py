@@ -2,6 +2,8 @@ from __future__ import division, absolute_import
 
 import sys
 
+import collections
+
 import pyparsing as pp
 
 import RO.Alg.MatchList as MatchList
@@ -113,11 +115,12 @@ pyparseItems = PyparseItems()
 
 class ArgumentBase(object):
 
-    def __init__(self, pyparseItem, nElements=1, helpStr="", name=""):
+    def __init__(self, pyparseItem, nElements=1, helpStr="", name=None, repString=None):
         """@param[in] nElements: an integer in [1,parse.INF] or an ascending 2 element sequence of integers each in [0, parse.INF].
         """
-        self.name = name if name else "arg"
+        self._name = name
         self.helpStr = helpStr
+        self.repString = repString
         # verify that nElements is in a useable format
         self.lowerBound, self.upperBound = self.getBounds(nElements)
         self.pyparseItem = pp.delimitedList(pyparseItem) + pp.Optional(pp.Suppress(pp.Literal("]")))
@@ -125,6 +128,12 @@ class ArgumentBase(object):
         if self.upperBound > 1:
             self.pyparseItem = pp.Suppress(pp.Optional(pp.Literal("(")^pp.Literal("["))) + self.pyparseItem + pp.Suppress(pp.Optional(pp.Literal("]")^pp.Literal(")")))
 
+    @property
+    def name(self):
+        if self._name is not None:
+            return self._name
+        else:
+            return type(self).__name__
 
     def getBounds(self, nElements):
         if isSequence(nElements):
@@ -188,21 +197,19 @@ class ArgumentBase(object):
     def __repr__(self):
         """Used to format command definitions (eg html or help command)
         """
-        # get class name
-        name = type(self).__name__
-        # if self.helpStr:
-        #     returnStr += "(help=%s)"%(self.helpStr,)
-        lowerBound, upperBound = self.getBounds()
-        args = ", ".join([name]*lowerBound)
-        nOptArg = upperBound - lowerBound
+        if self.repString is not None:
+            # self.repString overrides this default
+            return self.repString
+        args = ", ".join([self.name]*self.lowerBound)
+        nOptArg = self.upperBound - self.lowerBound
         optArgs = None
-        if upperBound == inf:
+        if self.upperBound == inf:
             # no upper bound
-            optArgs = "%s[, %s [,...]]"%(name, name)
+            optArgs = "%s[, %s [,...]]"%(self.name, self.name)
         elif nOptArg > 0:
             # upper bound greater than lower bound
             # extra optional args permitted
-            optArgs = self._buildBrackets(name, upperBound)
+            optArgs = self._buildBrackets(self.name, nOptArg)
         if args:
             returnStr = "%s"%(args,)
             if optArgs is not None:
@@ -212,49 +219,50 @@ class ArgumentBase(object):
             returnStr = "[%s]"%(optArgs,)
         return returnStr
 
-    def _buildBrackets(self, name, n):
+    def _buildBrackets(self, name, nRepeat):
         """!Construct a string repeating name n times with brackets
         indicating it is an optional argument:
 
-        eg name=Int n=5
-        return Int[, Int [,Int [,Int [,Int]]]]
+        eg name=Int nRepeat=5
+        return Int [, Int [,Int [,Int [,Int]]]]
         """
+        if nRepeat > 1:
+            return "%s [,%s]"%(name, self._buildBrackets(name, nRepeat-1))
+        else:
+            return "%s"%(name,)
+
 
 class Float(ArgumentBase):
-    def __init__(self, nElements=1, helpStr=""):
-        ArgumentBase.__init__(self, pyparseItems.float, nElements, helpStr)
+    def __init__(self, nElements=1, helpStr="", repString=None):
+        ArgumentBase.__init__(self, pyparseItems.float, nElements, helpStr, repString=repString)
 
 class Int(ArgumentBase):
-    def __init__(self, nElements=1, helpStr=""):
-        ArgumentBase.__init__(self, pyparseItems.int, nElements, helpStr)
-
-    def __repr__(self):
-        returnStr = "Int"
-        # if self.helpStr:
-        #     returnStr += "(help=%s)"%(self.helpStr,)
-        return returnStr
+    def __init__(self, nElements=1, helpStr="", repString=None):
+        ArgumentBase.__init__(self, pyparseItems.int, nElements, helpStr, repString=repString)
 
 class String(ArgumentBase):
-    def __init__(self, nElements=1, helpStr=""):
-        ArgumentBase.__init__(self, pyparseItems.string, nElements, helpStr)
+    def __init__(self, nElements=1, helpStr="", repString=None):
+        ArgumentBase.__init__(self, pyparseItems.string, nElements, helpStr, repString=repString)
 
 class RestOfLineString(ArgumentBase):
-    def __init__(self, helpStr=""):
-        ArgumentBase.__init__(self, pyparseItems.restOfLine, nElements=1, helpStr=helpStr)
+    def __init__(self, helpStr="", repString=None):
+        ArgumentBase.__init__(self, pyparseItems.restOfLine, nElements=1, helpStr=helpStr, repString=repString)
 
 class Keyword(ArgumentBase):
-    def __init__(self, keyword, nElements=1, helpStr=""):
+    def __init__(self, keyword, nElements=1, helpStr="", repString=None):
         self.keyword = keyword
-        ArgumentBase.__init__(self, pyparseItems.word, nElements, helpStr)
+        ArgumentBase.__init__(self, pyparseItems.word, nElements, helpStr, repString=repString)
 
     def __repr__(self):
+        if self.repString is not None:
+            return self.repString
         returnStr = self.keyword
         # if self.helpStr:
         #     returnStr += "(help=%s)"%(self.helpStr)
         return returnStr
 
 class KeywordValue(Keyword):
-    def __init__(self, keyword, value, isMandatory=True, helpStr=""):
+    def __init__(self, keyword, value, isMandatory=True, helpStr="", repString=None):
         """keyword: string
         value: must be of type ArgumentBase
         """
@@ -263,6 +271,7 @@ class KeywordValue(Keyword):
         self.lowerBound = value.lowerBound
         self.upperBound = value.upperBound
         self._parsedAbbreviation = None
+        self.repString = repString
         # keywords may either appear once or not at all
         if not isinstance(value, ArgumentBase):
             raise CommandDefinitionError("value must be of type ArgumentBase in KeywordValue.")
@@ -270,10 +279,12 @@ class KeywordValue(Keyword):
         self.keyword = keyword
 
     def __repr__(self):
+        if self.repString is not None:
+            return self.repString
         returnStr = self.keyword
         # if self.helpStr:
         #     returnStr += "(help=%s)"%(self.helpStr)
-        returnStr += "=%s"%(repr(self.value))
+        returnStr += "=%s"%(self.value.__repr__())
         if not self.isMandatory:
             # add brackets signifying optional
             returnStr = "[" + returnStr + "]"
@@ -295,25 +306,30 @@ class KeywordValue(Keyword):
         return pp.Suppress(pp.Literal(self.parsedAbbreviation)) + pp.Suppress(pp.Literal("=")) + self.value.pyparseItem
 
 class UniqueMatch(ArgumentBase):
-    def __init__(self, matchList, nElements=1, helpStr=""):
+    def __init__(self, matchList, nElements=1, helpStr="", repString=None):
         if not isSequence(matchList):
             raise CommandDefinitionError("matchlist must be a sequence")
         self.matchList = matchList
-        ArgumentBase.__init__(self, pyparseItems.uniqueMatch(matchList), nElements, helpStr)
+        ArgumentBase.__init__(self, pyparseItems.uniqueMatch(matchList), nElements, helpStr, repString)
 
     def __repr__(self):
         returnStr = " | ".join(self.matchList)
+        # is it optional?
+        if self.lowerBound == 0:
+            returnStr = "["+returnStr+"]"
         # if self.helpStr:
         #     returnStr += "(help%s)"%(self.helpStr,)
         return returnStr
 
 class CommandSet(object):
-    def __init__(self, commandList):
+    def __init__(self, commandList, actorName="ACTOR"):
         """! Generate a command set
         @param[in] commandList: a list of Command objects
+        @param[in] actorName: string name of the actor
         """
         # turn list of commands into a dictionary
-        self.commandDict = {}
+        self.commandDict = collections.OrderedDict()
+        self.actorName = actorName
         for command in commandList:
             self.commandDict[command.commandName] = command
         self.createHelpCmd()
@@ -356,10 +372,28 @@ class CommandSet(object):
         cmdObj = self.getCommand(cmdName) # cmdName abbreviations allowed!
         return cmdObj.parse(cmdArgs)
 
-    def toHTML(self):
+    def toHTML(self, isSubCmdSet=False):
         htmlStr = ""
+        if isSubCmdSet:
+            headerSize = 4
+        else:
+            headerSize = 3
+            htmlStr += '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">\n'
+            htmlStr += "<html>\n"
+            htmlStr += "<head>\n"
+            htmlStr += "<title>%s Commands</title>\n"%(self.actorName,)
+            htmlStr += "</head>\n"
+            htmlStr += "<body>\n"
+            # create table of contents links
+            htmlStr += "<h1>%s Commands</h1>\n"%(self.actorName,)
+            htmlStr += "<ul>\n"
+            for cmd in self.commandDict.itervalues():
+                htmlStr += "<li><a href='#%s'>%s</a>\n"%(cmd.commandName, cmd.commandName.upper())
+            htmlStr += "</ul>\n"
         for cmd in self.commandDict.itervalues():
-            htmlStr += "%s\n"%(cmd.toHTML(),)
+            htmlStr += "%s\n"%(cmd.toHTML(headerSize=headerSize),)
+        htmlStr += "</body>\n"
+        htmlStr += "</html>\n"
         return htmlStr
 
 class ArgumentSet(object):
@@ -402,14 +436,15 @@ class FloatingArgumentSet(ArgumentSet):
     def __init__(self, floatingArguments):
         # turn list of commands into a dictionary
         # floating Arguments must be of Keyword type
-        self.floatingArgDict = {}
+        self.floatingArgDict = collections.OrderedDict()
         self.appendArguments(floatingArguments)
 
     def __nonzero__(self):
         return bool(self.floatingArgDict)
 
     def appendArguments(self, floatingArguments):
-        "note any duplicated arguments will be over written."
+        "note any duplicated arguments will be overwritten."
+        # sort arguments
         for arg in floatingArguments:
             if not isinstance(arg, Keyword):
                 raise CommandDefinitionError("argument %s must be of type Keyword"%arg)
@@ -522,13 +557,30 @@ class Command(object):
             parsedCommand.setParsedPositionalArgs(self.positionalArgumentSet.parse(argString))
         return parsedCommand
 
-    def toHTML(self):
+    def toHTML(self, headerSize=3):
+        htmlStr = ""
         if self.subCommandSet is None:
-            return "<h3><a name=%s></a>%s %s %s</h3>\n"%(self.commandName, self.commandName.upper(), self.positionalArgumentSet, self.floatingArgumentSet)
+            htmlStr += "<h%i><a name=%s></a>%s %s %s</h%i>\n"%(headerSize, self.commandName, self.commandName.upper(), self.positionalArgumentSet, self.floatingArgumentSet, headerSize)
+            if self.helpStr:
+                htmlStr += "<blockquote>\n"
+                htmlStr += "%s<br>\n"%(self.helpStr,)
+                htmlStr += "</blockquote>\n"
+            # describe arguments
+            if self.positionalArgumentSet or self.floatingArgumentSet:
+                htmlStr += "<blockquote>\n"
+                htmlStr += "Argument Detail:<br>\n"
+                htmlStr += "<blockquote>\n"
+                for arg in self.positionalArgumentSet.argumentList + self.floatingArgumentSet.argumentList:
+                    htmlStr += "%s :: %s<br>\n"%(arg.name, arg.helpStr)
+                htmlStr += "</blockquote>\n"
+                htmlStr += "</blockquote>\n"
         else:
-            htmlStr = "<h3><a name=%s></a>%s subcommand</h3>\n"%(self.commandName, self.commandName.upper())
-            htmlStr += "%s\n"%(self.subCommandSet.toHTML(),)
-            return htmlStr
+            htmlStr += "<h%i><a name=%s></a>%s **subcommand**</h%i>\n"%(headerSize, self.commandName, self.commandName.upper(), headerSize)
+            htmlStr += "<blockquote>\n"
+            # htmlStr += "where subcommand is one of the following:\n"
+            htmlStr += "%s\n"%(self.subCommandSet.toHTML(isSubCmdSet=True),)
+            htmlStr += "</blockquote>\n"
+        return htmlStr
 
 class ParsedCommand(object):
 

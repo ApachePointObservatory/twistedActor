@@ -30,6 +30,7 @@ timeArg = [
 ]
 
 arcticCommandSet = CommandSet(
+    actorName = "ARCTIC",
     commandList = [
         # set command
         Command(
@@ -43,7 +44,7 @@ arcticCommandSet = CommandSet(
                     ),
                 KeywordValue(
                     keyword="window",
-                    value=String(nElements=(1,4), helpStr="window list value help"), # must be string to support "full"
+                    value=String(nElements=(1,4), helpStr="window list value help", repString="begx, begy, width, height | full"), # must be string to support "full"
                     isMandatory=False,
                     helpStr="window help"
                     ),
