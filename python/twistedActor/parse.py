@@ -341,7 +341,7 @@ class CommandSet(object):
         """
         helpCmd = Command(
             commandName = "help",
-            positionalArguments = [UniqueMatch(self.commandDict.keys(), nElements=(0,1))],
+            positionalArguments = [UniqueMatch(self.commandDict.keys(), nElements=(0,1), helpStr="If desired specify a specific command for which to receive help.")],
             helpStr="print help for a command or the whole command set"
         )
         self.commandDict[helpCmd.commandName] = helpCmd
