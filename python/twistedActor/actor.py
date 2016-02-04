@@ -314,7 +314,7 @@ class Actor(BaseActor):
                     dev.connect()
                 except Exception as e:
                     self.writeToUsers("w", "text=could not connect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
-        if subCmdList:
+        if subCmdList and cmd:
             LinkCommands(cmd, subCmdList)
         return runInBackground
 
@@ -343,7 +343,7 @@ class Actor(BaseActor):
                     dev.disconnect()
                 except Exception as e:
                     self.writeToUsers("w", "text=could disconnect device %s: %s" % (devName, strFromException(e)), cmd=cmd)
-        if subCmdList:
+        if subCmdList and cmd:
             LinkCommands(cmd, subCmdList)
         return runInBackground
 
