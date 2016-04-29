@@ -7,6 +7,8 @@ from twisted.trial.unittest import TestCase
 from twistedActor import log, stopLogging, startFileLogging, LogLineParser
 
 TestLogPath = os.path.join(os.path.abspath(os.path.dirname(__file__)), ".tests", "testLogging")
+if not os.path.exists(TestLogPath):
+    os.makedirs(TestLogPath)
 
 class LogTest(TestCase):
     logNum = 0 # number the log files so each test has its own log file
