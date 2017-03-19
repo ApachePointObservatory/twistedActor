@@ -135,7 +135,7 @@ class CommandQueue(object):
     def __init__(self, priorityDict, killFunc=None):
         """ This is an object which keeps track of commands and smartly handles
             command collisions based on rules chosen by you.
-            @ a dictionary keyed by cmdVerb, with integer values or Immediate
+            @param[in] priorityDict a dictionary keyed by cmdVerb, with integer values or Immediate
             @ param[in] killFunc: a function to call when a running command needs to be
                 killed.  Accepts 2 parameters, the command to be canceled, and the command doing the killing.
                 This function must eventually ensure that the running command is canceled safely
