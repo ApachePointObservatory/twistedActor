@@ -165,7 +165,7 @@ class FileLogger(BaseLogger):
         fh.setLevel(logging.DEBUG)
         return fh
 
-    def getLogFilepath(self, basePath):
+    def getLogFilePath(self, basePath):
         return "%s_%s.log" % (basePath, datetime.datetime.now().strftime("%y-%m-%dT%H:%M:%S"))
 
 
@@ -190,7 +190,7 @@ class RotatingFileLogger(FileLogger):
         fh.setLevel(logging.DEBUG)
         return fh
 
-    def getLogFilepath(self, basePath):
+    def getLogFilePath(self, basePath):
         return "%s_current.log" %basePath
 
 
