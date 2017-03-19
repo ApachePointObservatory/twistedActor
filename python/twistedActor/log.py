@@ -22,10 +22,11 @@ def getLoggerFacilityName(facility):
     """
     return SyslogLogger.FacilityNameDict[facility].lower()
 
-def startFileLogging(basePath):
+def startFileLogging(basePath, rotate=False):
     """!Start logging to a file using python logging module
 
     @param[in] basePath  Full path to file where logging should start.
+    @param[in] sdss3: if True use sdss3logging conventions (copied from opscore)
     @return basePath with datetimestamp appended, or None if logging has already started
     """
     global log
@@ -33,7 +34,10 @@ def startFileLogging(basePath):
         raise RuntimeError("%s logger already active" % (log))
         # log.warn("startFileLogging called, but %s logger already active." % (log))
     else:
-        logger = FileLogger(basePath)
+        if rotate:
+            logger = RotatingFileLogger(basePath)
+        else:
+            logger = FileLogger(basePath)
         log.replaceLogger(logger)
         return logger.filePath
 
@@ -131,13 +135,12 @@ class FileLogger(BaseLogger):
             raise RuntimeError("Directory %r does not exist" % (dirPath,))
             os.makedirs(dirPath)
         # append current time to baseName
-        filePath = "%s_%s.log" % (basePath, datetime.datetime.now().strftime("%y-%m-%dT%H:%M:%S"))
+        filePath = self.getLogFilePath(basePath)
 
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
 
-        fh = logging.FileHandler(filePath)
-        fh.setLevel(logging.DEBUG)
+        fh = getFileHandler()
 
         # configure stdout to write messages with level warning
         console = logging.StreamHandler(sys.stdout)
@@ -157,6 +160,15 @@ class FileLogger(BaseLogger):
         self.fh = fh
         self.filePath = filePath
 
+    def getFileHandler(self):
+        fh = logging.FileHandler(filePath)
+        fh.setLevel(logging.DEBUG)
+        return fh
+
+    def getLogFilepath(self, basePath):
+        return "%s_%s.log" % (basePath, datetime.datetime.now().strftime("%y-%m-%dT%H:%M:%S"))
+
+
     def log(self, logMsg, logLevel):
         self.logger.log(logLevel, logMsg)
 
@@ -171,6 +183,15 @@ class FileLogger(BaseLogger):
 
     def __repr__(self):
         return "%s(%s)" % (type(self).__name__, self.filePath)
+
+class RotatingFileLogger(FileLogger):
+    def getFileHandler(self):
+        fh = logging.TimedRoatatingFileHandler(filePath, when="S", interval=20, utc=True)
+        fh.setLevel(logging.DEBUG)
+        return fh
+
+    def getLogFilepath(self, basePath):
+        return "%s_current.log" %basePath
 
 
 class SyslogLogger(BaseLogger):
