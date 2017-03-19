@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import datetime
 import logging
+import logging.handlers
 import syslog
 import time
 logging.Formatter.converter = time.gmtime
@@ -185,8 +186,9 @@ class FileLogger(BaseLogger):
         return "%s(%s)" % (type(self).__name__, self.filePath)
 
 class RotatingFileLogger(FileLogger):
+
     def getFileHandler(self, filePath):
-        fh = logging.TimedRoatatingFileHandler(filePath, when="S", interval=20, utc=True)
+        fh = logging.handlers.TimedRotatingFileHandler(filePath, when="S", interval=20, utc=True)
         fh.setLevel(logging.DEBUG)
         return fh
 
