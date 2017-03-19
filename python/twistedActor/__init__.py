@@ -13,5 +13,4 @@ from .linkCommands import *
 from .scriptRunner import *
 from .makeStartupScript import *
 from . import testUtils
-from .sdss3logging import *
 from .version import __version__
