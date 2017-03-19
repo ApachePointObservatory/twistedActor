@@ -140,7 +140,7 @@ class FileLogger(BaseLogger):
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
 
-        fh = getFileHandler()
+        fh = self.getFileHandler(filePath)
 
         # configure stdout to write messages with level warning
         console = logging.StreamHandler(sys.stdout)
@@ -160,7 +160,7 @@ class FileLogger(BaseLogger):
         self.fh = fh
         self.filePath = filePath
 
-    def getFileHandler(self):
+    def getFileHandler(self, filePath):
         fh = logging.FileHandler(filePath)
         fh.setLevel(logging.DEBUG)
         return fh
@@ -185,7 +185,7 @@ class FileLogger(BaseLogger):
         return "%s(%s)" % (type(self).__name__, self.filePath)
 
 class RotatingFileLogger(FileLogger):
-    def getFileHandler(self):
+    def getFileHandler(self, filePath):
         fh = logging.TimedRoatatingFileHandler(filePath, when="S", interval=20, utc=True)
         fh.setLevel(logging.DEBUG)
         return fh
