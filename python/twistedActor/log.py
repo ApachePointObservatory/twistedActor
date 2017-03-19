@@ -188,12 +188,12 @@ class FileLogger(BaseLogger):
 class RotatingFileLogger(FileLogger):
 
     def getFileHandler(self, filePath):
-        fh = logging.handlers.TimedRotatingFileHandler(filePath, when="S", interval=20, utc=True)
+        fh = logging.handlers.TimedRotatingFileHandler(filePath, when="H", interval=24, utc=True)
         fh.setLevel(logging.DEBUG)
         return fh
 
     def getLogFilePath(self, basePath):
-        return "%s_current.log" %basePath
+        return "%s.log" %basePath
 
 
 class SyslogLogger(BaseLogger):
