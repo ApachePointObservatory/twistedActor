@@ -9,6 +9,9 @@ logging.Formatter.converter = time.gmtime
 import os
 import sys
 import pyparsing as pp
+from twisted.internet import reactor
+
+ROLLTIME = 24*60*60 # a day in seconds
 
 __all__ = ["log", "LogLineParser", "startFileLogging", "startSystemLogging", "stopLogging",
     "getLoggerFacilityName"]
@@ -186,14 +189,46 @@ class FileLogger(BaseLogger):
         return "%s(%s)" % (type(self).__name__, self.filePath)
 
 class RotatingFileLogger(FileLogger):
+    """
+    bit of a hack, set the timed rollover to 25 hours
+    but we should be forcing a rollover every 24
+    the only case in which a log will not rollover
+    is if the actor is killed before the rollover time
+    and restarted after, which is probably a small chance
+    """
+
+    def __init__(self, basePath, rolloverTime):
+        # roloverTime should be a datetime.time object,
+        # indicates what time of day to rollover
+        RotatingFileLogger.__init__(self, basePath)
+        timeNow = datetime.datetime.utcnow()
+        nextRollover = datetime.datetime(
+            timeNow.year, timeNow.month, timeNow.day,
+            rolloverTime.hour, rolloverTime.minute, rolloverTime.second
+            )
+        rollSecs = (nextRollover - timeNow).total_seconds()
+        if  rollSecs < 0:
+            # we started up after todays rollover
+            # add 24 hours in seconds before next rollover
+            rollSecs += ROLLTIME
+
+        reactor.callLater(rollSecs, self.roll)
+
+
 
     def getFileHandler(self, filePath):
-        fh = logging.handlers.TimedRotatingFileHandler(filePath, when="H", interval=24, utc=True)
+        fh = logging.handlers.TimedRotatingFileHandler(filePath, when="H", interval=25, utc=True)
         fh.setLevel(logging.DEBUG)
         return fh
 
     def getLogFilePath(self, basePath):
         return "%s.log" %basePath
+
+    def roll(self):
+        self.doRollover()
+        reactor.callLater(ROLLTIME, self.roll)
+
+
 
 
 class SyslogLogger(BaseLogger):
