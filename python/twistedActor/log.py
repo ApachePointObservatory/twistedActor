@@ -26,20 +26,20 @@ def getLoggerFacilityName(facility):
     """
     return SyslogLogger.FacilityNameDict[facility].lower()
 
-def startFileLogging(basePath, rotate=False):
+def startFileLogging(basePath, rotate=None):
     """!Start logging to a file using python logging module
 
     @param[in] basePath  Full path to file where logging should start.
-    @param[in] sdss3: if True use sdss3logging conventions (copied from opscore)
-    @return basePath with datetimestamp appended, or None if logging has already started
+    @param[in] rotate: if not None, must be datetime.time instance
+    specifying what time of day to rollover log.
     """
     global log
     if log:
         raise RuntimeError("%s logger already active" % (log))
         # log.warn("startFileLogging called, but %s logger already active." % (log))
     else:
-        if rotate:
-            logger = RotatingFileLogger(basePath)
+        if rotate is not None:
+            logger = RotatingFileLogger(basePath, rotate)
         else:
             logger = FileLogger(basePath)
         log.replaceLogger(logger)
@@ -200,8 +200,8 @@ class RotatingFileLogger(FileLogger):
     def __init__(self, basePath, rolloverTime):
         # roloverTime should be a datetime.time object,
         # indicates what time of day to rollover
-        RotatingFileLogger.__init__(self, basePath)
-        timeNow = datetime.datetime.utcnow()
+        FileLogger.__init__(self, basePath)
+        timeNow = datetime.datetime.now()
         nextRollover = datetime.datetime(
             timeNow.year, timeNow.month, timeNow.day,
             rolloverTime.hour, rolloverTime.minute, rolloverTime.second
@@ -225,7 +225,7 @@ class RotatingFileLogger(FileLogger):
         return "%s.log" %basePath
 
     def roll(self):
-        self.doRollover()
+        self.fh.doRollover()
         reactor.callLater(ROLLTIME, self.roll)
 
 
