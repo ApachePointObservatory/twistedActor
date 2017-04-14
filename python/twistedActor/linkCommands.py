@@ -28,6 +28,9 @@ class LinkCommands(object):
         self.mainCmd.isLinked = True
         self.subCmdList = subCmdList
         for subCmd in self.subCmdList:
+            # give each sub command a copy of the 'mainCommand'
+            # mostly for writing responses to it
+            subCmd.mainCmd = mainCmd
             if not subCmd.isDone:
                 subCmd.addCallback(self.subCmdCallback)
 

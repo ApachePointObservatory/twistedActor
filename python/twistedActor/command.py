@@ -45,6 +45,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         failing = "w",
         cancelled = "f",
         failed = "f",
+        debug = "d",
         done = ":",
     )
     _InvMsgCodeDict = dict((val, key) for key, val in _MsgCodeDict.iteritems())
@@ -71,11 +72,27 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         self._textMsg = ""
         self._hubMsg = ""
         self._cmdToTrack = None
-
+        self._linkedCommands = []
+        self._parentCmd = None
+        self._writeToUsers = None # set by baseActor.ExpandCommand
+        # set by baseActor.newCmd to flag this as a command created
+        # from socket input
+        self.userCommanded = False
         self._timeoutTimer = Timer()
         self.setTimeLimit(timeLim)
 
         RO.AddCallback.BaseMixin.__init__(self, callFunc)
+
+    @property
+    def parentCmd(self):
+        return self._parentCmd
+
+    @property
+    def eldestParentCmd(self):
+        if self.parentCmd is None:
+            return self
+        else:
+            return self.parentCmd.eldestParentCmd
 
     @property
     def timeLim(self):
@@ -132,6 +149,24 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         """The state of the command, as a string which is one of the state constants, e.g. self.Done
         """
         return self._state
+
+    def setWriteToUsers(self, writeToUsersFunc):
+        if self._writeToUsers is not None:
+            raise RuntimeError("Write to users is already set")
+        else:
+            self._writeToUsers = writeToUsersFunc
+
+    def writeToUsers(self, msgCode, msgStr, userID=None, cmdID=None):
+        # see doc in baseActor.
+        # self._writeToUsers is set in BaseActor.newCmd()
+        # or is is set at the time of any command linkage
+        # get the top most command for writing to users
+        # it will be the original cmd
+        topCmd = self.eldestParentCmd
+        if topCmd._writeToUsers is None:
+            print("%s writeToUsers not set: "%str(self), msgCode, msgStr, topCmd, userID, cmdID, "!!!")
+        else:
+            topCmd._writeToUsers(msgCode, msgStr, topCmd, userID, cmdID)
 
     def addCallback(self, callFunc, callNow=False):
         """Add a callback function
@@ -252,6 +287,54 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         if self._cmdToTrack:
             self._cmdToTrack.removeCallback(self._cmdCallback)
             self._cmdToTrack = None
+
+    def removeChildren(self):
+        for cmd in self._linkedCommands:
+            cmd.removeCallback(self.linkCmdCallback)
+        self._linkedCommands = []
+
+    def setParentCmd(self, cmd):
+        self._parentCmd = cmd
+
+    def linkCommands(self, cmdList):
+        """Tie the state of this command to a list of commands
+
+        If any command in the list fails, so will this command
+        """
+        if self.isDone:
+            raise RuntimeError("Finished; cannot link commands")
+        if self._cmdToTrack:
+            raise RuntimeError("Already tracking a command")
+        self._linkedCommands.extend(cmdList)
+        for cmd in cmdList:
+            cmd.setParentCmd(self)
+            if not cmd.isDone:
+                cmd.addCallback(self.linkCmdCallback)
+        # call right away in case all sub-commands are already done
+        self.linkCmdCallback()
+
+    def linkCmdCallback(self, dumCmd=None):
+        """!Callback to be added to each device cmd
+
+        @param[in] dumCmd  sub-command issuing the callback (ignored)
+        """
+        if not all(linkedCommand.isDone for linkedCommand in self._linkedCommands):
+            # not all device commands have terminated so keep waiting
+            return
+
+        failedCmdSummary = "; ".join("%s: %s" % (linkedCommand.cmdStr, linkedCommand.getMsg()) for linkedCommand in self._linkedCommands if linkedCommand.didFail)
+        if failedCmdSummary:
+            # at least one device command failed, fail the user command and say why
+            # note, do we want to match the type of failure? If a subcommand was cancelled
+            # should the mainCmd state be cancelled too?
+            state = self.Failed
+            textMsg = failedCmdSummary
+        else:
+            # all device commands terminated successfully
+            # set user command to done
+            state = self.Done
+            textMsg = ""
+        self.setState(state, textMsg = textMsg)
 
     @classmethod
     def stateFromMsgCode(cls, msgCode):

@@ -10,7 +10,7 @@ from RO.StringUtil import quoteStr, strFromException
 from .command import UserCmd
 from .log import log
 
-__all__ = ["BaseActor"]
+__all__ = ["BaseActor", "expandCommand"]
 
 def isAvailable(port):
     """!Return True if the specified socket is available, False otherwise
@@ -24,6 +24,27 @@ def isAvailable(port):
         return False
     except Exception:
         return True
+
+class ExpandCommand(object):
+    def __init__(self):
+        self.wtu = None
+
+    def setWriteToUsers(self, wtu):
+        print("Giving WTU to ExpandCommand!")
+        self.wtu = wtu
+
+    def __call__(self, cmd=None):
+        if cmd is None:
+            cmd = UserCmd(cmdStr="expanded")
+        elif cmd.isDone:
+            raise RuntimeError("cmd=%s already finished"%cmd)
+        if self.wtu is None:
+            print("write to users not yet granted to expand command: %s"%cmd.cmdStr)
+        elif cmd._writeToUsers is None:
+            cmd.setWriteToUsers(self.wtu)
+        return cmd
+
+expandCommand = ExpandCommand()
 
 class BaseActor(object):
     """!Base class for a hub actor or instrument control computer with no assumption about command format
@@ -47,6 +68,7 @@ class BaseActor(object):
         - version       actor version str
         - name          a name, used for logging
         """
+        expandCommand.setWriteToUsers(self.writeToUsers)
         self.name = name
         self.maxUsers = int(maxUsers)
         self.doDebugMsgs = bool(doDebugMsgs)
@@ -134,6 +156,8 @@ class BaseActor(object):
             self.writeToUsers("f", "Could not parse the following as a command: %r"%cmdStr)
             return
         try:
+            cmd = expandCommand(cmd) # gives write to users
+            cmd.userCommanded = True # this command was generated from a socket read.
             self.parseAndDispatchCmd(cmd)
         except Exception as e:
             cmd.setState(cmd.Failed, "Command %r failed: %s" % (cmd.cmdBody, strFromException(e)))
@@ -304,6 +328,7 @@ class BaseActor(object):
 
     def __str__(self):
         return "%s(%s)" % (self.__class__.__name__, self.name)
+
 
 def getSocketUserID(sock):
     """!Get a user ID from a socket
