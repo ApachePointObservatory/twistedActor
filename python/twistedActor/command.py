@@ -258,7 +258,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
             return
         self._timeLim = float(timeLim) if timeLim else None
         if self._timeLim:
-            if self._timeoutTimer.isActive:
+            if self.isActive:
                 self._timeoutTimer.start(self._timeLim, self._timeout)
         else:
             self._timeoutTimer.cancel()
@@ -318,6 +318,11 @@ class BaseCmd(RO.AddCallback.BaseMixin):
 
         @param[in] dumCmd  sub-command issuing the callback (ignored)
         """
+        # if any linked commands have become active and this command is not yet active
+        # set it cto the running state!
+        if self.state == self.Ready and True in [linkedCommand.isActive for linkedCommand in self._linkedCommands]:
+            self.setState(self.Running)
+
         if not all(linkedCommand.isDone for linkedCommand in self._linkedCommands):
             # not all device commands have terminated so keep waiting
             return
