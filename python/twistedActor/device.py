@@ -462,6 +462,7 @@ class TCPDevice(Device):
         cmdInfo = None,
         callFunc = None,
         cmdClass = DevCmd,
+        lineTerminator = "\r\n",
     ):
         """!Construct a TCPDevice
 
@@ -477,6 +478,7 @@ class TCPDevice(Device):
                     Note that device state callbacks is NOT automatically called
                     when the connection state changes; register a callback with "conn" for that task.
         @param[in] cmdClass  class for commands for this device
+        @param[in] lineTerminator  specifies the end of line characters when sending data to the device
         """
         Device.__init__(self,
             name = name,
@@ -486,6 +488,7 @@ class TCPDevice(Device):
                 port = port,
                 readCallback = self._readCallback,
                 readLines = True,
+                lineTerminator = lineTerminator,
             ),
             callFunc = callFunc,
             cmdClass = cmdClass,
