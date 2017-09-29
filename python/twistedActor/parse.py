@@ -1,4 +1,4 @@
-from __future__ import division, absolute_import
+
 
 import sys
 
@@ -23,7 +23,7 @@ class INF(int):
     def __repr__(self):
         return "parse.INF"
 
-inf = INF(sys.maxint)
+inf = INF(sys.maxsize)
 
 class CommandDefinitionError(Exception):
     pass
@@ -177,10 +177,10 @@ class ArgumentBase(object):
         # scanString returns a generator, it should be of length 1, call next to get it.
         # returns a pyparsing ParseResult and beg/end positions of the match
         scanGenerator = self.pyparseItem.scanString(stringToSearch)
-        pyparseResultObj, begPos, endPos = scanGenerator.next()
+        pyparseResultObj, begPos, endPos = next(scanGenerator)
         # verify that this was a unique match (shouldn't have found more than one)
         try:
-            scanGenerator.next()
+            next(scanGenerator)
         except StopIteration:
             # this is expected
             pass
@@ -333,7 +333,7 @@ class CommandSet(object):
         for command in commandList:
             self.commandDict[command.commandName] = command
         self.createHelpCmd()
-        self.commandMatchList = MatchList(valueList = self.commandDict.keys())
+        self.commandMatchList = MatchList(valueList = list(self.commandDict.keys()))
         # explicitly set the "help command"
 
     def createHelpCmd(self):
@@ -341,7 +341,7 @@ class CommandSet(object):
         """
         helpCmd = Command(
             commandName = "help",
-            positionalArguments = [UniqueMatch(self.commandDict.keys(), nElements=(0,1), helpStr="If desired specify a specific command for which to receive help.")],
+            positionalArguments = [UniqueMatch(list(self.commandDict.keys()), nElements=(0,1), helpStr="If desired specify a specific command for which to receive help.")],
             helpStr="print help for a command or the whole command set"
         )
         self.commandDict[helpCmd.commandName] = helpCmd
@@ -387,10 +387,10 @@ class CommandSet(object):
             # create table of contents links
             htmlStr += "<h1>%s Commands</h1>\n"%(self.actorName,)
             htmlStr += "<ul>\n"
-            for cmd in self.commandDict.itervalues():
+            for cmd in self.commandDict.values():
                 htmlStr += "<li><a href='#%s'>%s</a>\n"%(cmd.commandName, cmd.commandName.upper())
             htmlStr += "</ul>\n"
-        for cmd in self.commandDict.itervalues():
+        for cmd in self.commandDict.values():
             htmlStr += "%s\n"%(cmd.toHTML(headerSize=headerSize),)
         htmlStr += "</body>\n"
         htmlStr += "</html>\n"
@@ -422,7 +422,7 @@ class ArgumentSet(object):
             raise ParseError("could not parse positional args: %s"%argString)
         return ppOut
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.argumentList)
 
     def __str__(self):
@@ -439,7 +439,7 @@ class FloatingArgumentSet(ArgumentSet):
         self.floatingArgDict = collections.OrderedDict()
         self.appendArguments(floatingArguments)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self.floatingArgDict)
 
     def appendArguments(self, floatingArguments):
@@ -453,11 +453,11 @@ class FloatingArgumentSet(ArgumentSet):
 
     @property
     def argumentList(self):
-        return self.floatingArgDict.values()
+        return list(self.floatingArgDict.values())
 
     @property
     def argMatchList(self):
-        return MatchList(valueList = self.floatingArgDict.keys())
+        return MatchList(valueList = list(self.floatingArgDict.keys()))
 
     def parse(self, argString):
         """@param[in] argString: a string containing keyword-type arguments to be
@@ -480,7 +480,7 @@ class FloatingArgumentSet(ArgumentSet):
                 # associate this (potentially) abbreviated keyword with this argument
                 self.floatingArgDict[keyword].setParseAbbreviation(abbrevKW)
             except:
-                raise ParseError("Could not identify keyword %s, as one of %s"%(abbrevKW, self.floatingArgDict.keys()))
+                raise ParseError("Could not identify keyword %s, as one of %s"%(abbrevKW, list(self.floatingArgDict.keys())))
         # determine which keywords were not received
         missingKeys = set(self.floatingArgDict.keys()) - gotKeys
         # ensure that any missing keys were optional arguments

@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-from __future__ import division, absolute_import
+
 
 from twisted.trial import unittest
 from twisted.internet.defer import Deferred, gatherResults
@@ -361,7 +361,7 @@ class CmdQueueTest(unittest.TestCase):
                 queuedCmds = ['medb'],
             )
         except RuntimeError as e:
-            print e
+            print(e)
             self.assertTrue(True)
         else:
             self.assertTrue(False)
@@ -379,7 +379,7 @@ class CmdQueueTest(unittest.TestCase):
                 queuedCmds = ['medb'],
             )
         except RuntimeError as e:
-            print e
+            print(e)
             self.assertTrue(False)
         else:
             self.assertTrue(True)

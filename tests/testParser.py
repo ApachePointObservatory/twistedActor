@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-from __future__ import division, absolute_import
+
 """Test parser.  Use arctics command set, copied directly below
 """
 import unittest
@@ -222,11 +222,11 @@ class TestParser(unittest.TestCase):
 
     def testCommandList(self):
         for cmdStr in commandList:
-            print "cmdStr: ", cmdStr
+            print("cmdStr: ", cmdStr)
             parsedCommand = arcticCommandSet.parse(cmdStr)
 
     def testHTML(self):
-        print(arcticCommandSet.toHTML())
+        print((arcticCommandSet.toHTML()))
 
 
 

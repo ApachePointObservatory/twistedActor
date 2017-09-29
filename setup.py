@@ -19,7 +19,7 @@ PkgRoot = "python"
 PkgDir = os.path.join(PkgRoot, PkgName)
 sys.path.insert(0, PkgDir)
 from twistedActor import __version__
-print "%s version %s" % (PkgName, __version__)
+print("%s version %s" % (PkgName, __version__))
 
 setup(
     name = PkgName,

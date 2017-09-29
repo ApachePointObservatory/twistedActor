@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+
 """!Basic framework for a hub actor or ICC based on the Twisted event loop.
 """
 import operator
@@ -262,7 +262,7 @@ class Actor(BaseActor):
         @param[in] onlyOneUser  if True only display the information to the commanding user
         @param[in] onlyIfNotConn  only show information for devices that are disconnected
         """
-        for dev in self.dev.nameDict.itervalues():
+        for dev in self.dev.nameDict.values():
             self.showOneDevConnStatus(dev, onlyOneUser=onlyOneUser, onlyIfNotConn=onlyIfNotConn, cmd=cmd)
 
     def showOneDevConnStatus(self, dev, cmd=None, onlyOneUser=False, onlyIfNotConn=False):
@@ -297,7 +297,7 @@ class Actor(BaseActor):
         if cmd and cmd.cmdArgs:
             devNameList = cmd.cmdArgs.split()
         else:
-            devNameList = self.dev.nameDict.keys()
+            devNameList = list(self.dev.nameDict.keys())
 
         runInBackground = False
         subCmdList = []
@@ -326,7 +326,7 @@ class Actor(BaseActor):
         if cmd and cmd.cmdArgs:
             devNameList = cmd.cmdArgs.split()
         else:
-            devNameList = self.dev.nameDict.keys()
+            devNameList = list(self.dev.nameDict.keys())
 
         runInBackground = False
         subCmdList = []
@@ -358,7 +358,7 @@ class Actor(BaseActor):
         debugHelpList = []
 
         # commands handled by this actor
-        for cmdVerb, cmdFunc in self.locCmdDict.iteritems():
+        for cmdVerb, cmdFunc in self.locCmdDict.items():
             helpStr = cmdFunc.__doc__.split("\n")[0]
             if helpStr.startswith("!"):
                 # an initial "!" is used to enable Doxygen formatting of help
@@ -373,7 +373,7 @@ class Actor(BaseActor):
                 helpList.append(joinStr.join((cmdVerb, helpStr)))
 
         # commands handled by a device
-        for cmdVerb, cmdInfo in self.devCmdDict.iteritems():
+        for cmdVerb, cmdInfo in self.devCmdDict.items():
             helpStr = cmdInfo[2]
             if ":" in helpStr:
                 joinStr = " "
@@ -421,13 +421,13 @@ class Actor(BaseActor):
         """!print the reference count for each object"""
         d = {}
         # collect all classes
-        for m in sys.modules.values():
+        for m in list(sys.modules.values()):
             for sym in dir(m):
                 o = getattr (m, sym)
-                if type(o) in (types.ClassType, types.TypeType):
+                if type(o) in (type, type):
                     d[o] = sys.getrefcount (o)
         # sort by descending refcount (most interesting objects first)
-        pairs = d.items()
+        pairs = list(d.items())
         pairs.sort(key=operator.itemgetter(1), reverse=True)
 
         for c, n in pairs[:100]:

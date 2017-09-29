@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+
 """!Basic framework for a hub actor or ICC based on the Twisted event loop.
 """
 import sys
@@ -277,7 +277,7 @@ class BaseActor(object):
         fullMsgStr = self.formatUserOutput(msgCode, msgStr, userID=userID, cmdID=cmdID)
         # print("writeToUsers(%s)" % (fullMsgStr,))
         log.info("%s.writeToUsers(%r)" % (self, fullMsgStr))
-        for sock in self.userDict.itervalues():
+        for sock in self.userDict.values():
             sock.writeLine(fullMsgStr)
 
     def writeToOneUser(self, msgCode, msgStr, cmd=None, userID=None, cmdID=None):

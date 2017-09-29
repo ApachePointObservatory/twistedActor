@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+
 
 from collections import OrderedDict
 import itertools
@@ -69,9 +69,9 @@ class DeviceSet(object):
         # dict of slot name: index
         self._slotIndexDict = dict((slot, i) for i, slot in enumerate(slotList))
         # ordered dict of slot name: device
-        self._slotDevDict = OrderedDict((slot, dev) for slot, dev in itertools.izip(slotList, devList))
+        self._slotDevDict = OrderedDict((slot, dev) for slot, dev in zip(slotList, devList))
         # dict of dev.name: slot name for current devices
-        self._devNameSlotDict = dict((dev.name, slot) for (slot, dev) in self._slotDevDict.iteritems() if dev)
+        self._devNameSlotDict = dict((dev.name, slot) for (slot, dev) in self._slotDevDict.items() if dev)
 
         if len(self._slotDevDict) < len(slotList):
             raise RuntimeError("Names in slotList=%s are not unique" % (slotList,))
@@ -148,25 +148,25 @@ class DeviceSet(object):
     def devExists(self):
         """!Return a list of bools, one per device: True if device exists
         """
-        return [dev is not None for dev in self._slotDevDict.itervalues()]
+        return [dev is not None for dev in self._slotDevDict.values()]
 
     @property
     def devList(self):
         """!Return the list of devices
         """
-        return self._slotDevDict.values()
+        return list(self._slotDevDict.values())
 
     @property
     def slotList(self):
         """!Return the list of slot names
         """
-        return self._slotDevDict.keys()
+        return list(self._slotDevDict.keys())
 
     @property
     def filledSlotList(self):
         """!Return the list of names of filled slots
         """
-        return [slot for slot, dev in self._slotDevDict.iteritems() if dev]
+        return [slot for slot, dev in self._slotDevDict.items() if dev]
 
     def get(self, slot, default=None):
         """!Return the device in the specified slot, or default if no such slot
@@ -187,8 +187,8 @@ class DeviceSet(object):
             if userCmd is None state is reported only if has changed since last time it was reported,
             or if not all existing devices are connected
         """
-        devStateList = [dev.state if dev else "NotAvailable" for dev in self._slotDevDict.itervalues()]
-        if not all(dev.isConnected for dev in self._slotDevDict.itervalues() if dev):
+        devStateList = [dev.state if dev else "NotAvailable" for dev in self._slotDevDict.values()]
+        if not all(dev.isConnected for dev in self._slotDevDict.values() if dev):
             msgCode = "w"
             doReport = True
         else:
@@ -211,7 +211,7 @@ class DeviceSet(object):
         """
         if len(boolList) != len(self):
             raise RuntimeError("Expected %s bools but got %s" % (len(self), boolList))
-        slotList = self._slotDevDict.keys()
+        slotList = list(self._slotDevDict.keys())
         return [slotList[ind] for ind, boolVal in enumerate(boolList) if boolVal]
 
     def slotFromDevName(self, devName):
@@ -222,7 +222,7 @@ class DeviceSet(object):
     def slotFromIndex(self, index):
         """!Get the slot name from the index
         """
-        return self._slotDevDict.keys()[index]
+        return list(self._slotDevDict.keys())[index]
 
     def _setDev(self, slot, dev):
         """!Set the device at a particular slot
@@ -236,7 +236,7 @@ class DeviceSet(object):
         oldDev = self._slotDevDict[slot]
         self._slotDevDict[slot] = dev
         self._devNameSlotDict = dict((dev.name, slot)
-            for slot, dev in self._slotDevDict.iteritems() if dev is not None)
+            for slot, dev in self._slotDevDict.items() if dev is not None)
         return oldDev
 
     def replaceDev(self, slot, dev, userCmd=None, timeLim=DefaultTimeLim):
@@ -321,7 +321,7 @@ class DeviceSet(object):
         """
         userCmd = expandUserCmd(userCmd)
         devCmdList = []
-        for slot, cmdStrOrList in cmdDict.iteritems():
+        for slot, cmdStrOrList in cmdDict.items():
             dev = self.get(slot)
             for cmd in asSequence(cmdStrOrList):
                 devCmdList.append(dev.startCmd(cmd))

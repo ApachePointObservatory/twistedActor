@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+
 """Command objects for the twisted actor
 """
 import re
@@ -48,7 +48,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         debug = "d",
         done = ":",
     )
-    _InvMsgCodeDict = dict((val, key) for key, val in _MsgCodeDict.iteritems())
+    _InvMsgCodeDict = dict((val, key) for key, val in _MsgCodeDict.items())
     def __init__(self,
         cmdStr,
         userID = 0,
@@ -399,7 +399,7 @@ class DevCmd(BaseCmd):
         this is the command ID for the command sent to the device
     - showReplies: the value specified in the constructor
     """
-    _LocCmdIDGen = RO.Alg.IDGen(startVal=1, wrapVal=sys.maxint)
+    _LocCmdIDGen = RO.Alg.IDGen(startVal=1, wrapVal=sys.maxsize)
     def __init__(self,
         cmdStr,
         callFunc = None,
@@ -424,7 +424,7 @@ class DevCmd(BaseCmd):
         then
         If callFunc and userCmd are both specified, callFunc is called before userCmd's state is changed.
         """
-        self.locCmdID = self._LocCmdIDGen.next()
+        self.locCmdID = next(self._LocCmdIDGen)
         self.dev = dev
         self.showReplies = bool(showReplies)
         BaseCmd.__init__(self,

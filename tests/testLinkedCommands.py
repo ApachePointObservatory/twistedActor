@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-from __future__ import division, absolute_import
+
 """Ensure that command.LinkCommands works correctly
 """
 import unittest

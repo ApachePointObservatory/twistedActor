@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-from __future__ import division, absolute_import
+
 
 import os
 
@@ -17,7 +17,7 @@ class LogTest(TestCase):
         global logNum
         self.logFilePath = startFileLogging("%s_%i_" % (TestLogPath, LogTest.logNum))
         LogTest.logNum += 1
-        os.chmod(self.logFilePath, 0777)
+        os.chmod(self.logFilePath, 0o777)
 
     def tearDown(self):
         stopLogging()

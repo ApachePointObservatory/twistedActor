@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+
 """!Make a startup script for a given actor
 """
 import os

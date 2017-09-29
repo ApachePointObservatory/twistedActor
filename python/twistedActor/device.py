@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+
 """!Base classes for interface to devices controlled by the twisted actor
 
 A Device is an interface/driver/model for one device controlled by an Actor.
@@ -685,4 +685,4 @@ class DeviceCollection(object):
     def __iter__(self):
         """!Return an iterator over the devices
         """
-        return self.nameDict.itervalues()
+        return iter(self.nameDict.values())

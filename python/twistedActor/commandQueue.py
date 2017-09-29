@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+
 """!Contains objects for managing multiple commands at once.
 """
 from bisect import insort_left
@@ -188,7 +188,7 @@ class CommandQueue(object):
                 if nc == 'all':
                     # ensure any rules defined in self.ruleDict[:]["all"]
                     # are the same action:
-                    for existingDict in self.ruleDict.itervalues():
+                    for existingDict in self.ruleDict.values():
                         if "all" in existingDict and action != existingDict["all"]:
                             raise RuntimeError("May not specifiy conflicting rules pertaining to all queued commands and all new commands")
                 self.ruleDict[nc] = {}
@@ -200,7 +200,7 @@ class CommandQueue(object):
                     )
                 if qc == "all":
                     if "all" in self.ruleDict:
-                        for value in self.ruleDict["all"].itervalues():
+                        for value in self.ruleDict["all"].values():
                             if value != action:
                                 raise RuntimeError("May not specifiy conflicting rules pertaining to all queued commands and all new commands")
                 self.ruleDict[nc][qc] = action

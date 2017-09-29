@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+
 
 import datetime
 import logging
@@ -335,7 +335,7 @@ class LogManager(object):
     def __repr__(self):
         return "%s" % self.logger
 
-    def __nonzero__(self):
+    def __bool__(self):
         return not isinstance(self.logger, DefaultLogger)
 
 
