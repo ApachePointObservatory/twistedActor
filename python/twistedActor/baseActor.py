@@ -10,7 +10,11 @@ from RO.StringUtil import quoteStr, strFromException
 from .command import UserCmd
 from .log import log
 
+from . import hub
+
+
 __all__ = ["BaseActor", "expandCommand"]
+
 
 def isAvailable(port):
     """!Return True if the specified socket is available, False otherwise
@@ -24,6 +28,7 @@ def isAvailable(port):
         return False
     except Exception:
         return True
+
 
 class ExpandCommand(object):
     def __init__(self):
@@ -44,7 +49,9 @@ class ExpandCommand(object):
             cmd.setWriteToUsers(self.wtu)
         return cmd
 
+
 expandCommand = ExpandCommand()
+
 
 class BaseActor(object):
     """!Base class for a hub actor or instrument control computer with no assumption about command format
@@ -73,6 +80,8 @@ class BaseActor(object):
         self.maxUsers = int(maxUsers)
         self.doDebugMsgs = bool(doDebugMsgs)
         self.version = str(version)
+
+        self.hub = None
 
         # entries are: userID, socket
         self.userDict = dict()
@@ -328,6 +337,16 @@ class BaseActor(object):
 
     def __str__(self):
         return "%s(%s)" % (self.__class__.__name__, self.name)
+
+    def connectHub(self, host, **kwargs):
+        """Attaches a `device.HubConnection` to this actor.
+
+        @param[in] host    Tron host to be passed to `device.HubConnection`
+        @param[in] kwargs  Keywords to be passed to ``device.HubConnection``.
+
+        """
+
+        self.hub = hub.HubConnection(host, **kwargs)
 
 
 def getSocketUserID(sock):
