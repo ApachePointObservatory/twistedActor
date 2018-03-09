@@ -85,8 +85,6 @@ class HubConnection(device.TCPDevice):
 
                 self.datamodel[actor][key] = value
 
-                print(self.datamodel['guider'])
-
 
 class ActorModel(dict):
     """A dictionary defining a datamodel for an actor.
