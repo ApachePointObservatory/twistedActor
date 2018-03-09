@@ -152,16 +152,19 @@ class HubModel(dict):
 
         super(HubModel, self).__init__()
 
-        actors = self._parse_actors(casts) + self._parse_actors(callbacks)
+        # Creates a list of all actors defined in casts or callbacks
+        actors = list(set(self._parse_actors(casts) + self._parse_actors(callbacks)))
 
         for actor in actors:
 
-            if actor in self:
-                continue
+            # For each actor, creates a list of casts and callbacks stripping
+            # the actor part from the dictionary.
+            # E.g., {'guider.cartridgeLoaded': int} -> {'cartridgeLoaded': int}
 
             actor_casts = dict((keyword.split('.')[1], cast)
                                for keyword, cast in casts.items()
                                if keyword.split('.')[0] == actor)
+
             actor_cbs = dict((keyword.split('.')[1], cb)
                              for keyword, cb in callbacks.items()
                              if keyword.split('.')[0] == actor)
@@ -174,7 +177,20 @@ class HubModel(dict):
         return list(map(lambda xx: xx.split('.')[0], list(values)))
 
     def add_model(self, actor_name, casts={}, callbacks={}):
-        """Adds a new actor to the datamodel."""
+        """Adds a new actor to the datamodel.
+
+        Parameters:
+            actor_name (str):
+                The name of the actor.
+            casts (dict):
+                A dictionary of the form ``'keyword': func`` that defines
+                how to cast the values of that keyword.
+                E.g., ``{'cartridgeLoaded': int}``.
+            callbacks (dict):
+                A dictionary, similar to ``datamodel_casts`` with a callback
+                function to call when the keywords gets updated.
+
+        """
 
         model = ActorModel(actor_name, casts=casts, callbacks=callbacks)
         self[actor_name] = model
