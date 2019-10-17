@@ -79,10 +79,17 @@ class HubConnection(device.TCPDevice):
             # keypairs = re.findall('(.+)=(.+);*', group['cmd'])
 
             keyvalue_pairs = map(lambda x: x.strip(), group['cmd'].split(';'))
-
+            print('kp', keyvalue_pairs)
             for pair in keyvalue_pairs:
-                key, value = pair.split('=', 1)
+                print(pair)
+                if '=' not in pair:
+                    key = pair
+                    value = None
+                else:
+                    key, value = pair.split('=', 1)
+
                 actor = group['userID']
+
                 if actor not in self.datamodel:
                     self.datamodel.add_model(actor)
 
