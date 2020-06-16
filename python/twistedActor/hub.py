@@ -66,7 +66,7 @@ class HubConnection(device.TCPDevice):
             return
 
         matched = re.match(r'^(?P<commanderID>.+) (?P<cmdID>[0-9]+) '
-                           r'(?P<userID>.+) (?P<severity>[a-z]) '
+                           r'(?P<userID>.+) (?P<severity>[a-z,A-Z,:]) '
                            r'(?P<cmd>.+)$', reply_str)
 
         if matched:
