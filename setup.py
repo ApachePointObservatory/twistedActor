@@ -23,7 +23,7 @@ sys.path.insert(0, PkgDir)
 
 setup(
     name = "sdss-" + PkgName,
-    version = "1.3.0",
+    version = "2.0.0",
     description = "Actor package based on Twisted Framework",
     author = "Russell Owen",
     package_dir = {PkgName: PkgDir},
