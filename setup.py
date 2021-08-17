@@ -18,12 +18,12 @@ PkgName = "twistedActor"
 PkgRoot = "python"
 PkgDir = os.path.join(PkgRoot, PkgName)
 sys.path.insert(0, PkgDir)
-from twistedActor import __version__
-print("%s version %s" % (PkgName, __version__))
+# from twistedActor import __version__
+# print("%s version %s" % (PkgName, __version__))
 
 setup(
-    name = PkgName,
-    version = __version__,
+    name = "sdss-" + PkgName,
+    version = "1.3.0",
     description = "Actor package based on Twisted Framework",
     author = "Russell Owen",
     package_dir = {PkgName: PkgDir},
