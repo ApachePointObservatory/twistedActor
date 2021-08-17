@@ -6,10 +6,10 @@ import traceback
 
 from twisted.internet.defer import Deferred
 from twisted.python import failure
-import RO.Comm.Generic
-RO.Comm.Generic.setFramework("twisted")
-from RO.Comm.TCPConnection import TCPConnection
-from RO.Comm.TwistedTimer import Timer
+from opscore.RO.Comm import Generic
+Generic.setFramework("twisted")
+from opscore.RO.Comm.TCPConnection import TCPConnection
+from opscore.RO.Comm.TwistedTimer import Timer
 from opscore.actor import ActorDispatcher, CmdVar, DoneCodes, FailedCodes
 
 from .baseWrapper import BaseWrapper

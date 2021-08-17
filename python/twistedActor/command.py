@@ -4,10 +4,10 @@
 import re
 import sys
 
-import RO.AddCallback
-import RO.Alg
-from RO.StringUtil import quoteStr
-from RO.Comm.TwistedTimer import Timer
+from opscore.RO import AddCallback
+from opscore.RO import Alg
+from opscore.RO.StringUtil import quoteStr
+from opscore.RO.Comm.TwistedTimer import Timer
 
 from .log import log
 
@@ -22,7 +22,7 @@ class CommandError(Exception):
     pass
 
 
-class BaseCmd(RO.AddCallback.BaseMixin):
+class BaseCmd(AddCallback.BaseMixin):
     """Base class for commands of all types (user and device).
     """
     # state constants
@@ -81,7 +81,7 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         self._timeoutTimer = Timer()
         self.setTimeLimit(timeLim)
 
-        RO.AddCallback.BaseMixin.__init__(self, callFunc)
+        AddCallback.BaseMixin.__init__(self, callFunc)
 
     @property
     def parentCmd(self):
@@ -178,9 +178,9 @@ class BaseCmd(RO.AddCallback.BaseMixin):
         @param[in] callNow  if True, call callFunc immediately
         """
         if self.isDone:
-            RO.AddCallback.safeCall2("%s.addCallback callFunc =" % (self,), callFunc, self)
+            AddCallback.safeCall2("%s.addCallback callFunc =" % (self,), callFunc, self)
         else:
-            RO.AddCallback.BaseMixin.addCallback(self, callFunc, callNow=callNow)
+            AddCallback.BaseMixin.addCallback(self, callFunc, callNow=callNow)
 
     def getMsg(self):
         """Get minimal message in simple format, prefering _textMsg
@@ -399,7 +399,7 @@ class DevCmd(BaseCmd):
         this is the command ID for the command sent to the device
     - showReplies: the value specified in the constructor
     """
-    _LocCmdIDGen = RO.Alg.IDGen(startVal=1, wrapVal=sys.maxsize)
+    _LocCmdIDGen = Alg.IDGen(startVal=1, wrapVal=sys.maxsize)
     def __init__(self,
         cmdStr,
         callFunc = None,

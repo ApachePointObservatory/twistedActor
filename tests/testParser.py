@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 """Test parser.  Use arctics command set, copied directly below
 """

@@ -4,8 +4,8 @@
 import sys
 import socket
 
-import RO.Comm.TwistedSocket
-from RO.StringUtil import quoteStr, strFromException
+from opscore.RO.Comm import TwistedSocket
+from opscore.RO.StringUtil import quoteStr, strFromException
 
 from .command import UserCmd
 from .log import log
@@ -88,7 +88,7 @@ class BaseActor(object):
 
         if userPort != 0 and not isAvailable(userPort):
             raise RuntimeError("Port %s is already in use" % (userPort,))
-        self.server = RO.Comm.TwistedSocket.TCPServer(
+        self.server = TwistedSocket.TCPServer(
             connCallback = self.newUser,
             stateCallback = self.serverStateCallback,
             port = userPort,

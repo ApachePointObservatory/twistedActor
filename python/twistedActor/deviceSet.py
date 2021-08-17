@@ -3,7 +3,7 @@
 from collections import OrderedDict
 import itertools
 
-from RO.SeqUtil import asSequence
+from opscore.RO.SeqUtil import asSequence
 
 from .device import expandUserCmd
 from .linkCommands import LinkCommands

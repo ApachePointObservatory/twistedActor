@@ -1,10 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 
 from twisted.trial import unittest
 from twisted.internet.defer import Deferred, gatherResults
 
-from RO.Comm.TwistedTimer import Timer
+from opscore.RO.Comm.TwistedTimer import Timer
 
 from twistedActor import CommandQueue, UserCmd, testUtils
 

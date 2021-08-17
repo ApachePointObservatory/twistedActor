@@ -6,7 +6,7 @@ import sys
 import types
 import traceback
 
-from RO.StringUtil import quoteStr, strFromException
+from opscore.RO.StringUtil import quoteStr, strFromException
 
 from .baseActor import BaseActor
 from .linkCommands import LinkCommands

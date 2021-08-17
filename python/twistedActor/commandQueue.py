@@ -3,7 +3,7 @@
 """
 from bisect import insort_left
 
-from RO.Comm.TwistedTimer import Timer
+from opscore.RO.Comm.TwistedTimer import Timer
 
 from .command import UserCmd
 

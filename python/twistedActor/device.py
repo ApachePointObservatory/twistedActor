@@ -12,12 +12,12 @@ Device classes.
 """
 from collections import OrderedDict
 
-import RO.Comm.Generic
-RO.Comm.Generic.setFramework("twisted")
-from RO.AddCallback import BaseMixin
-from RO.Comm.TwistedTimer import Timer
-from RO.Comm.TCPConnection import TCPConnection
-from RO.StringUtil import quoteStr, strFromException
+from opscore.RO.Comm import Generic
+Generic.setFramework("twisted")
+from opscore.RO.AddCallback import BaseMixin
+from opscore.RO.Comm.TwistedTimer import Timer
+from opscore.RO.Comm.TCPConnection import TCPConnection
+from opscore.RO.StringUtil import quoteStr, strFromException
 import opscore.actor
 
 from .command import DevCmd, DevCmdVar, UserCmd, expandUserCmd

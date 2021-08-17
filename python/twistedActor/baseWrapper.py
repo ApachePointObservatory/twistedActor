@@ -4,11 +4,11 @@ import sys
 
 from twisted.internet.defer import Deferred
 
-import RO.AddCallback
+from opscore.RO import AddCallback
 
 __all__ = ["BaseWrapper"]
 
-class BaseWrapper(RO.AddCallback.BaseMixin):
+class BaseWrapper(AddCallback.BaseMixin):
     """!A wrapper for a client talking to a server
 
     This wrapper is responsible for starting and stopping everything:
@@ -45,7 +45,7 @@ class BaseWrapper(RO.AddCallback.BaseMixin):
         @param[in] debug  print debug messages to stdout?
         """
         self.name = name
-        RO.AddCallback.BaseMixin.__init__(self, defCallNow=True)
+        AddCallback.BaseMixin.__init__(self, defCallNow=True)
         self.debug = bool(debug)
         self.readyDeferred = Deferred()
         self._closeDeferred = None

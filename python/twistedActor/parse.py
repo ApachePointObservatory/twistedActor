@@ -6,9 +6,9 @@ import collections
 
 import pyparsing as pp
 
-import RO.Alg.MatchList as MatchList
-from RO.SeqUtil import isSequence#, isString
-from RO.StringUtil import unquoteStr
+import opscore.RO.Alg.MatchList as MatchList
+from opscore.RO.SeqUtil import isSequence#, isString
+from opscore.RO.StringUtil import unquoteStr
 
 """@todo:
 pretty printing __str__, __repr__
