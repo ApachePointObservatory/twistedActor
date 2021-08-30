@@ -131,7 +131,7 @@ class ActorModel(dict):
         unquoted = list(map(lambda xx: re.sub(r'^"|"$', '', xx), str(value).split(',')))
 
         if key in self.casts:
-            dict.__setitem__(self, key, map(try_cast, unquoted))
+            dict.__setitem__(self, key, list(map(try_cast, unquoted)))
         else:
             dict.__setitem__(self, key, unquoted)
 
